@@ -26,6 +26,7 @@
 
 # Claude Code
 .claude/
+tmpclaude-*-cwd
 
 # Windows reserved filenames
 nul
