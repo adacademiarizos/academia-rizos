@@ -1,0 +1,737 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  STUDENT
+}
+
+enum BillingRule {
+  FULL
+  DEPOSIT
+  AUTHORIZE
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  NO_SHOW
+  COMPLETED
+}
+
+enum PaymentStatus {
+  REQUIRES_PAYMENT
+  PROCESSING
+  PAID
+  PARTIAL
+  AUTHORIZED
+  FAILED
+  REFUNDED
+  CANCELED
+}
+
+enum PaymentType {
+  APPOINTMENT
+  COURSE
+  PAYMENT_LINK
+}
+
+enum ResourceType {
+  PDF
+  IMAGE
+}
+
+enum LikeTargetType {
+  COURSE
+  MODULE
+}
+
+enum CommentTargetType {
+  COURSE
+  MODULE
+}
+
+enum SubmissionStatus {
+  PENDING
+  REVISION_REQUESTED
+  APPROVED
+}
+
+enum BugType {
+  CONTENT
+  FUNCTIONALITY
+}
+
+model User {
+  id       String  @id @default(cuid())
+  name     String?
+  email    String  @unique
+  image    String?
+  role     Role    @default(STUDENT)
+  // Para arrancar con credenciales simples (MVP):
+  password String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations - Reservas
+  staffProfile       StaffProfile?
+  appointments       Appointment[]       @relation("CustomerAppointments")
+  taughtAppointments Appointment[]       @relation("StaffAppointments")
+  payments           Payment[]           @relation("PayerPayments")
+  servicePrices      ServiceStaffPrice[] @relation("ServiceStaffPrice_staff")
+
+  // Relations - Academia
+  courseAccess CourseAccess[]
+  comments Comment[]
+  likes Like[]
+  chatMessages ChatMessage[]
+  submissions Submission[]
+  certificates Certificate[]
+  moduleProgress ModuleProgress[]
+  moduleSubmissions ModuleSubmission[]
+  questionSubmissions QuestionSubmission[]
+  examSubmissions ExamSubmission[]
+  courseTestSubmissions CourseTestSubmission[]
+
+  // Relations - ETAPA 5
+  notifications Notification[]
+  activities UserActivity[]
+  achievements Achievement[]
+
+  // Relations - New features
+  bugReports BugReport[]
+  paymentLinksCreated PaymentLink[] @relation("PaymentLinkCreator")
+}
+
+model StaffProfile {
+  id               String  @id @default(cuid())
+  userId           String  @unique
+  bio              String?
+  photoUrl         String?
+  isActive         Boolean @default(true)
+  availabilityJson Json?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Service {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  durationMin Int
+  billingRule BillingRule @default(FULL)
+  depositPct  Int?
+  isActive    Boolean     @default(true)
+  imageUrls   String[]    @default([])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prices       ServiceStaffPrice[]
+  appointments Appointment[]
+}
+
+model ServiceStaffPrice {
+  id         String @id @default(cuid())
+  serviceId  String
+  staffId    String
+  currency   String @default("EUR")
+  priceCents Int
+
+  service Service @relation(fields: [serviceId], references: [id])
+  staff   User    @relation("ServiceStaffPrice_staff", fields: [staffId], references: [id])
+
+  @@unique([serviceId, staffId])
+  @@index([serviceId])
+  @@index([staffId])
+}
+
+model Appointment {
+  id         String            @id @default(cuid())
+  serviceId  String
+  staffId    String
+  customerId String
+  startAt    DateTime
+  endAt      DateTime
+  notes      String?
+  status     AppointmentStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  service  Service   @relation(fields: [serviceId], references: [id])
+  staff    User      @relation("StaffAppointments", fields: [staffId], references: [id])
+  customer User      @relation("CustomerAppointments", fields: [customerId], references: [id])
+  payments Payment[]
+
+  @@index([staffId, startAt])
+  @@index([customerId, startAt])
+}
+
+model Payment {
+  id     String        @id @default(cuid())
+  type   PaymentType
+  status PaymentStatus @default(REQUIRES_PAYMENT)
+
+  amountCents Int
+  currency    String @default("EUR")
+
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId   String? @unique
+  stripeChargeId          String? @unique
+
+  appointmentId String?
+  courseId      String?
+  paymentLinkId String?
+  paymentLink PaymentLink? @relation(fields: [paymentLinkId], references: [id])
+
+  payerId    String?
+  payerEmail String?
+
+  receiptEmailSentAt DateTime?
+  receiptToEmail     String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  course      Course?      @relation("CoursePayments", fields: [courseId], references: [id])
+  payer       User?        @relation("PayerPayments", fields: [payerId], references: [id])
+
+  @@index([type, status])
+  @@index([stripePaymentIntentId])
+  @@index([stripeCheckoutSessionId])
+}
+
+model Settings {
+  id              String   @id @default("global")
+  feePercent      Float    @default(2.5)
+  feeFixedCents   Int      @default(25)
+  defaultCurrency String   @default("EUR")
+  updatedAt       DateTime @updatedAt
+}
+
+
+model PaymentLink {
+  id String @id @default(cuid())
+
+  title String
+  description String?
+  currency String @default("EUR")
+
+  // Lo que la clienta "quiere cobrar"
+  baseAmountCents Int
+
+  // Total cobrado al cliente (base + fee)
+  totalAmountCents Int
+
+  // Opcional: email del cliente si ya se conoce
+  customerEmail String?
+
+  // Quien creó el link (admin o staff)
+  createdById String?
+  createdBy   User?   @relation("PaymentLinkCreator", fields: [createdById], references: [id])
+
+  // Stripe
+  stripeCheckoutSessionId String?
+  status PaymentStatus @default(REQUIRES_PAYMENT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments Payment[]
+  @@index([createdById])
+}
+
+// ============= ACADEMIA DE RIZOS =============
+
+model Course {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  trailerUrl  String?
+  priceCents  Int
+  currency    String   @default("EUR")
+  rentalDays  Int?     // if null => lifetime access
+  isActive    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  modules   Module[]
+  resources Resource[]
+  courseResources CourseResource[]
+  courseTests CourseTest[]
+  access    CourseAccess[]
+  test      Test?
+  exam      CourseExam?
+  payments  Payment[]        @relation("CoursePayments")
+
+  likes       Like[]        @relation("CourseLikes")
+  comments    Comment[]     @relation("CourseComments")
+  chatRoom    ChatRoom?
+  certificates Certificate[] @relation("CourseCertificates")
+
+  @@index([isActive])
+}
+
+model Module {
+  id          String   @id @default(cuid())
+  courseId    String
+  order       Int
+  title       String
+  description String?
+  videoUrl    String?
+  videoFileUrl String?  // New S3 video URL
+  transcript  String?   // for RAG/AI (will be searched by vector DB later)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course      Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress    ModuleProgress[]
+  resources   ModuleResource[]
+  tests       ModuleTest[]
+  submissions ModuleSubmission[]
+  lessons     Lesson[]
+
+  likes    Like[]
+  comments Comment[]
+
+  @@unique([courseId, order])
+  @@index([courseId])
+}
+
+model Lesson {
+  id           String   @id @default(cuid())
+  moduleId     String
+  order        Int
+  title        String
+  description  String?
+  videoUrl     String?      // legacy/external URL
+  videoFileUrl String?      // S3/R2 uploaded URL
+  transcript   String?      // for future RAG/AI
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([moduleId, order])
+  @@index([moduleId])
+}
+
+model ModuleProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  moduleId    String
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@index([moduleId])
+  @@index([userId])
+}
+
+model CourseAccess {
+  id          String   @id @default(cuid())
+  userId      String
+  courseId    String
+  accessUntil DateTime?  // null = lifetime
+  createdAt   DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([courseId])
+  @@index([userId])
+}
+
+model Resource {
+  id        String       @id @default(cuid())
+  courseId  String
+  type      ResourceType
+  fileUrl   String
+  fileName  String?
+  createdAt DateTime @default(now())
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+}
+
+model Like {
+  id         String         @id @default(cuid())
+  userId     String
+  targetType LikeTargetType
+  courseId   String?
+  moduleId   String?
+  createdAt  DateTime       @default(now())
+
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course?  @relation("CourseLikes", fields: [courseId], references: [id], onDelete: Cascade)
+  module Module?  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetType, courseId, moduleId])
+  @@index([targetType])
+  @@index([courseId])
+  @@index([moduleId])
+}
+
+model Comment {
+  id         String            @id @default(cuid())
+  userId     String
+  targetType CommentTargetType
+  courseId   String?
+  moduleId   String?
+  body       String
+  createdAt  DateTime          @default(now())
+
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course?  @relation("CourseComments", fields: [courseId], references: [id], onDelete: Cascade)
+  module Module?  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([targetType])
+  @@index([courseId])
+  @@index([moduleId])
+  @@index([createdAt])
+}
+
+model Test {
+  id        String @id @default(cuid())
+  courseId  String @unique
+  schemaJson Json  // Contains array of questions with their config
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+}
+
+model Submission {
+  id          String           @id @default(cuid())
+  testId      String
+  userId      String
+  answersJson Json             // User responses to test questions
+  evidenceJson Json?           // list of file urls/metadata
+  status      SubmissionStatus @default(PENDING)
+  feedback    String?
+  reviewedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  test        Test         @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  certificate Certificate?
+
+  @@unique([testId, userId])
+  @@index([status])
+  @@index([userId])
+}
+
+model Certificate {
+  id          String @id @default(cuid())
+  code        String @unique  // For public verification
+  courseId    String
+  userId      String
+  submissionId String? @unique
+  issuedAt    DateTime @default(now())
+  pdfUrl      String?
+  valid       Boolean @default(true)
+
+  course     Course     @relation("CourseCertificates", fields: [courseId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submission Submission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
+
+  @@index([courseId])
+  @@index([userId])
+  @@index([code])
+}
+
+enum ChatRoomType {
+  COMMUNITY
+  COURSE
+}
+
+model ChatRoom {
+  id        String       @id @default(cuid())
+  type      ChatRoomType @default(COURSE)
+  courseId  String?      @unique   // null for COMMUNITY room
+  name      String?               // display name (e.g. "Comunidad")
+  createdAt DateTime     @default(now())
+
+  course   Course?       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  roomId    String
+  userId    String
+  body      String   @default("")  // text content (may be empty if imageUrl present)
+  imageUrl  String?                // S3 URL for image messages (max 3 MB)
+  createdAt DateTime @default(now())
+
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+  @@index([userId])
+}
+
+// ============= NOTIFICATIONS & ACTIVITY =============
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // 'COMMENT', 'LIKE', 'COURSE_COMPLETION', 'NEW_COURSE', 'PAYMENT'
+  title     String
+  message   String
+  relatedId String?  // courseId, commentId, likeId, etc.
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model UserActivity {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // 'COURSE_STARTED', 'MODULE_COMPLETED', 'TEST_PASSED', 'COMMENT_POSTED', 'LIKE'
+  courseId  String?
+  moduleId  String?
+  metadata  Json?    // additional data
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([createdAt])
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // 'FIRST_COURSE', 'FIVE_COURSES', 'PERFECT_SCORE', 'COMMUNITY_CONTRIBUTOR'
+  name        String
+  description String?
+  earnedAt    DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+}
+
+// ============= MODULE RESOURCES & TESTS =============
+
+model ModuleResource {
+  id        String   @id @default(cuid())
+  moduleId  String
+  title     String
+  fileUrl   String   // S3/R2 URL
+  fileType  String   // 'pdf', 'image', 'document', 'other'
+  fileSize  Int      // bytes
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  @@index([moduleId, order])
+}
+
+model CourseResource {
+  id        String   @id @default(cuid())
+  courseId  String
+  title     String
+  fileUrl   String   // S3/R2 URL
+  fileType  String   // 'pdf', 'image', 'document', 'other'
+  fileSize  Int      // bytes
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  @@index([courseId, order])
+}
+
+model ModuleTest {
+  id           String   @id @default(cuid())
+  moduleId     String
+  title        String
+  description  String?
+  order        Int      @default(0)
+  isRequired   Boolean  @default(false)  // must pass to progress
+  maxAttempts  Int      @default(1)      // 0 = unlimited
+  passingScore Int      @default(70)     // percentage (0-100)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  questions   Question[] @relation("ModuleTestQuestions")
+  submissions ModuleSubmission[] @relation("ModuleTestSubmissions")
+  @@index([moduleId])
+}
+
+model Question {
+  id          String   @id @default(cuid())
+  testId      String?  // ModuleTest
+  examId      String?  // CourseExam
+  courseTestId String?  // CourseTest
+  type        String   // 'MULTIPLE_CHOICE', 'SHORT_ANSWER', 'FILE_UPLOAD', 'WRITTEN'
+  title       String
+  description String?
+  order       Int      @default(0)
+
+  // Question configuration stored as JSON
+  config      Json     // { options: [], correctAnswer: String, allowedMimeTypes: [], maxFileSize: Int, etc }
+
+  createdAt   DateTime @default(now())
+
+  moduleTest  ModuleTest? @relation("ModuleTestQuestions", fields: [testId], references: [id], onDelete: Cascade)
+  courseExam  CourseExam? @relation("CourseExamQuestions", fields: [examId], references: [id], onDelete: Cascade)
+  courseTest  CourseTest? @relation("CourseTestQuestions", fields: [courseTestId], references: [id], onDelete: Cascade)
+  submissions QuestionSubmission[]
+  @@index([testId])
+  @@index([examId])
+  @@index([courseTestId])
+}
+
+model ModuleSubmission {
+  id            String   @id @default(cuid())
+  moduleId      String
+  testId        String
+  userId        String
+  score         Float?   // percentage
+  isPassed      Boolean  @default(false)
+  attemptNumber Int      @default(1)
+  submittedAt   DateTime @default(now())
+
+  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  test      ModuleTest @relation("ModuleTestSubmissions", fields: [testId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers   QuestionSubmission[] @relation("ModuleSubmissionAnswers")
+  @@index([userId, moduleId])
+  @@index([testId])
+  @@index([userId, testId])
+}
+
+model QuestionSubmission {
+  id           String   @id @default(cuid())
+  questionId   String
+  submissionId String?  // ModuleSubmission
+  courseTestSubmissionId String?  // CourseTestSubmission
+  userId       String
+  answer       String   // JSON: choice, text, fileUrl
+  isCorrect    Boolean?
+  score        Float?
+  createdAt    DateTime @default(now())
+
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  moduleSubmission ModuleSubmission? @relation("ModuleSubmissionAnswers", fields: [submissionId], references: [id], onDelete: Cascade)
+  courseTestSubmission CourseTestSubmission? @relation("CourseTestAnswers", fields: [courseTestSubmissionId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([questionId])
+  @@index([userId])
+  @@index([courseTestSubmissionId])
+}
+
+model CourseExam {
+  id          String   @id @default(cuid())
+  courseId    String   @unique
+  title       String   @default("Final Exam")
+  description String?
+  passingScore Int     @default(70)  // percentage required to pass
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions   Question[] @relation("CourseExamQuestions")
+  submissions ExamSubmission[]
+}
+
+model ExamSubmission {
+  id          String   @id @default(cuid())
+  examId      String
+  userId      String
+  score       Float
+  isPassed    Boolean
+  submittedAt DateTime @default(now())
+
+  exam        CourseExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([examId, userId])
+  @@unique([examId, userId])
+}
+
+// ============= COURSE-LEVEL TESTS =============
+
+model CourseTest {
+  id           String   @id @default(cuid())
+  courseId     String
+  title        String
+  description  String?
+  order        Int      @default(0)
+  isRequired   Boolean  @default(false)
+  isFinalExam  Boolean  @default(false)
+  maxAttempts  Int      @default(1)    // 0 = unlimited
+  passingScore Int      @default(70)   // % (only relevant when MC questions exist)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  course       Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions    Question[]             @relation("CourseTestQuestions")
+  submissions  CourseTestSubmission[]
+  @@index([courseId])
+}
+
+model CourseTestSubmission {
+  id           String           @id @default(cuid())
+  courseTestId String
+  userId       String
+  score        Float?           // null if no MC questions
+  isPassed     Boolean          @default(false)
+  attemptNumber Int             @default(1)
+  status       SubmissionStatus @default(PENDING)
+  submittedAt  DateTime         @default(now())
+
+  courseTest   CourseTest   @relation(fields: [courseTestId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers      QuestionSubmission[] @relation("CourseTestAnswers")
+  @@index([userId, courseTestId])
+  @@index([courseTestId])
+  @@index([status])
+}
+
+// ============= BUG REPORTS =============
+
+model BugReport {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String
+  bugType     BugType
+  imageUrls   String[] @default([])
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([bugType])
+}

@@ -1,0 +1,171 @@
+/**
+ * GET /api/admin/modules/[moduleId]/tests/[testId]/questions - Get all questions
+ * POST /api/admin/modules/[moduleId]/tests/[testId]/questions - Create question
+ * PUT /api/admin/modules/[moduleId]/tests/[testId]/questions/[questionId] - Update question
+ * DELETE /api/admin/modules/[moduleId]/tests/[testId]/questions/[questionId] - Delete question
+ */
+
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { db } from '@/lib/db'
+import { z } from 'zod'
+
+const CreateQuestionSchema = z.object({
+  type: z.enum(['MULTIPLE_CHOICE', 'SHORT_ANSWER', 'FILE_UPLOAD', 'WRITTEN']),
+  title: z.string().min(1, 'Question title is required'),
+  description: z.string().optional(),
+  config: z.record(z.string(), z.any()).optional(), // { options: [], correctAnswer: '', etc }
+})
+
+const UpdateQuestionSchema = z.object({
+  type: z.enum(['MULTIPLE_CHOICE', 'SHORT_ANSWER', 'FILE_UPLOAD', 'WRITTEN']).optional(),
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+  order: z.number().int().min(0).optional(),
+  config: z.record(z.string(), z.any()).optional(),
+})
+
+async function verifyAdmin() {
+  const session = await getServerSession()
+  if (!session?.user?.email) {
+    return null
+  }
+
+  const user = await db.user.findUnique({
+    where: { email: session.user.email },
+    select: { role: true },
+  })
+
+  return user?.role === 'ADMIN' ? user : null
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ moduleId: string; testId: string }> }
+) {
+  try {
+    const { moduleId, testId } = await params
+
+    // Check admin
+    const admin = await verifyAdmin()
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required' },
+        { status: 403 }
+      )
+    }
+
+    // Verify test exists and belongs to module
+    const test = await db.moduleTest.findUnique({
+      where: { id: testId },
+    })
+
+    if (!test || test.moduleId !== moduleId) {
+      return NextResponse.json(
+        { success: false, error: 'Test not found' },
+        { status: 404 }
+      )
+    }
+
+    // Get all questions
+    const questions = await db.question.findMany({
+      where: { testId },
+      orderBy: { order: 'asc' },
+    })
+
+    return NextResponse.json({
+      success: true,
+      data: questions,
+    })
+  } catch (error) {
+    console.error('Error fetching questions:', error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch questions',
+      },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ moduleId: string; testId: string }> }
+) {
+  try {
+    const { moduleId, testId } = await params
+
+    // Check admin
+    const admin = await verifyAdmin()
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, error: 'Admin access required' },
+        { status: 403 }
+      )
+    }
+
+    // Verify test exists and belongs to module
+    const test = await db.moduleTest.findUnique({
+      where: { id: testId },
+    })
+
+    if (!test || test.moduleId !== moduleId) {
+      return NextResponse.json(
+        { success: false, error: 'Test not found' },
+        { status: 404 }
+      )
+    }
+
+    const body = await request.json()
+    const data = CreateQuestionSchema.parse(body)
+
+    // Get next order
+    const lastQuestion = await db.question.findFirst({
+      where: { testId },
+      orderBy: { order: 'desc' },
+    })
+
+    const nextOrder = (lastQuestion?.order ?? -1) + 1
+
+    // Create question
+    const question = await db.question.create({
+      data: {
+        testId,
+        type: data.type,
+        title: data.title,
+        description: data.description || null,
+        config: data.config || {},
+        order: nextOrder,
+      },
+    })
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: question,
+      },
+      { status: 201 }
+    )
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Validation error',
+          details: error.issues,
+        },
+        { status: 400 }
+      )
+    }
+
+    console.error('Error creating question:', error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create question',
+      },
+      { status: 500 }
+    )
+  }
+}
