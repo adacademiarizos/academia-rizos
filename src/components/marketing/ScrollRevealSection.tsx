@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import gsap from "gsap";
+import ScrollTrigger from "gsap/ScrollTrigger";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const NAV_H = 64; // fixed header height in px
 
@@ -8,22 +12,29 @@ interface Props {
   children: ReactNode;
   className?: string;
   /**
-   * Fraction of the viewport height used to measure the enter progress.
-   * Smaller = completes sooner. Default 0.72
+   * GSAP start/end for the enter animation.
+   * Default: enters when top hits 88% of viewport, completes at 20%.
    */
-  enterFraction?: number;
+  enterStart?: string;
+  enterEnd?: string;
   /**
-   * Fraction of the section height used to measure the exit fade.
-   * Smaller = fades faster. Default 0.38
+   * GSAP start/end for the exit fade (section scrolling under navbar).
+   * Default: starts at navbar level, ends 45% of section height above.
    */
-  exitFraction?: number;
+  exitStart?: string;
+  exitEnd?: string;
+  /** Scrub lag in seconds. Default 1.1 — the buttery GTA6 feel. */
+  scrub?: number;
 }
 
 export default function ScrollRevealSection({
   children,
   className = "",
-  enterFraction = 0.72,
-  exitFraction = 0.38,
+  enterStart = "top 88%",
+  enterEnd   = "top 18%",
+  exitStart  = `top ${NAV_H}px`,
+  exitEnd    = "top -45%",
+  scrub      = 1.1,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -31,33 +42,34 @@ export default function ScrollRevealSection({
     const el = ref.current;
     if (!el) return;
 
-    function clamp(v: number) {
-      return Math.min(1, Math.max(0, v));
-    }
+    // ── Enter: mask circle grows from 0 → full ───────────────────
+    const enterTrigger = ScrollTrigger.create({
+      trigger: el,
+      start: enterStart,
+      end: enterEnd,
+      scrub,
+      onUpdate: (self) => {
+        el.style.setProperty("--sr-enter", self.progress.toFixed(4));
+      },
+    });
 
-    function update() {
-      const { top, height } = el.getBoundingClientRect();
-      const vh = window.innerHeight;
-
-      // 0 when section bottom is at viewport bottom → 1 when section is well into view
-      const enter = clamp((vh - top) / (vh * enterFraction));
-
-      // 0 when section top is at navbar → 1 when scrolled well past navbar
-      const exit = clamp((NAV_H - top) / (height * exitFraction));
-
-      el.style.setProperty("--sr-enter", enter.toFixed(4));
-      el.style.setProperty("--sr-exit", exit.toFixed(4));
-    }
-
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update, { passive: true });
-    update();
+    // ── Exit: section fades as it scrolls under the navbar ───────
+    const exitTrigger = ScrollTrigger.create({
+      trigger: el,
+      start: exitStart,
+      end: exitEnd,
+      scrub,
+      onUpdate: (self) => {
+        el.style.setProperty("--sr-exit", self.progress.toFixed(4));
+      },
+    });
 
     return () => {
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
+      enterTrigger.kill();
+      exitTrigger.kill();
     };
-  }, [enterFraction, exitFraction]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div ref={ref} className={`scroll-reveal ${className}`}>

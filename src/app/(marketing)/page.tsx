@@ -31,8 +31,8 @@ export default function MarketingHomePage() {
         </section>
       </ScrollRevealSection>
 
-      {/* Services: tall section, looser enter so the carousel has time to reveal */}
-      <ScrollRevealSection enterFraction={0.9} exitFraction={0.25}>
+      {/* Services: 100vh tall, reveal completes a bit later */}
+      <ScrollRevealSection enterEnd="top 30%" exitEnd="top -20%">
         <section id="services" className="">
           <div className="px-6 pt-16">
             <SectionHead
@@ -66,7 +66,7 @@ export default function MarketingHomePage() {
         </section>
       </ScrollRevealSection>
 
-      <ScrollRevealSection exitFraction={0.15}>
+      <ScrollRevealSection exitEnd="top -15%">
         <section className="px-6 py-16">
           <FAQ />
         </section>
