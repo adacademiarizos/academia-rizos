@@ -11,49 +11,66 @@ import TrustBar from "@/components/marketing/TrustBar";
 import HowItWorks from "@/components/marketing/HowItWorks";
 import StyleTokens from "@/components/marketing/StyleTokens";
 import ServicesSection3D from "@/components/marketing/ServicesSection3D";
+import ScrollRevealSection from "@/components/marketing/ScrollRevealSection";
 
 export default function MarketingHomePage() {
   return (
     <main className="min-h-screen text-zinc-900">
+      {/* Hero — above fold, no reveal needed */}
       <Hero />
 
-      <section className="px-6 py-14 md:py-24">
-        <TrustBar />
-      </section>
-
-      <section className="px-6 py-16">
-        <AboutFounder />
-      </section>
-
-      <section id="services" className="">
-        <div className="px-6 pt-16" >
-          <SectionHead
-            kicker="Servicios"
-            title="Elige tu servicio y reserva en minutos"
-            subtitle="Adaptamos cada servicio a tus necesidades y tipo de rizo."
-          />
-        </div>
-        <ServicesSection3D />
-         <section className="px-6 py-16">
-          <HowItWorks />
+      <ScrollRevealSection>
+        <section className="px-6 py-14 md:py-24">
+          <TrustBar />
         </section>
-      </section>
+      </ScrollRevealSection>
 
-      <section className="px-6 py-16">
-        <BeforeAfter />
-      </section>
+      <ScrollRevealSection>
+        <section className="px-6 py-16">
+          <AboutFounder />
+        </section>
+      </ScrollRevealSection>
 
-      <section id="academy" className="px-6 py-16">
-        <AcademyTeaser />
-      </section>
+      {/* Services: tall section, looser enter so the carousel has time to reveal */}
+      <ScrollRevealSection enterFraction={0.9} exitFraction={0.25}>
+        <section id="services" className="">
+          <div className="px-6 pt-16">
+            <SectionHead
+              kicker="Servicios"
+              title="Elige tu servicio y reserva en minutos"
+              subtitle="Adaptamos cada servicio a tus necesidades y tipo de rizo."
+            />
+          </div>
+          <ServicesSection3D />
+          <section className="px-6 py-16">
+            <HowItWorks />
+          </section>
+        </section>
+      </ScrollRevealSection>
 
-      <section className="px-6 py-16">
-        <Testimonials />
-      </section>
+      <ScrollRevealSection>
+        <section className="px-6 py-16">
+          <BeforeAfter />
+        </section>
+      </ScrollRevealSection>
 
-      <section className="px-6 py-16">
-        <FAQ />
-      </section>
+      <ScrollRevealSection>
+        <section id="academy" className="px-6 py-16">
+          <AcademyTeaser />
+        </section>
+      </ScrollRevealSection>
+
+      <ScrollRevealSection>
+        <section className="px-6 py-16">
+          <Testimonials />
+        </section>
+      </ScrollRevealSection>
+
+      <ScrollRevealSection exitFraction={0.15}>
+        <section className="px-6 py-16">
+          <FAQ />
+        </section>
+      </ScrollRevealSection>
 
       <StyleTokens />
     </main>

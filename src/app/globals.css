@@ -171,6 +171,41 @@ p {
   background: rgba(100, 106, 64, 0.60);
 }
 
+/* ── Scroll-driven section reveal (GTA6-style) ───────────────── */
+/*
+  --sr-enter : 0→1  section rising into view from below
+  --sr-exit  : 0→1  section disappearing under the navbar
+  Both are set every scroll frame from ScrollRevealSection.tsx
+*/
+.scroll-reveal {
+  --sr-enter: 0;
+  --sr-exit:  0;
+
+  /* Circular radial mask that grows as the section enters */
+  -webkit-mask-image: radial-gradient(
+    ellipse calc(var(--sr-enter) * 180%) calc(var(--sr-enter) * 160%)
+    at 50% 52%,
+    black 45%,
+    rgba(0,0,0,0.55) 68%,
+    transparent 100%
+  );
+  mask-image: radial-gradient(
+    ellipse calc(var(--sr-enter) * 180%) calc(var(--sr-enter) * 160%)
+    at 50% 52%,
+    black 45%,
+    rgba(0,0,0,0.55) 68%,
+    transparent 100%
+  );
+
+  /* Fade: enter brings it up, exit takes it away */
+  opacity: max(0, calc(var(--sr-enter) - var(--sr-exit) * 0.95));
+
+  /* Subtle upward slide on enter only */
+  transform: translateY(calc((1 - var(--sr-enter)) * 56px));
+
+  will-change: mask-image, opacity, transform;
+}
+
 @media (width >= 768px) {
   .own_animated {
     height: 60px;
