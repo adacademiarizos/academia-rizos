@@ -11,21 +11,31 @@ const NAV_H = 64;
 interface Props {
   children: ReactNode;
   className?: string;
+  /**
+   * When the reveal starts/ends.
+   * "bottom 100%" = the instant the section enters the viewport from the bottom.
+   * "top 20%"     = completes once the section top is 20% from the top.
+   */
   enterStart?: string;
   enterEnd?: string;
+  /**
+   * When the exit fade starts/ends.
+   * "top 8%"    = just before reaching the navbar.
+   * "top -50%"  = halfway above the viewport — section is mostly gone.
+   */
   exitStart?: string;
   exitEnd?: string;
-  /** Scrub lag in seconds. 1.2 = smooth GTA6-like lag. */
+  /** Scrub lag in seconds. 1.2 = smooth GTA6-like feel. */
   scrub?: number;
 }
 
 export default function ScrollRevealSection({
   children,
   className = "",
-  enterStart = "top 88%",
-  enterEnd   = "top 15%",
-  exitStart  = `top ${NAV_H}px`,
-  exitEnd    = "top -40%",
+  enterStart = "bottom 100%",
+  enterEnd   = "top 20%",
+  exitStart  = `top 8%`,
+  exitEnd    = "top -50%",
   scrub      = 1.2,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -34,15 +44,13 @@ export default function ScrollRevealSection({
     const el = ref.current;
     if (!el) return;
 
-    // gsap.context scopes all animations to this element
-    // ctx.revert() on unmount kills triggers + resets all inline styles
     const ctx = gsap.context(() => {
 
       // ── Initial hidden state ──────────────────────────────────────
       gsap.set(el, {
         clipPath: "circle(0% at 50% 55%)",
         opacity: 0,
-        y: 60,
+        y: 50,
       });
 
       // ── Enter: circle grows, fades in, slides up ─────────────────
@@ -60,7 +68,7 @@ export default function ScrollRevealSection({
         ease: "none",
       });
 
-      // ── Exit: fades out under the navbar ─────────────────────────
+      // ── Exit: fades out as section passes under the navbar ────────
       gsap.timeline({
         scrollTrigger: {
           trigger: el,

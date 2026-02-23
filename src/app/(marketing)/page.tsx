@@ -31,9 +31,9 @@ export default function MarketingHomePage() {
         </section>
       </ScrollRevealSection>
 
-      {/* Services: 100vh tall, reveal completes a bit later */}
-      <ScrollRevealSection enterEnd="top 30%" exitEnd="top -20%">
-        <section id="services" className="">
+      {/* Services — has its own 3D effect, no clip-path wrapper */}
+      <section id="services" className="">
+        <ScrollRevealSection>
           <div className="px-6 pt-16">
             <SectionHead
               kicker="Servicios"
@@ -41,12 +41,14 @@ export default function MarketingHomePage() {
               subtitle="Adaptamos cada servicio a tus necesidades y tipo de rizo."
             />
           </div>
-          <ServicesSection3D />
+        </ScrollRevealSection>
+        <ServicesSection3D />
+        <ScrollRevealSection>
           <section className="px-6 py-16">
             <HowItWorks />
           </section>
-        </section>
-      </ScrollRevealSection>
+        </ScrollRevealSection>
+      </section>
 
       <ScrollRevealSection>
         <section className="px-6 py-16">
@@ -66,7 +68,7 @@ export default function MarketingHomePage() {
         </section>
       </ScrollRevealSection>
 
-      <ScrollRevealSection exitEnd="top -15%">
+      <ScrollRevealSection>
         <section className="px-6 py-16">
           <FAQ />
         </section>
