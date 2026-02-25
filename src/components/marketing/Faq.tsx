@@ -30,8 +30,8 @@ function FAQ({ items }: { items: FaqItem[] }) {
       <div className="mt-10 rounded-[2.2rem] border border-black/10 bg-white/55 p-8 shadow-sm md:p-10">
         <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <div className="text-lg font-semibold">¿Lista para tu transformación?</div>
-            <p className="mt-2 text-sm text-zinc-700">
+            <div className="text-lg font-semibold text-zinc-900">¿Lista para tu transformación?</div>
+            <p className="mt-2 text-sm text-zinc-800">
               Reservá ahora. Te llega confirmación y comprobante por correo.
             </p>
           </div>

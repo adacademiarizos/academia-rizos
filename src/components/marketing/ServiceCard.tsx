@@ -28,8 +28,8 @@ function ServiceCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-base font-semibold">{title}</div>
-          <div className="mt-1 text-xs text-zinc-600">{duration} · Desde {from}</div>
+          <div className="text-base font-semibold text-zinc-900">{title}</div>
+          <div className="mt-1 text-xs text-zinc-700">{duration} · Desde {from}</div>
         </div>
         {featured ? (
           <span className="rounded-full bg-[var(--er-copper)] px-3 py-1 text-xs font-semibold text-white">
@@ -38,7 +38,7 @@ function ServiceCard({
         ) : null}
       </div>
 
-      <p className="mt-3 text-sm text-zinc-700">{desc}</p>
+      <p className="mt-3 text-sm text-zinc-800">{desc}</p>
 
       <div className="mt-6 flex items-center justify-between">
         <Link

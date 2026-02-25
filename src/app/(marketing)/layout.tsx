@@ -19,7 +19,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
   const isHome = pathname === "/";
 
   return (
-    <div className="min-h-screen bg-ap-bg z-10 text-ap-ink">
+    <div className="min-h-screen bg-ap-bg z-10 text-ap-ivory">
       <Header />
       {/* pt-16 clears the fixed navbar (~64px) on all pages except the homepage,
           which intentionally overflows under the navbar with its hero section */}

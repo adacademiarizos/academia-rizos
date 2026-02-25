@@ -20,7 +20,7 @@ export default async function MarketingHomePage() {
   ]);
 
   return (
-    <main className="min-h-screen text-zinc-900">
+    <main className="min-h-screen">
       <Hero />
 
       <section className="px-6 py-14 md:py-24">
