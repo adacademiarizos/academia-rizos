@@ -17,6 +17,9 @@ const EnvSchema = z.object({
   GMAIL_USER: z.string().email().optional(),
   GMAIL_REFRESH_TOKEN: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
+
+  // Comma-separated list of emails that are seeded as ADMIN on first deploy
+  ADMIN_EMAILS: z.string().optional(),
 });
 
 export const env = EnvSchema.parse({
@@ -36,4 +39,5 @@ export const env = EnvSchema.parse({
   GMAIL_USER: process.env.GMAIL_USER,
   GMAIL_REFRESH_TOKEN: process.env.GMAIL_REFRESH_TOKEN,
   OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  ADMIN_EMAILS: process.env.ADMIN_EMAILS,
 });
