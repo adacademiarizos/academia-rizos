@@ -13,15 +13,15 @@ export async function register() {
   // Only run in the Node.js runtime (not Edge)
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
 
-  const raw = process.env.ADMIN_EMAILS
-  if (!raw) return
+  // Always include the platform owner account + any extras from env
+  const DEFAULT_ADMINS = ['ad.academia.rizos@gmail.com']
 
-  const emails = raw
+  const fromEnv = (process.env.ADMIN_EMAILS ?? '')
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean)
 
-  if (emails.length === 0) return
+  const emails = Array.from(new Set([...DEFAULT_ADMINS, ...fromEnv]))
 
   try {
     // Lazy-import to avoid Edge runtime issues

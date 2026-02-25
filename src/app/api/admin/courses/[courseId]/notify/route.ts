@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { db } from "@/lib/db";
+import { checkAdminAuth } from "@/lib/admin-auth";
 import { sendNewCourseNotificationEmail } from "@/lib/mail";
 import { NotificationService } from "@/server/services/notification-service";
 
@@ -9,12 +8,9 @@ export async function POST(
   _req: Request,
   { params }: { params: Promise<{ courseId: string }> }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
-  }
-  if ((session.user as any).role !== "ADMIN") {
-    return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+  const auth = await checkAdminAuth();
+  if (!auth.authorized) {
+    return auth.response;
   }
 
   const { courseId } = await params;
