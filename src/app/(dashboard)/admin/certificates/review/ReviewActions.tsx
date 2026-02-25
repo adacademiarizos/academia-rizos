@@ -159,6 +159,7 @@ export function ExamReviewCard({ item }: { item: ExamPending }) {
   const router = useRouter();
   const [loading, setLoading] = useState<"approve" | "reject" | null>(null);
   const [showNote, setShowNote] = useState(false);
+  const [note, setNote] = useState("");
 
   async function handleAction(status: "APPROVED" | "REVISION_REQUESTED") {
     setLoading(status === "APPROVED" ? "approve" : "reject");
