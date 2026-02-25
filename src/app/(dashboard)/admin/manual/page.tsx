@@ -4,8 +4,8 @@ import { db } from "@/lib/db";
 import {
   LayoutDashboard, Scissors, Users, CalendarDays, Clock,
   GraduationCap, FileCheck, ClipboardCheck, Link2, Images,
-  HelpCircle, UserCog, Settings, BookOpen, ChevronRight,
-  AlertCircle, Lightbulb, CheckCircle2,
+  HelpCircle, UserCog, Settings, BookOpen,
+  AlertCircle, Lightbulb,
 } from "lucide-react";
 
 async function requireAdmin() {

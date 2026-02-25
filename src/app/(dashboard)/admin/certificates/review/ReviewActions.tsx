@@ -41,7 +41,6 @@ export function CourseTestReviewCard({ item }: { item: CourseTestPending }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState<"approve" | "reject" | null>(null);
-  const [note, setNote] = useState("");
 
   async function handleAction(status: "APPROVED" | "REVISION_REQUESTED") {
     setLoading(status === "APPROVED" ? "approve" : "reject");
@@ -159,7 +158,6 @@ export function CourseTestReviewCard({ item }: { item: CourseTestPending }) {
 export function ExamReviewCard({ item }: { item: ExamPending }) {
   const router = useRouter();
   const [loading, setLoading] = useState<"approve" | "reject" | null>(null);
-  const [note, setNote] = useState("");
   const [showNote, setShowNote] = useState(false);
 
   async function handleAction(status: "APPROVED" | "REVISION_REQUESTED") {

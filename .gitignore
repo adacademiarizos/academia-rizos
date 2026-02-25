@@ -27,6 +27,10 @@
 # Claude Code
 .claude/
 tmpclaude-*-cwd
+*.claude-*
+
+# Temporary / one-off scripts
+scripts/_tmp_*
 
 # Windows reserved filenames
 nul
@@ -37,8 +41,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — commit .env.example, ignore secrets
 .env*
+!.env.example
 
 # vercel
 .vercel

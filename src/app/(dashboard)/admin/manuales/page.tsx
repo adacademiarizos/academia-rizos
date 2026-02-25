@@ -6,7 +6,7 @@ import {
   BookOpen, ShieldCheck, Users, ChevronRight,
   LayoutDashboard, Scissors, CalendarDays, GraduationCap,
   FileCheck, Link2, Images, HelpCircle, Clock,
-  CalendarRange, ClipboardCheck,
+  ClipboardCheck,
 } from "lucide-react";
 
 async function requireAdmin() {

@@ -843,12 +843,12 @@ export default function CourseEditPage() {
 
       setModules(updatedModules)
 
-      for (const module of updatedModules) {
-        if (module.order !== modules.find((m) => m.id === module.id)?.order) {
-          await fetch(`/api/admin/courses/${courseId}/modules/${module.id}`, {
+      for (const mod of updatedModules) {
+        if (mod.order !== modules.find((m) => m.id === mod.id)?.order) {
+          await fetch(`/api/admin/courses/${courseId}/modules/${mod.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ order: module.order }),
+            body: JSON.stringify({ order: mod.order }),
           })
         }
       }
