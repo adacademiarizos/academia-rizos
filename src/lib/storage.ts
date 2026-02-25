@@ -177,7 +177,7 @@ export function generateStorageKey(
  * @param type - Content type
  * @returns true if valid, throws error if not
  */
-export function validateFileSize(sizeBytes: number, type: 'video' | 'pdf' | 'image' | 'certificate'): boolean {
+export function validateFileSize(sizeBytes: number, type: 'video' | 'pdf' | 'image' | 'certificate' | 'document'): boolean {
   const MB = 1024 * 1024
 
   const limits = {
@@ -185,6 +185,7 @@ export function validateFileSize(sizeBytes: number, type: 'video' | 'pdf' | 'ima
     pdf: 50 * MB,          // 50MB
     image: 20 * MB,        // 20MB
     certificate: 10 * MB,  // 10MB
+    document: 100 * MB,    // 100MB
   }
 
   const limit = limits[type]
@@ -201,12 +202,27 @@ export function validateFileSize(sizeBytes: number, type: 'video' | 'pdf' | 'ima
  * @param type - Content type we expect
  * @returns true if valid, throws error if not
  */
-export function validateFileType(mimeType: string, type: 'video' | 'pdf' | 'image' | 'certificate'): boolean {
+export function validateFileType(mimeType: string, type: 'video' | 'pdf' | 'image' | 'certificate' | 'document'): boolean {
   const allowedTypes = {
     video: ['video/mp4', 'video/webm', 'video/quicktime', 'video/mpeg'],
     pdf: ['application/pdf'],
-    image: ['image/jpeg', 'image/png', 'image/webp'],
+    image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
     certificate: ['application/pdf'],
+    document: [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'application/zip',
+      'text/plain',
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+    ],
   }
 
   const allowed = allowedTypes[type]

@@ -179,20 +179,28 @@ export default function CourseTestPage() {
 
           <div className="mt-8 p-8 rounded-2xl bg-white/5 border border-zinc-700 text-center space-y-4">
             <div className="text-5xl">
-              {result.hasManualReview ? "⏳" : result.isPassed ? "🎉" : "😕"}
+              {(result.hasManualReview || result.isFinalExam) ? "⏳" : result.isPassed ? "🎉" : "😕"}
             </div>
             <h2 className="text-2xl font-bold text-ap-ivory">
-              {result.hasManualReview
+              {(result.hasManualReview || result.isFinalExam)
                 ? "Entrega recibida"
                 : result.isPassed
                 ? "¡Aprobado!"
                 : "No aprobado"}
             </h2>
 
-            {result.hasManualReview ? (
-              <p className="text-zinc-400">
-                Tu respuesta fue recibida y está en revisión. El administrador la revisará pronto.
-              </p>
+            {(result.hasManualReview || result.isFinalExam) ? (
+              <div className="space-y-2">
+                {result.score !== null && (
+                  <div>
+                    <span className="text-4xl font-bold text-ap-copper">{Math.round(result.score)}%</span>
+                    <p className="text-sm text-zinc-400 mt-1">Puntaje obtenido</p>
+                  </div>
+                )}
+                <p className="text-zinc-400">
+                  Tu respuesta fue recibida y está pendiente de revisión. El administrador la revisará pronto.
+                </p>
+              </div>
             ) : (
               <>
                 {result.score !== null && (
@@ -218,7 +226,7 @@ export default function CourseTestPage() {
               >
                 Volver al curso
               </Link>
-              {!result.isPassed && !result.hasManualReview && (result.attemptsRemaining === null || result.attemptsRemaining > 0) && (
+              {!result.isPassed && !result.hasManualReview && !result.isFinalExam && (result.attemptsRemaining === null || result.attemptsRemaining > 0) && (
                 <button
                   onClick={() => { setResult(null); setAnswers({}); }}
                   className="px-5 py-2 rounded-xl bg-ap-copper hover:bg-orange-700 text-white transition text-sm font-medium"

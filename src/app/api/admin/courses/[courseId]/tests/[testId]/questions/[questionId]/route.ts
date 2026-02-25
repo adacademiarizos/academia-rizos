@@ -8,7 +8,7 @@ const UpdateQuestionSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   order: z.number().int().min(0).optional(),
-  config: z.record(z.any()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
 })
 
 async function requireAdmin() {

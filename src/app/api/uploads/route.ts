@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Identify file type for validation
-    let fileCategory: 'video' | 'pdf' | 'image' | 'certificate' = 'pdf'
+    let fileCategory: 'video' | 'pdf' | 'image' | 'certificate' | 'document' = 'document'
     const mimeType = file.type
 
     if (type === 'video') {
@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
     } else if (mimeType === 'application/pdf') {
       fileCategory = 'pdf'
     }
+    // Everything else (doc, docx, xls, zip, txt, etc.) stays as 'document'
 
     // Validate file
     const buffer = Buffer.from(await file.arrayBuffer())

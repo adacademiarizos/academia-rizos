@@ -27,3 +27,22 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(req: Request) {
+  const auth = await checkAdminAuth();
+  if (!auth.authorized) return auth.response;
+
+  const { staffId, serviceId } = await req.json();
+  if (!staffId || !serviceId) {
+    return NextResponse.json(
+      { ok: false, error: { code: "BAD_INPUT", message: "Missing fields" } },
+      { status: 400 }
+    );
+  }
+
+  await db.serviceStaffPrice.delete({
+    where: { serviceId_staffId: { serviceId, staffId } },
+  });
+
+  return NextResponse.json({ ok: true });
+}

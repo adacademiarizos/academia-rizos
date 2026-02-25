@@ -8,6 +8,45 @@ import { getServerSession } from 'next-auth'
 
 import { db } from '@/lib/db'
 
+/**
+ * Creates a pending certificate record when all modules are complete and there is no final exam.
+ * The admin will see this in the certificates panel and can approve/generate the PDF.
+ */
+async function autoCreatePendingCertificate(userId: string, courseId: string) {
+  // Count total published modules in the course
+  const totalModules = await db.module.count({ where: { courseId } })
+  if (totalModules === 0) return
+
+  // Count how many this user has completed
+  const completedCount = await db.moduleProgress.count({
+    where: { userId, module: { courseId }, completed: true },
+  })
+  if (completedCount < totalModules) return
+
+  // Check if the course has a final exam (CourseTest or legacy CourseExam)
+  const [finalExamCount, legacyExamCount] = await Promise.all([
+    db.courseTest.count({ where: { courseId, isFinalExam: true } }),
+    db.courseExam.count({ where: { courseId } }),
+  ])
+  if (finalExamCount > 0 || legacyExamCount > 0) return
+
+  // Skip if a certificate already exists for this user+course
+  const existing = await db.certificate.findFirst({ where: { userId, courseId } })
+  if (existing) return
+
+  // Create a pending certificate (valid=false, pdfUrl=null = pending approval)
+  const certCode = `PEND-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
+  await db.certificate.create({
+    data: {
+      code: certCode,
+      courseId,
+      userId,
+      valid: false,
+      pdfUrl: null,
+    },
+  })
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ moduleId: string }> }
@@ -58,25 +97,17 @@ export async function POST(
       )
     }
 
-    // Verify user has access to the course
+    // Verify user has access to the course (purchased, regardless of rental expiry)
     const courseAccess = await db.courseAccess.findUnique({
       where: {
         userId_courseId: { userId: user.id, courseId: module.courseId },
       },
-      select: { accessUntil: true },
+      select: { id: true },
     })
 
     if (!courseAccess) {
       return NextResponse.json(
         { success: false, error: 'No access to this course' },
-        { status: 403 }
-      )
-    }
-
-    // Check if access is expired
-    if (courseAccess.accessUntil && courseAccess.accessUntil < new Date()) {
-      return NextResponse.json(
-        { success: false, error: 'Course access has expired' },
         { status: 403 }
       )
     }
@@ -90,6 +121,38 @@ export async function POST(
         { success: false, error: 'Completed must be a boolean' },
         { status: 400 }
       )
+    }
+
+    // Gate: if marking complete, check all required tests are passed
+    if (completed) {
+      const requiredTests = await db.moduleTest.findMany({
+        where: { moduleId, isRequired: true },
+        select: { id: true, title: true },
+      })
+
+      if (requiredTests.length > 0) {
+        const passedSubmissions = await db.moduleSubmission.findMany({
+          where: {
+            userId: user.id,
+            testId: { in: requiredTests.map((t) => t.id) },
+            isPassed: true,
+          },
+          select: { testId: true },
+        })
+        const passedIds = new Set(passedSubmissions.map((s) => s.testId))
+        const failingTests = requiredTests.filter((t) => !passedIds.has(t.id))
+
+        if (failingTests.length > 0) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'REQUIRED_TESTS_PENDING',
+              failingTests: failingTests.map((t) => ({ id: t.id, title: t.title })),
+            },
+            { status: 403 }
+          )
+        }
+      }
     }
 
     // Upsert module progress
@@ -108,6 +171,13 @@ export async function POST(
         completedAt: completed ? new Date() : null,
       },
     })
+
+    // Fire-and-forget: if marking as complete, check if a pending certificate request should be created
+    if (completed) {
+      autoCreatePendingCertificate(user.id, module.courseId).catch((err) => {
+        console.error('Auto-certificate check failed:', err)
+      })
+    }
 
     return NextResponse.json({
       success: true,

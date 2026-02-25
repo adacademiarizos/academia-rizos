@@ -34,6 +34,34 @@ export async function GET(
 
     const { moduleId } = await params
 
+    // Resolve the course this module belongs to
+    const module = await db.module.findUnique({
+      where: { id: moduleId },
+      select: { courseId: true },
+    })
+
+    if (!module) {
+      return NextResponse.json(
+        { success: false, error: 'Module not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check course access and whether the video rental period is still active
+    const access = await db.courseAccess.findUnique({
+      where: { userId_courseId: { userId: user.id, courseId: module.courseId } },
+      select: { accessUntil: true },
+    })
+
+    if (!access) {
+      return NextResponse.json(
+        { success: false, error: 'No access to this course' },
+        { status: 403 }
+      )
+    }
+
+    const videoExpired = !!(access.accessUntil && access.accessUntil < new Date())
+
     const lessons = await db.lesson.findMany({
       where: { moduleId },
       orderBy: { order: 'asc' },
@@ -48,7 +76,16 @@ export async function GET(
       },
     })
 
-    return NextResponse.json({ success: true, data: lessons })
+    // If the video rental period has expired, strip video URLs but keep metadata
+    const data = videoExpired
+      ? lessons.map((l) => ({ ...l, videoUrl: null, videoFileUrl: null }))
+      : lessons
+
+    return NextResponse.json({
+      success: true,
+      data,
+      videoExpired,
+    })
   } catch (error) {
     console.error('Error fetching lessons:', error)
     return NextResponse.json(
@@ -60,3 +97,4 @@ export async function GET(
     )
   }
 }
+

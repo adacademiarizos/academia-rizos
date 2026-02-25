@@ -94,9 +94,15 @@ function CustomSelect<T extends { id: string }>({
 export default function PriceForm({
   staff,
   services,
+  feePercent,
+  feeFixedCents,
+  currency,
 }: {
   staff: StaffOption[];
   services: ServiceOption[];
+  feePercent: number;
+  feeFixedCents: number;
+  currency: string;
 }) {
   const router = useRouter();
   const [selectedStaff, setSelectedStaff] = useState<StaffOption | null>(null);
@@ -106,12 +112,24 @@ export default function PriceForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
+  // Compute the total the customer pays (base + Stripe fee margin)
+  const baseFloat = parseFloat(price);
+  const baseCents = !isNaN(baseFloat) && baseFloat > 0 ? Math.round(baseFloat * 100) : 0;
+  const feeCents = baseCents > 0
+    ? Math.round(baseCents * feePercent / 100) + feeFixedCents
+    : 0;
+  const totalCents = baseCents + feeCents;
+
+  const fmt = (cents: number) =>
+    (cents / 100).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const currencySymbol = currency === "EUR" ? "€" : currency;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedStaff || !selectedService || !price) return;
 
-    const priceCents = Math.round(parseFloat(price) * 100);
-    if (isNaN(priceCents) || priceCents <= 0) {
+    if (isNaN(baseFloat) || baseCents <= 0) {
       setError("Ingresá un precio válido.");
       return;
     }
@@ -122,8 +140,9 @@ export default function PriceForm({
     const form = new FormData();
     form.set("staffId", selectedStaff.id);
     form.set("serviceId", selectedService.id);
-    form.set("priceCents", String(priceCents));
-    form.set("currency", "EUR");
+    // Save the total customer-facing price (base + fee)
+    form.set("priceCents", String(totalCents));
+    form.set("currency", currency);
 
     try {
       const res = await fetch("/api/admin/prices", { method: "POST", body: form });
@@ -173,19 +192,46 @@ export default function PriceForm({
         renderOption={(s) => <span className="font-medium text-white">{s.name}</span>}
       />
 
-      {/* Price input */}
-      <div className="relative">
-        <Euro className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none" />
-        <input
-          type="number"
-          step="0.01"
-          min="0.50"
-          placeholder="Precio en € (ej: 60.00)"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          className="h-11 w-full rounded-xl bg-white/5 pl-10 pr-4 text-sm text-white placeholder:text-white/35 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/25"
-          required
-        />
+      {/* Base price input */}
+      <div>
+        <div className="relative">
+          <Euro className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none" />
+          <input
+            type="number"
+            step="0.01"
+            min="0.50"
+            placeholder="Precio base que recibirás (ej: 60.00)"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            className="h-11 w-full rounded-xl bg-white/5 pl-10 pr-4 text-sm text-white placeholder:text-white/35 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/25"
+            required
+          />
+        </div>
+
+        {/* Live fee breakdown */}
+        {baseCents > 0 && (
+          <div className="mt-2 rounded-xl bg-white/5 border border-white/8 px-3 py-2.5 text-xs grid gap-1">
+            <div className="flex justify-between text-white/50">
+              <span>Precio base (recibirás)</span>
+              <span>{currencySymbol}{fmt(baseCents)}</span>
+            </div>
+            {feePercent > 0 || feeFixedCents > 0 ? (
+              <div className="flex justify-between text-white/40">
+                <span>
+                  Comisión Stripe
+                  {feePercent > 0 && ` ${feePercent}%`}
+                  {feePercent > 0 && feeFixedCents > 0 && " +"}
+                  {feeFixedCents > 0 && ` ${currencySymbol}${fmt(feeFixedCents)}`}
+                </span>
+                <span>+{currencySymbol}{fmt(feeCents)}</span>
+              </div>
+            ) : null}
+            <div className="flex justify-between font-semibold text-[#c8cf94] border-t border-white/8 pt-1 mt-0.5">
+              <span>Cliente paga en total</span>
+              <span>{currencySymbol}{fmt(totalCents)}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Feedback */}

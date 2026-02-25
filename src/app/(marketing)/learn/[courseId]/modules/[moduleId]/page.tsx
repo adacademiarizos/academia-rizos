@@ -62,6 +62,7 @@ export default function ModulePlayer() {
   const [resources, setResources] = useState<ModuleResource[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+  const [activeTestId, setActiveTestId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchModule = async () => {
@@ -230,7 +231,7 @@ export default function ModulePlayer() {
                     return (
                       <button
                         key={lesson.id}
-                        onClick={() => setActiveLessonId(lesson.id)}
+                        onClick={() => { setActiveLessonId(lesson.id); setActiveTestId(null); }}
                         className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-start gap-3 ${
                           isActive
                             ? "bg-ap-copper/15 border border-ap-copper/30 text-ap-ivory"
@@ -277,6 +278,39 @@ export default function ModulePlayer() {
                       </span>
                     </a>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tests */}
+            {tests.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+                  Tests
+                </h3>
+                <div className="space-y-1">
+                  {tests.map((test) => {
+                    const isActive = test.id === activeTestId;
+                    return (
+                      <button
+                        key={test.id}
+                        onClick={() => {
+                          setActiveTestId(isActive ? null : test.id);
+                          setActiveLessonId(null);
+                        }}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-start gap-3 ${
+                          isActive
+                            ? "bg-ap-copper/15 border border-ap-copper/30 text-ap-ivory"
+                            : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
+                        }`}
+                      >
+                        <span className={`mt-0.5 text-xs shrink-0 ${isActive ? "text-ap-copper" : "text-zinc-600"}`}>
+                          ✎
+                        </span>
+                        <span className="flex-1 text-sm leading-snug">{test.title}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -335,95 +369,102 @@ export default function ModulePlayer() {
 
         {/* Right Main Area */}
         <div className="flex-1 min-w-0 px-6 py-6 space-y-6">
-          {/* Video Player */}
-          <div className="rounded-3xl overflow-hidden border border-zinc-700 shadow-2xl">
-            <div className="aspect-video bg-black flex items-center justify-center">
-              {videoSrc ? (
-                <video
-                  key={videoSrc}
-                  src={videoSrc}
-                  controls
-                  className="w-full h-full"
-                  style={{ background: "#000" }}
-                >
-                  <p className="text-zinc-300">
-                    Tu navegador no soporta reproducción de video
-                  </p>
-                </video>
-              ) : (
-                <div className="text-zinc-500 text-sm">Sin video disponible</div>
-              )}
-            </div>
-          </div>
-
-          {/* Content title + tabs */}
-          <div className="space-y-4">
-            {/* Tabs */}
-            <div className="flex border-b border-zinc-700">
-              <button
-                onClick={() => setActiveTab("description")}
-                className={`px-6 py-3 font-medium transition text-sm ${
-                  activeTab === "description"
-                    ? "border-b-2 border-ap-copper text-ap-copper"
-                    : "text-zinc-400 hover:text-ap-ivory"
-                }`}
-              >
-                {hasLessons ? "Sobre esta lección" : "Sobre este módulo"}
-              </button>
-              {contentTranscript && (
+          {activeTestId ? (
+            /* Test View */
+            <div>
+              <div className="mb-4 flex items-center gap-3">
                 <button
-                  onClick={() => setActiveTab("transcript")}
-                  className={`px-6 py-3 font-medium transition text-sm ${
-                    activeTab === "transcript"
-                      ? "border-b-2 border-ap-copper text-ap-copper"
-                      : "text-zinc-400 hover:text-ap-ivory"
-                  }`}
+                  onClick={() => setActiveTestId(null)}
+                  className="text-zinc-400 hover:text-ap-ivory transition text-sm"
                 >
-                  Transcripción
+                  ← Volver al módulo
                 </button>
-              )}
+              </div>
+              <div className="bg-white/5 border border-zinc-700 rounded-2xl p-6">
+                <ModuleTestSubmission
+                  moduleId={moduleId}
+                  testId={activeTestId}
+                  testTitle={tests.find((t) => t.id === activeTestId)?.title ?? ''}
+                />
+              </div>
             </div>
+          ) : (
+            <>
+              {/* Video Player */}
+              <div className="rounded-3xl overflow-hidden border border-zinc-700 shadow-2xl">
+                <div className="aspect-video bg-black flex items-center justify-center">
+                  {videoSrc ? (
+                    <video
+                      key={videoSrc}
+                      src={videoSrc}
+                      controls
+                      className="w-full h-full"
+                      style={{ background: "#000" }}
+                    >
+                      <p className="text-zinc-300">
+                        Tu navegador no soporta reproducción de video
+                      </p>
+                    </video>
+                  ) : (
+                    <div className="text-zinc-500 text-sm">Sin video disponible</div>
+                  )}
+                </div>
+              </div>
 
-            {/* Tab Content */}
-            {activeTab === "description" ? (
-              <div className="pb-4">
-                <h2 className="text-xl font-bold text-ap-ivory mb-2">
-                  {contentTitle}
-                </h2>
-                {contentDescription ? (
-                  <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap text-sm">
-                    {contentDescription}
-                  </p>
+              {/* Content title + tabs */}
+              <div className="space-y-4">
+                {/* Tabs */}
+                <div className="flex border-b border-zinc-700">
+                  <button
+                    onClick={() => setActiveTab("description")}
+                    className={`px-6 py-3 font-medium transition text-sm ${
+                      activeTab === "description"
+                        ? "border-b-2 border-ap-copper text-ap-copper"
+                        : "text-zinc-400 hover:text-ap-ivory"
+                    }`}
+                  >
+                    {hasLessons ? "Sobre esta lección" : "Sobre este módulo"}
+                  </button>
+                  {contentTranscript && (
+                    <button
+                      onClick={() => setActiveTab("transcript")}
+                      className={`px-6 py-3 font-medium transition text-sm ${
+                        activeTab === "transcript"
+                          ? "border-b-2 border-ap-copper text-ap-copper"
+                          : "text-zinc-400 hover:text-ap-ivory"
+                      }`}
+                    >
+                      Transcripción
+                    </button>
+                  )}
+                </div>
+
+                {/* Tab Content */}
+                {activeTab === "description" ? (
+                  <div className="pb-4">
+                    <h2 className="text-xl font-bold text-ap-ivory mb-2">
+                      {contentTitle}
+                    </h2>
+                    {contentDescription ? (
+                      <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap text-sm">
+                        {contentDescription}
+                      </p>
+                    ) : (
+                      <p className="text-zinc-500 italic text-sm">Sin descripción.</p>
+                    )}
+                  </div>
                 ) : (
-                  <p className="text-zinc-500 italic text-sm">Sin descripción.</p>
+                  <div className="pb-4 text-zinc-300 whitespace-pre-wrap text-sm">
+                    {contentTranscript || "No hay transcripción disponible"}
+                  </div>
                 )}
               </div>
-            ) : (
-              <div className="pb-4 text-zinc-300 whitespace-pre-wrap text-sm">
-                {contentTranscript || "No hay transcripción disponible"}
-              </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Module Tests Section */}
-      {tests.length > 0 && (
-        <section className="px-6 py-8 border-t border-zinc-700">
-          <div className="max-w-3xl mx-auto space-y-8">
-            <h2 className="text-2xl font-bold text-ap-ivory">Tests del módulo</h2>
-            {tests.map((test) => (
-              <div key={test.id} className="bg-white/5 border border-zinc-700 rounded-2xl p-6">
-                <ModuleTestSubmission
-                  moduleId={moduleId}
-                  testId={test.id}
-                  testTitle={test.title}
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Module Tests Section — removed; tests are now in the sidebar */}
 
       {/* Community Section */}
       <section className="px-6 py-16 border-t border-zinc-700 bg-white/5">

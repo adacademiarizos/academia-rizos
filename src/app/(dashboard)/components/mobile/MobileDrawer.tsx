@@ -43,13 +43,13 @@ export function MobileDrawer({
       <div className="absolute inset-y-0 left-0 w-[86%] max-w-[320px] flex flex-col border-r border-white/5 bg-gradient-to-b from-ap-bg via-ap-bg to-black/60">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/5 px-5 py-4">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
             <img src="/logo.png" alt="Logo" className="h-9 w-auto" />
             <div className="leading-tight">
               <div className="text-sm font-semibold text-white">Dashboard</div>
               <div className="text-xs text-white/50">Apoteósicas</div>
             </div>
-          </div>
+          </Link>
 
           <button
             className="rounded-2xl border border-white/10 bg-white/8 p-2.5 text-white hover:bg-white/15 transition"

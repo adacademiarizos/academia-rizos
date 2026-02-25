@@ -124,7 +124,6 @@ export default function ServicesSection3D() {
     dragDistRef.current = 0;
     lastXRef.current = e.clientX;
     velocityRef.current = 0;
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
@@ -149,7 +148,38 @@ export default function ServicesSection3D() {
     ? Math.round((CARD_W + GAP) / (2 * Math.tan(Math.PI / quantity)))
     : 0;
 
-  if (quantity === 0) return null;
+  if (quantity === 0) {
+    return (
+      <div className="slider-3d-banner flex items-center justify-center">
+        <div
+          className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm px-10 py-12 text-center"
+          style={{ width: CARD_W, minHeight: 340 }}
+        >
+          <div
+            className="text-4xl"
+            style={{ fontFamily: "georgia, serif", color: "#B16E34", opacity: 0.6 }}
+          >
+            ✦
+          </div>
+          <p
+            className="text-xs uppercase tracking-widest text-[#c8cf94]"
+            style={{ fontFamily: "jost" }}
+          >
+            Próximamente
+          </p>
+          <h3
+            className="text-lg leading-snug text-white/80"
+            style={{ fontFamily: "migthy" }}
+          >
+            Servicios en camino
+          </h3>
+          <p className="text-xs text-white/40 max-w-[180px]">
+            Pronto vas a poder reservar tu cita directamente desde acá.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

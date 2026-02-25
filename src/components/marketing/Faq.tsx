@@ -1,22 +1,9 @@
 import Link from "next/link";
 import SectionHead from "./SectionHead";
 
-function FAQ() {
-  const items = [
-    {
-      q: "¿Por qué se pide tarjeta para reservar si no se realizara un debito?",
-      a: "Para confirmar la cita y que verdaderamente el cliente vendra, Si no realiza una notificacion almenos con 24 horas de antelacion de que no podra asistir a la hora acordada se le realizara una reduccion del 50% de la cita.",
-    },
-    {
-      q: "¿Puedo elegir a la profesional?",
-      a: "Sí. Puedes seleccionás el servicio y luego el miembro del equipo que gustes.",
-    },
-    {
-      q: "¿La academia es efectiva?",
-      a: "!Por supuesto! con la academia de rizos puedes aprender todos los trucos de como mantener a lo largo del tiempo tus rizos y podras utilizar estas tacticas con clientes reales. tips de como mantenerlos hidratados, mejores productos. Todo lo que requieras saber se encuentra en la academia",
-    },
-  ];
+type FaqItem = { id: string; question: string; answer: string };
 
+function FAQ({ items }: { items: FaqItem[] }) {
   return (
     <div className="mx-auto max-w-6xl">
       <SectionHead
@@ -26,12 +13,18 @@ function FAQ() {
       />
 
       <div className="mt-10 grid grid-cols-1 gap-4">
-        {items.map((it) => (
-          <div key={it.q} className="rounded-3xl border border-black/10 bg-white/5 p-6 shadow-sm">
-            <div className="text-sm text-zinc-200 font-semibold">{it.q}</div>
-            <p className="mt-2 text-sm text-zinc-400">{it.a}</p>
+        {items.length === 0 ? (
+          <div className="rounded-3xl border border-black/10 bg-white/5 p-6 text-sm text-zinc-400">
+            Próximamente — preguntas frecuentes
           </div>
-        ))}
+        ) : (
+          items.map((it) => (
+            <div key={it.id} className="rounded-3xl border border-black/10 bg-white/5 p-6 shadow-sm">
+              <div className="text-sm text-zinc-200 font-semibold">{it.question}</div>
+              <p className="mt-2 text-sm text-zinc-400">{it.answer}</p>
+            </div>
+          ))
+        )}
       </div>
 
       <div className="mt-10 rounded-[2.2rem] border border-black/10 bg-white/55 p-8 shadow-sm md:p-10">
@@ -54,4 +47,4 @@ function FAQ() {
   );
 }
 
-export default FAQ
+export default FAQ;

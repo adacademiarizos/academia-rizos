@@ -2,12 +2,17 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { checkAdminAuth } from "@/lib/admin-auth";
 
-export async function POST(req: Request) {
-  // Check authentication
+export async function GET(req: Request) {
   const auth = await checkAdminAuth();
-  if (!auth.authorized) {
-    return auth.response;
-  }
+  if (!auth.authorized) return auth.response;
+
+  const services = await db.service.findMany({ orderBy: { createdAt: "desc" } });
+  return NextResponse.json({ ok: true, data: services });
+}
+
+export async function POST(req: Request) {
+  const auth = await checkAdminAuth();
+  if (!auth.authorized) return auth.response;
 
   const form = await req.formData();
   const name = String(form.get("name") ?? "").trim();
@@ -18,10 +23,13 @@ export async function POST(req: Request) {
   const depositPct = depositPctRaw ? Number(depositPctRaw) : null;
 
   if (!name || !durationMin) {
-    return NextResponse.json({ ok: false, error: { code: "BAD_INPUT", message: "Missing fields" } }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: { code: "BAD_INPUT", message: "Missing fields" } },
+      { status: 400 }
+    );
   }
 
-  await db.service.create({
+  const service = await db.service.create({
     data: {
       name,
       description: description || null,
@@ -31,5 +39,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.redirect(new URL("/admin/services", req.url));
+  return NextResponse.json({ ok: true, data: service }, { status: 201 });
 }

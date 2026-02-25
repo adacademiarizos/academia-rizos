@@ -13,7 +13,7 @@ const UpdateCourseSchema = z.object({
   description: z.string().optional(),
   trailerUrl: z.string().url().optional().or(z.literal('')),
   priceCents: z.number().int().min(0).optional(),
-  rentalDays: z.number().int().positive().optional(),
+  rentalDays: z.number().int().positive().nullable().optional(),
   isActive: z.boolean().optional(),
 })
 
@@ -70,7 +70,7 @@ export async function PUT(
         ...(data.description !== undefined && { description: data.description }),
         ...(data.trailerUrl !== undefined && { trailerUrl: data.trailerUrl || null }),
         ...(data.priceCents !== undefined && { priceCents: data.priceCents }),
-        ...(data.rentalDays !== undefined && { rentalDays: data.rentalDays || null }),
+        ...(data.rentalDays !== undefined && { rentalDays: data.rentalDays ?? null }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
     })

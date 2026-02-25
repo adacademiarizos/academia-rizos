@@ -159,18 +159,22 @@ model Appointment {
   id         String            @id @default(cuid())
   serviceId  String
   staffId    String
-  customerId String
+  customerId String?
   startAt    DateTime
   endAt      DateTime
   notes      String?
   status     AppointmentStatus @default(PENDING)
+
+  customerName  String?
+  customerEmail String?
+  customerPhone String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   service  Service   @relation(fields: [serviceId], references: [id])
   staff    User      @relation("StaffAppointments", fields: [staffId], references: [id])
-  customer User      @relation("CustomerAppointments", fields: [customerId], references: [id])
+  customer User?     @relation("CustomerAppointments", fields: [customerId], references: [id])
   payments Payment[]
 
   @@index([staffId, startAt])
@@ -260,7 +264,8 @@ model Course {
   id          String   @id @default(cuid())
   title       String
   description String?
-  trailerUrl  String?
+  trailerUrl   String?
+  thumbnailUrl String?
   priceCents  Int
   currency    String   @default("EUR")
   rentalDays  Int?     // if null => lifetime access
@@ -667,16 +672,20 @@ model CourseExam {
 }
 
 model ExamSubmission {
-  id          String   @id @default(cuid())
+  id          String           @id @default(cuid())
   examId      String
   userId      String
   score       Float
   isPassed    Boolean
-  submittedAt DateTime @default(now())
+  status      SubmissionStatus @default(PENDING)
+  reviewedAt  DateTime?
+  reviewNote  String?
+  submittedAt DateTime         @default(now())
 
   exam        CourseExam @relation(fields: [examId], references: [id], onDelete: Cascade)
   user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([examId, userId])
+  @@index([status])
   @@unique([examId, userId])
 }
 
@@ -709,6 +718,7 @@ model CourseTestSubmission {
   isPassed     Boolean          @default(false)
   attemptNumber Int             @default(1)
   status       SubmissionStatus @default(PENDING)
+  reviewedAt   DateTime?
   submittedAt  DateTime         @default(now())
 
   courseTest   CourseTest   @relation(fields: [courseTestId], references: [id], onDelete: Cascade)
@@ -734,4 +744,44 @@ model BugReport {
 
   @@index([userId])
   @@index([bugType])
+}
+
+// ============= MARKETING CONTENT =============
+
+model BeforeAfterPair {
+  id        String   @id @default(cuid())
+  beforeUrl String
+  afterUrl  String
+  label     String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model FaqItem {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+// ============= BUSINESS SCHEDULE =============
+
+model BusinessHours {
+  id        String  @id @default(cuid())
+  dayOfWeek Int     // 0=Sun, 1=Mon … 6=Sat
+  isOpen    Boolean @default(true)
+  openTime  String  // "HH:MM" e.g. "09:00"
+  closeTime String  // "HH:MM" e.g. "18:00"
+
+  @@unique([dayOfWeek])
+}
+
+model BusinessOffDay {
+  id        String   @id @default(cuid())
+  date      DateTime @db.Date
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@unique([date])
 }

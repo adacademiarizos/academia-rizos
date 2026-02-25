@@ -16,12 +16,22 @@ export default function CourseCard({ course }: CourseCardProps) {
 
   return (
     <Link href={`/courses/${course.id}`}>
-      <div className="group h-full rounded-3xl border border-zinc-200 bg-white/55 p-6 shadow-sm transition hover:shadow-md hover:bg-white/75 backdrop-blur-md overflow-hidden">
-        {/* Course Image Placeholder */}
-        <div className="relative w-full h-48 mb-4 rounded-2xl bg-gradient-to-br from-ap-copper/20 to-ap-olive/20 overflow-hidden flex items-center justify-center">
-          <div className="text-4xl text-center text-ap-copper opacity-50">
-            {course.title.charAt(0)}
-          </div>
+      <div className="group h-full rounded-3xl border border-zinc-700 bg-white/5 p-6 shadow-sm transition hover:shadow-md hover:bg-white/75 backdrop-blur-md overflow-hidden">
+        {/* Course Image */}
+        <div className="relative w-full h-48 mb-4 rounded-2xl overflow-hidden">
+          {course.thumbnailUrl ? (
+            <img
+              src={course.thumbnailUrl}
+              alt={course.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-linear-to-br from-ap-copper/20 to-ap-olive/20 flex items-center justify-center">
+              <div className="text-4xl text-center text-ap-copper opacity-50">
+                {course.title.charAt(0)}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Course Info */}
@@ -39,8 +49,6 @@ export default function CourseCard({ course }: CourseCardProps) {
           {/* Metadata */}
           <div className="flex items-center gap-2 text-xs text-zinc-500">
             <span>📚 {course.moduleCount} módulos</span>
-            <span>•</span>
-            <span>⏱️ {Math.floor(course.totalHours || 5)} horas</span>
           </div>
 
           {/* Access Type */}

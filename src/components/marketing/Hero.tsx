@@ -1,3 +1,5 @@
+"use client";
+
 import MiniStat from "./Ministat";
 import { motion, AnimatePresence } from "framer-motion"; // Importa AnimatePresence
 import Link from "next/link";

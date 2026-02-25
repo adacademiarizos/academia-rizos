@@ -84,8 +84,6 @@ export default function CourseEditPage() {
   const [draggedModuleId, setDraggedModuleId] = useState<string | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [showVideoUploadEdit, setShowVideoUploadEdit] = useState(false)
-
   // Test management state
   const [moduleTests, setModuleTests] = useState<Record<string, ModuleTest[]>>({})
   const [showTestForm, setShowTestForm] = useState(false)
@@ -117,8 +115,6 @@ export default function CourseEditPage() {
   // Module resources state
   const [moduleResources, setModuleResources] = useState<Record<string, UploadedResource[]>>({})
   const [newModuleResources, setNewModuleResources] = useState<UploadedResource[]>([])
-  const [showVideoUploadNew, setShowVideoUploadNew] = useState(false)
-
   // Module lessons state
   const [moduleLessons, setModuleLessons] = useState<Record<string, Lesson[]>>({})
   const [showLessonForms, setShowLessonForms] = useState<Record<string, boolean>>({})
@@ -128,18 +124,17 @@ export default function CourseEditPage() {
   const [showVideoUploadLessonNew, setShowVideoUploadLessonNew] = useState(false)
   const [showVideoUploadLessonEdit, setShowVideoUploadLessonEdit] = useState<Record<string, boolean>>({})
   const [transcribing, setTranscribing] = useState<Record<string, boolean>>({})
+  const [generatingSynopsis, setGeneratingSynopsis] = useState<Record<string, boolean>>({})
 
   const [courseForm, setCourseForm] = useState<Partial<Course>>({})
   const [moduleForm, setModuleForm] = useState({
     title: '',
     description: '',
-    videoUrl: '',
   })
   const [editModuleForm, setEditModuleForm] = useState({
     order: 1,
     title: '',
     description: '',
-    videoUrl: '',
     transcript: '',
   })
 
@@ -253,7 +248,6 @@ export default function CourseEditPage() {
           order: nextOrder,
           title: moduleForm.title,
           description: moduleForm.description || undefined,
-          videoUrl: moduleForm.videoUrl || undefined,
           resources: newModuleResources.length > 0 ? newModuleResources : undefined,
         }),
       })
@@ -262,9 +256,8 @@ export default function CourseEditPage() {
 
       if (response.ok) {
         alert('Módulo creado exitosamente')
-        setModuleForm({ title: '', description: '', videoUrl: '' })
+        setModuleForm({ title: '', description: '' })
         setNewModuleResources([])
-        setShowVideoUploadNew(false)
         setShowModuleForm(false)
         fetchModules()
       } else {
@@ -338,7 +331,6 @@ export default function CourseEditPage() {
             order: editModuleForm.order,
             title: editModuleForm.title,
             description: editModuleForm.description || undefined,
-            videoUrl: editModuleForm.videoUrl || undefined,
             transcript: editModuleForm.transcript || undefined,
           }),
         }
@@ -372,18 +364,8 @@ export default function CourseEditPage() {
       order: 1,
       title: '',
       description: '',
-      videoUrl: '',
       transcript: '',
     })
-    setShowVideoUploadEdit(false)
-  }
-
-  const handleVideoUploadCompleteEdit = (file: { fileUrl: string }) => {
-    setEditModuleForm({
-      ...editModuleForm,
-      videoUrl: file.fileUrl,
-    })
-    setShowVideoUploadEdit(false)
   }
 
   // ── Test management functions ──────────────────────────────────────────────
@@ -795,6 +777,30 @@ export default function CourseEditPage() {
     }
   }
 
+  const handleGenerateSynopsis = async (lessonId: string) => {
+    setGeneratingSynopsis((prev) => ({ ...prev, [lessonId]: true }))
+    try {
+      const res = await fetch('/api/ai/synopsis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lessonId }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setEditLessonForms((prev) => ({
+          ...prev,
+          [lessonId]: { ...prev[lessonId], description: data.data.synopsis },
+        }))
+      } else {
+        alert('Error al generar sinopsis: ' + (data.error || 'Error desconocido'))
+      }
+    } catch {
+      alert('Error al generar la sinopsis')
+    } finally {
+      setGeneratingSynopsis((prev) => ({ ...prev, [lessonId]: false }))
+    }
+  }
+
   // ──────────────────────────────────────────────────────────────────────────
 
   const handleDragStart = (moduleId: string) => {
@@ -1043,46 +1049,6 @@ export default function CourseEditPage() {
                 />
               </div>
 
-              {/* Video del Módulo */}
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1">
-                  Video del Módulo
-                </label>
-                {moduleForm.videoUrl ? (
-                  <div className="mb-3 p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
-                    <p className="text-sm text-green-400 mb-1">✓ Video cargado</p>
-                    <p className="text-xs text-white/50 break-all">{moduleForm.videoUrl}</p>
-                    <button
-                      onClick={() => {
-                        setModuleForm({ ...moduleForm, videoUrl: '' })
-                        setShowVideoUploadNew(false)
-                      }}
-                      className="text-xs text-red-400 hover:text-red-300 mt-2 font-medium transition"
-                    >
-                      Cambiar video
-                    </button>
-                  </div>
-                ) : null}
-                {!showVideoUploadNew && !moduleForm.videoUrl && (
-                  <button
-                    onClick={() => setShowVideoUploadNew(true)}
-                    className="w-full px-4 py-2 border border-ap-copper/50 text-ap-copper rounded-xl hover:bg-ap-copper/10 font-medium transition text-sm"
-                  >
-                    📹 Subir video
-                  </button>
-                )}
-                {showVideoUploadNew && !moduleForm.videoUrl && (
-                  <FileUploadProgress
-                    uploadType="video"
-                    moduleId="temp"
-                    onUploadComplete={(file) => {
-                      setModuleForm({ ...moduleForm, videoUrl: file.fileUrl })
-                      setShowVideoUploadNew(false)
-                    }}
-                  />
-                )}
-              </div>
-
               {/* Recursos del módulo */}
               <div>
                 <label className="block text-sm font-medium text-white/70 mb-1">
@@ -1175,45 +1141,6 @@ export default function CourseEditPage() {
                               className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-xl px-3 py-2 outline-none focus:border-ap-copper/50 transition text-sm"
                               rows={2}
                             />
-                          </div>
-
-                          <div>
-                            <label className="block text-sm font-medium text-white/70 mb-2">
-                              Video del Módulo
-                            </label>
-
-                            {editModuleForm.videoUrl ? (
-                              <div className="mb-3 p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
-                                <p className="text-sm text-green-400 mb-1">✓ Video cargado:</p>
-                                <p className="text-xs text-white/50 break-all">{editModuleForm.videoUrl}</p>
-                                <button
-                                  onClick={() => {
-                                    setEditModuleForm({ ...editModuleForm, videoUrl: '' })
-                                    setShowVideoUploadEdit(false)
-                                  }}
-                                  className="text-xs text-red-400 hover:text-red-300 mt-2 font-medium transition"
-                                >
-                                  Cambiar video
-                                </button>
-                              </div>
-                            ) : null}
-
-                            {!showVideoUploadEdit && !editModuleForm.videoUrl && (
-                              <button
-                                onClick={() => setShowVideoUploadEdit(true)}
-                                className="w-full px-4 py-2 border border-ap-copper/50 text-ap-copper rounded-xl hover:bg-ap-copper/10 font-medium transition text-sm"
-                              >
-                                📹 Subir video
-                              </button>
-                            )}
-
-                            {showVideoUploadEdit && !editModuleForm.videoUrl && (
-                              <FileUploadProgress
-                                uploadType="video"
-                                moduleId={editingModuleId || ''}
-                                onUploadComplete={handleVideoUploadCompleteEdit}
-                              />
-                            )}
                           </div>
 
                           {/* Transcripción del Módulo */}
@@ -1361,13 +1288,26 @@ export default function CourseEditPage() {
                                           className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-ap-copper/50 transition"
                                           placeholder="Título"
                                         />
-                                        <textarea
-                                          value={editLessonForms[lesson.id]?.description || ''}
-                                          onChange={(e) => setEditLessonForms((prev) => ({ ...prev, [lesson.id]: { ...prev[lesson.id], description: e.target.value } }))}
-                                          rows={2}
-                                          className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-ap-copper/50 transition"
-                                          placeholder="Descripción"
-                                        />
+                                        <div>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-xs text-white/50">Descripción</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleGenerateSynopsis(lesson.id)}
+                                              disabled={!!generatingSynopsis[lesson.id]}
+                                              className="text-xs px-2 py-0.5 rounded-lg bg-ap-copper/10 text-ap-copper hover:bg-ap-copper/20 disabled:opacity-50 transition flex items-center gap-1"
+                                            >
+                                              {generatingSynopsis[lesson.id] ? '⏳ Generando...' : '✨ Generar con IA'}
+                                            </button>
+                                          </div>
+                                          <textarea
+                                            value={editLessonForms[lesson.id]?.description || ''}
+                                            onChange={(e) => setEditLessonForms((prev) => ({ ...prev, [lesson.id]: { ...prev[lesson.id], description: e.target.value } }))}
+                                            rows={2}
+                                            className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-ap-copper/50 transition"
+                                            placeholder="Descripción"
+                                          />
+                                        </div>
                                         {editLessonForms[lesson.id]?.videoUrl ? (
                                           <div className="p-2 bg-green-500/10 border border-green-500/30 rounded-lg">
                                             <p className="text-xs text-green-400">✓ Video cargado</p>

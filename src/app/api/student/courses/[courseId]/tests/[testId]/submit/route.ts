@@ -79,9 +79,10 @@ export async function POST(
       isPassed = score !== null && score >= test.passingScore
     }
 
-    // If there are non-MC questions, keep submission PENDING (manual review)
+    // If there are non-MC questions OR this is a final exam, keep submission PENDING
     const hasManualReview = nonMcQuestions.length > 0
-    const status = hasManualReview ? 'PENDING' : (isPassed ? 'APPROVED' : 'PENDING')
+    const isFinalExam = test.isFinalExam
+    const status = (hasManualReview || isFinalExam) ? 'PENDING' : (isPassed ? 'APPROVED' : 'PENDING')
 
     // Create submission + answers in a transaction
     const submission = await db.$transaction(async (tx) => {
@@ -90,7 +91,7 @@ export async function POST(
           courseTestId: testId,
           userId: user.id,
           score,
-          isPassed: !hasManualReview && isPassed,
+          isPassed: !(hasManualReview || isFinalExam) && isPassed,
           attemptNumber: attemptCount + 1,
           status: status as any,
         },
@@ -125,6 +126,7 @@ export async function POST(
         maxAttempts: test.maxAttempts,
         passingScore: test.passingScore,
         hasManualReview,
+        isFinalExam,
         status: submission.status,
       },
     })

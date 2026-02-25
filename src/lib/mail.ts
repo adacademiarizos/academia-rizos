@@ -1,14 +1,131 @@
-import { Resend } from "resend";
 import { env } from "@/lib/env";
+import { createGmailTransport } from "@/lib/gmail";
 
-const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+// ─── Design tokens ────────────────────────────────────────
+// Mirrors the site palette exactly.
+const C = {
+  bg:        "#0D0C0B",   // outermost background
+  card:      "#181716",   // card background
+  cardAlt:   "#211F1C",   // slightly lighter inset areas
+  border:    "#2E2A25",   // subtle dark border
+  copper:    "#B16E34",   // primary accent
+  copperMid: "#8F5828",   // darker copper for borders
+  ivory:     "#FAF4EA",   // primary text
+  ivoryMid:  "#C4B49A",   // secondary text
+  ivoryDim:  "#7A6E60",   // footer/muted text
+  white:     "#FFFFFF",
+};
+
+// ─── Shared layout shell ────────────────────────────────────
+// Every email is wrapped in this. Renders the wordmark header,
+// a custom section header, a body area, and a footer.
+function shell(title: string, body: string, footerNote = "Apoteósicas by Elizabeth Rizos"): string {
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>${title}</title>
+</head>
+<body style="margin:0;padding:0;background-color:${C.bg}">
+<table width="100%" cellpadding="0" cellspacing="0" border="0"
+  style="background-color:${C.bg};min-height:100vh">
+<tr><td align="center" style="padding:32px 16px">
+
+  <!--[if mso]><table width="560" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0"
+    style="max-width:560px;border-radius:12px;overflow:hidden;border:1px solid ${C.border}">
+
+    <!-- WORDMARK HEADER -->
+    <tr>
+      <td style="background-color:${C.card};padding:20px 32px;border-bottom:1px solid ${C.border}">
+        <span style="font-family:Georgia,serif;font-size:13px;letter-spacing:3px;
+          text-transform:uppercase;color:${C.copper};font-style:italic">Apoteósicas</span>
+      </td>
+    </tr>
+
+    <!-- BODY -->
+    <tr>
+      <td style="background-color:${C.card};padding:32px 32px 24px">
+        ${body}
+      </td>
+    </tr>
+
+    <!-- FOOTER -->
+    <tr>
+      <td style="background-color:${C.cardAlt};padding:16px 32px;
+        border-top:1px solid ${C.border}">
+        <span style="font-family:Arial,sans-serif;font-size:12px;color:${C.ivoryDim}">
+          ${footerNote}
+        </span>
+      </td>
+    </tr>
+
+  </table>
+  <!--[if mso]></td></tr></table><![endif]-->
+
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+// Reusable sub-components ────────────────────────────────────
+
+function emailTitle(text: string) {
+  return `<h1 style="font-family:Georgia,serif;font-size:24px;font-weight:normal;
+    color:${C.ivory};margin:0 0 24px;line-height:1.3">${text}</h1>`;
+}
+
+function para(text: string, muted = false) {
+  return `<p style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;
+    color:${muted ? C.ivoryMid : C.ivory};margin:0 0 16px">${text}</p>`;
+}
+
+function dataTable(rows: Array<[string, string]>) {
+  const cells = rows.map(([label, value]) => `
+    <tr>
+      <td style="font-family:Arial,sans-serif;font-size:13px;color:${C.ivoryDim};
+        padding:8px 12px;white-space:nowrap;border-bottom:1px solid ${C.border}">${label}</td>
+      <td style="font-family:Arial,sans-serif;font-size:14px;color:${C.ivory};
+        padding:8px 12px;font-weight:bold;border-bottom:1px solid ${C.border}">${value}</td>
+    </tr>`).join("");
+  return `<table width="100%" cellpadding="0" cellspacing="0" border="0"
+    style="border-radius:8px;overflow:hidden;border:1px solid ${C.border};margin:0 0 20px">
+    ${cells}
+  </table>`;
+}
+
+function ctaButton(label: string, href: string, secondary = false) {
+  return `<a href="${href}"
+    style="display:inline-block;font-family:Arial,sans-serif;font-size:14px;
+      font-weight:bold;text-decoration:none;padding:12px 24px;border-radius:6px;
+      background-color:${secondary ? "transparent" : C.copper};
+      color:${secondary ? C.copper : C.ivory};
+      border:1px solid ${C.copper}">${label}</a>`;
+}
+
+function divider() {
+  return `<div style="border-top:1px solid ${C.border};margin:24px 0"></div>`;
+}
+
+function insetBlock(content: string) {
+  return `<div style="background-color:${C.cardAlt};border:1px solid ${C.border};
+    border-radius:8px;padding:16px 20px;margin:0 0 20px">${content}</div>`;
+}
+
+// ─── Mail helpers ───────────────────────────────────────────
 
 function warn(fn: string, params: unknown) {
-  console.warn(`[mail] RESEND_API_KEY missing, skipping ${fn}`, params);
+  console.warn(`[mail] GMAIL_USER or GMAIL_REFRESH_TOKEN missing — skipping ${fn}`, params);
+}
+
+function isGmailConfigured() {
+  return Boolean(env.GMAIL_USER && env.GMAIL_REFRESH_TOKEN);
 }
 
 // ──────────────────────────────────────────────────────────
-// Recibo de pago
+// 1. Recibo de pago
 // ──────────────────────────────────────────────────────────
 type PaymentReceiptParams = {
   to: string;
@@ -20,38 +137,40 @@ type PaymentReceiptParams = {
 };
 
 export async function sendPaymentReceiptEmail(params: PaymentReceiptParams) {
-  if (!resend) { warn("sendPaymentReceiptEmail", params); return; }
+  if (!isGmailConfigured()) { warn("sendPaymentReceiptEmail", params); return; }
 
   const amount = (params.amountCents / 100).toFixed(2);
   const symbol = params.currency === "EUR" ? "€" : params.currency;
 
-  await resend.emails.send({
+  const rows: Array<[string, string]> = [
+    ["Concepto", params.concept],
+    ["Monto",    `${symbol}${amount}`],
+    ["Referencia", params.paymentId],
+  ];
+  if (params.stripePaymentIntentId) {
+    rows.push(["Stripe ID", params.stripePaymentIntentId]);
+  }
+
+  const body = `
+    ${emailTitle("Pago confirmado")}
+    ${para("Tu pago fue procesado correctamente.")}
+    ${dataTable(rows)}
+    ${divider()}
+    ${para("¿Necesitás ayuda? Respondé a este correo.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
     from: env.EMAIL_FROM,
     to: params.to,
+    replyTo: params.to,
     subject: `Comprobante de pago — ${params.concept}`,
-    html: `
-      <div style="font-family:Arial,sans-serif;line-height:1.5;max-width:560px;margin:0 auto;color:#222">
-        <div style="background:#1a1a2e;padding:28px 32px;border-radius:12px 12px 0 0">
-          <h1 style="color:#fff;margin:0;font-size:22px">Pago confirmado ✓</h1>
-        </div>
-        <div style="background:#f9f7f4;padding:28px 32px;border-radius:0 0 12px 12px;border:1px solid #e5e0d8">
-          <p style="margin-top:0">Gracias. Tu pago fue procesado correctamente.</p>
-          <table style="width:100%;border-collapse:collapse">
-            <tr><td style="padding:6px 0;color:#666">Concepto</td><td style="padding:6px 0;font-weight:bold">${params.concept}</td></tr>
-            <tr><td style="padding:6px 0;color:#666">Monto</td><td style="padding:6px 0;font-weight:bold;font-size:18px">${symbol}${amount}</td></tr>
-            <tr><td style="padding:6px 0;color:#666">Referencia</td><td style="padding:6px 0;font-size:12px;color:#888">${params.paymentId}</td></tr>
-            ${params.stripePaymentIntentId ? `<tr><td style="padding:6px 0;color:#666">Stripe ID</td><td style="padding:6px 0;font-size:12px;color:#888">${params.stripePaymentIntentId}</td></tr>` : ""}
-          </table>
-          <hr style="border:none;border-top:1px solid #e5e0d8;margin:20px 0"/>
-          <p style="color:#777;font-size:13px;margin:0">¿Necesitás ayuda? Respondé a este correo.</p>
-        </div>
-      </div>
-    `,
+    html: shell(`Comprobante de pago — ${params.concept}`, body),
   });
 }
 
 // ──────────────────────────────────────────────────────────
-// Confirmación de cita
+// 2. Confirmación de cita
 // ──────────────────────────────────────────────────────────
 type AppointmentConfirmationParams = {
   to: string;
@@ -64,42 +183,92 @@ type AppointmentConfirmationParams = {
 };
 
 export async function sendAppointmentConfirmationEmail(params: AppointmentConfirmationParams) {
-  if (!resend) { warn("sendAppointmentConfirmationEmail", params); return; }
+  if (!isGmailConfigured()) { warn("sendAppointmentConfirmationEmail", params); return; }
 
   const dateStr = params.startAt.toLocaleDateString("es-ES", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
   const startTime = params.startAt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
-  const endTime = params.endAt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  const endTime   = params.endAt.toLocaleTimeString("es-ES",   { hour: "2-digit", minute: "2-digit" });
 
-  await resend.emails.send({
+  const rows: Array<[string, string]> = [
+    ["Servicio",    params.serviceName],
+    ["Especialista", params.staffName],
+    ["Fecha",       dateStr.charAt(0).toUpperCase() + dateStr.slice(1)],
+    ["Horario",     `${startTime} – ${endTime}`],
+  ];
+  if (params.notes) rows.push(["Notas", params.notes]);
+
+  const body = `
+    ${emailTitle("Tu cita está confirmada")}
+    ${para(`Hola <strong>${params.customerName}</strong>, estos son los detalles de tu cita.`)}
+    ${dataTable(rows)}
+    ${divider()}
+    ${para("¿Necesitás cancelar o reprogramar? Respondé a este correo.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
     from: env.EMAIL_FROM,
     to: params.to,
+    replyTo: params.to,
     subject: `Cita confirmada — ${params.serviceName}`,
-    html: `
-      <div style="font-family:Arial,sans-serif;line-height:1.5;max-width:560px;margin:0 auto;color:#222">
-        <div style="background:#1a1a2e;padding:28px 32px;border-radius:12px 12px 0 0">
-          <h1 style="color:#fff;margin:0;font-size:22px">Cita confirmada 📅</h1>
-        </div>
-        <div style="background:#f9f7f4;padding:28px 32px;border-radius:0 0 12px 12px;border:1px solid #e5e0d8">
-          <p style="margin-top:0">Hola <b>${params.customerName}</b>, tu cita ha sido confirmada.</p>
-          <table style="width:100%;border-collapse:collapse">
-            <tr><td style="padding:6px 0;color:#666">Servicio</td><td style="padding:6px 0;font-weight:bold">${params.serviceName}</td></tr>
-            <tr><td style="padding:6px 0;color:#666">Especialista</td><td style="padding:6px 0;font-weight:bold">${params.staffName}</td></tr>
-            <tr><td style="padding:6px 0;color:#666">Fecha</td><td style="padding:6px 0;font-weight:bold;text-transform:capitalize">${dateStr}</td></tr>
-            <tr><td style="padding:6px 0;color:#666">Horario</td><td style="padding:6px 0;font-weight:bold">${startTime} – ${endTime}</td></tr>
-            ${params.notes ? `<tr><td style="padding:6px 0;color:#666;vertical-align:top">Notas</td><td style="padding:6px 0">${params.notes}</td></tr>` : ""}
-          </table>
-          <hr style="border:none;border-top:1px solid #e5e0d8;margin:20px 0"/>
-          <p style="color:#777;font-size:13px;margin:0">¿Necesitás cancelar o reprogramar? Respondé a este correo.</p>
-        </div>
-      </div>
-    `,
+    html: shell(`Cita confirmada — ${params.serviceName}`, body),
   });
 }
 
 // ──────────────────────────────────────────────────────────
-// Nuevo curso publicado (notificación masiva a estudiantes)
+// 2b. Notificación de nueva cita (para staff y admins)
+// ──────────────────────────────────────────────────────────
+type AppointmentNotificationParams = {
+  to: string | string[];
+  customerName: string;
+  customerEmail: string;
+  serviceName: string;
+  staffName: string;
+  startAt: Date;
+  endAt: Date;
+  notes?: string;
+};
+
+export async function sendAppointmentNotificationEmail(params: AppointmentNotificationParams) {
+  if (!isGmailConfigured()) { warn("sendAppointmentNotificationEmail", params); return; }
+
+  const dateStr = params.startAt.toLocaleDateString("es-ES", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+  const startTime = params.startAt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  const endTime   = params.endAt.toLocaleTimeString("es-ES",   { hour: "2-digit", minute: "2-digit" });
+
+  const rows: Array<[string, string]> = [
+    ["Cliente",     `${params.customerName} (${params.customerEmail})`],
+    ["Servicio",    params.serviceName],
+    ["Especialista", params.staffName],
+    ["Fecha",       dateStr.charAt(0).toUpperCase() + dateStr.slice(1)],
+    ["Horario",     `${startTime} – ${endTime}`],
+  ];
+  if (params.notes) rows.push(["Notas", params.notes]);
+
+  const body = `
+    ${emailTitle("Nueva cita reservada")}
+    ${para(`<strong>${params.customerName}</strong> confirmó una cita. Estos son los detalles:`)}
+    ${dataTable(rows)}
+    ${divider()}
+    ${para("Respondé este correo para contactar directamente al cliente.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: `${params.customerName} <${params.customerEmail}>`,
+    subject: `Nueva cita — ${params.customerName} × ${params.serviceName}`,
+    html: shell(`Nueva cita — ${params.serviceName}`, body),
+  });
+}
+
+// ──────────────────────────────────────────────────────────
+// 3. Nuevo curso publicado
 // ──────────────────────────────────────────────────────────
 type NewCourseNotificationParams = {
   to: string;
@@ -111,38 +280,44 @@ type NewCourseNotificationParams = {
 };
 
 export async function sendNewCourseNotificationEmail(params: NewCourseNotificationParams) {
-  if (!resend) { warn("sendNewCourseNotificationEmail", params); return; }
+  if (!isGmailConfigured()) { warn("sendNewCourseNotificationEmail", params); return; }
 
-  const price = (params.priceCents / 100).toFixed(2);
+  const price  = (params.priceCents / 100).toFixed(2);
   const symbol = params.currency === "EUR" ? "€" : params.currency;
+  const coursesUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/courses`;
 
-  await resend.emails.send({
+  const courseCard = insetBlock(`
+    <p style="font-family:Georgia,serif;font-size:18px;color:${C.ivory};margin:0 0 8px;
+      font-weight:normal">${params.courseTitle}</p>
+    ${params.courseDescription
+      ? `<p style="font-family:Arial,sans-serif;font-size:13px;color:${C.ivoryMid};margin:0 0 12px;line-height:1.5">${params.courseDescription}</p>`
+      : ""}
+    <p style="font-family:Georgia,serif;font-size:22px;color:${C.copper};margin:0;font-weight:bold">${symbol}${price}</p>
+  `);
+
+  const body = `
+    ${emailTitle("Nuevo curso disponible")}
+    ${para(`Hola <strong>${params.studentName}</strong>, hay un nuevo curso esperándote en la plataforma.`)}
+    ${courseCard}
+    <table cellpadding="0" cellspacing="0" border="0"><tr><td>
+      ${ctaButton("Ver curso →", coursesUrl)}
+    </td></tr></table>
+    ${divider()}
+    ${para("Recibís este correo porque estás registrada/o en Apoteósicas.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
     from: env.EMAIL_FROM,
     to: params.to,
-    subject: `¡Nuevo curso disponible — ${params.courseTitle}!`,
-    html: `
-      <div style="font-family:Arial,sans-serif;line-height:1.5;max-width:560px;margin:0 auto;color:#222">
-        <div style="background:#1a1a2e;padding:28px 32px;border-radius:12px 12px 0 0">
-          <h1 style="color:#fff;margin:0;font-size:22px">¡Nuevo curso disponible! 🎓</h1>
-        </div>
-        <div style="background:#f9f7f4;padding:28px 32px;border-radius:0 0 12px 12px;border:1px solid #e5e0d8">
-          <p style="margin-top:0">Hola <b>${params.studentName}</b>, hay un nuevo curso esperándote en la plataforma.</p>
-          <div style="background:#fff;border:1px solid #e5e0d8;border-radius:10px;padding:20px;margin:16px 0">
-            <h2 style="margin:0 0 8px;font-size:18px;color:#1a1a2e">${params.courseTitle}</h2>
-            ${params.courseDescription ? `<p style="color:#555;margin:0 0 12px;font-size:14px">${params.courseDescription}</p>` : ""}
-            <p style="margin:0;font-size:20px;font-weight:bold;color:#b5684a">${symbol}${price}</p>
-          </div>
-          <a href="${process.env.NEXTAUTH_URL ?? ""}/courses" style="display:inline-block;background:#b5684a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;margin-top:8px">Ver curso →</a>
-          <hr style="border:none;border-top:1px solid #e5e0d8;margin:24px 0"/>
-          <p style="color:#777;font-size:13px;margin:0">Recibís este correo porque estás registrada/o en Apoteósicas by Elizabeth Rizos.</p>
-        </div>
-      </div>
-    `,
+    replyTo: params.to,
+    subject: `Nuevo curso disponible — ${params.courseTitle}`,
+    html: shell(`Nuevo curso — ${params.courseTitle}`, body),
   });
 }
 
 // ──────────────────────────────────────────────────────────
-// Reporte de bug (para administradores)
+// 4. Reporte de bug (para administradores)
 // ──────────────────────────────────────────────────────────
 type BugReportEmailParams = {
   to: string | string[];
@@ -155,48 +330,139 @@ type BugReportEmailParams = {
 };
 
 export async function sendBugReportEmail(params: BugReportEmailParams) {
-  if (!resend) { warn("sendBugReportEmail", params); return; }
+  if (!isGmailConfigured()) { warn("sendBugReportEmail", params); return; }
 
-  const typeLabel = params.bugType === "FUNCTIONALITY" ? "⚙️ Funcionalidad" : "📝 Contenido";
-  const imagesHtml = params.imageUrls && params.imageUrls.length > 0
-    ? `<div style="margin-top:16px">
-        <b>Imágenes adjuntas (${params.imageUrls.length}):</b>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">
-          ${params.imageUrls.map((url, i) =>
-            `<a href="${url}" target="_blank" style="display:block">
-              <img src="${url}" alt="Screenshot ${i + 1}" style="max-width:200px;max-height:120px;border-radius:6px;border:1px solid #e5e0d8;object-fit:cover"/>
-            </a>`
-          ).join("")}
-        </div>
-      </div>`
-    : "";
+  const typeLabel = params.bugType === "FUNCTIONALITY" ? "Funcionalidad" : "Contenido";
+  const typeIcon  = params.bugType === "FUNCTIONALITY" ? "&#9881;" : "&#128221;"; // ⚙️ 📝
 
-  const toAddresses = Array.isArray(params.to) ? params.to : [params.to];
+  // Image grid — email-safe 2-column table, images constrained to cell width
+  let imagesHtml = "";
+  if (params.imageUrls && params.imageUrls.length > 0) {
+    // Group images into pairs for a 2-column grid
+    const pairs: string[][] = [];
+    for (let i = 0; i < params.imageUrls.length; i += 2) {
+      pairs.push(params.imageUrls.slice(i, i + 2));
+    }
 
-  await resend.emails.send({
+    const rows = pairs.map((pair) => {
+      const cells = pair.map((url, idx) => `
+        <td width="50%" style="padding:${idx === 1 ? "0 0 8px 4px" : "0 4px 8px 0"}">
+          <a href="${url}" target="_blank"
+            style="display:block;border-radius:6px;overflow:hidden;line-height:0">
+            <img src="${url}" alt="Screenshot"
+              width="100%"
+              style="width:100%;max-width:100%;height:auto;display:block;
+                border-radius:6px;border:1px solid ${C.border}"/>
+          </a>
+        </td>`).join("");
+
+      // Pad to 2 columns if odd image
+      const padded = pair.length < 2
+        ? cells + `<td width="50%" style="padding:0 0 8px 4px"></td>`
+        : cells;
+
+      return `<tr>${padded}</tr>`;
+    }).join("");
+
+    imagesHtml = `
+      ${divider()}
+      <p style="font-family:Arial,sans-serif;font-size:13px;color:${C.ivoryDim};
+        margin:0 0 10px;letter-spacing:0.5px;text-transform:uppercase">
+        Capturas adjuntas (${params.imageUrls.length})
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        ${rows}
+      </table>
+    `;
+  }
+
+  const descBlock = insetBlock(`
+    <p style="font-family:Arial,sans-serif;font-size:12px;color:${C.ivoryDim};
+      margin:0 0 8px;letter-spacing:0.8px;text-transform:uppercase">Descripción</p>
+    <p style="font-family:Arial,sans-serif;font-size:14px;color:${C.ivory};
+      margin:0;line-height:1.6;white-space:pre-wrap">${params.description}</p>
+  `);
+
+  const body = `
+    ${emailTitle(`${typeIcon}&nbsp; Reporte de ${typeLabel}`)}
+    ${dataTable([
+      ["Tipo",          typeLabel],
+      ["Reportado por", `${params.reporterName} &lt;${params.reporterEmail}&gt;`],
+      ["Título",        params.title],
+    ])}
+    ${descBlock}
+    ${imagesHtml}
+    ${divider()}
+    ${para("Este mensaje fue generado automáticamente por la plataforma.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
     from: env.EMAIL_FROM,
-    to: toAddresses,
-    subject: `[Bug Report] ${params.bugType === "FUNCTIONALITY" ? "⚙️ Funcionalidad" : "📝 Contenido"} — ${params.title}`,
-    html: `
-      <div style="font-family:Arial,sans-serif;line-height:1.5;max-width:600px;margin:0 auto;color:#222">
-        <div style="background:#7f1d1d;padding:24px 32px;border-radius:12px 12px 0 0">
-          <h1 style="color:#fff;margin:0;font-size:20px">🐛 Reporte de Bug</h1>
-        </div>
-        <div style="background:#f9f7f4;padding:28px 32px;border-radius:0 0 12px 12px;border:1px solid #e5e0d8">
-          <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
-            <tr><td style="padding:6px 0;color:#666;width:130px">Tipo</td><td style="padding:6px 0;font-weight:bold">${typeLabel}</td></tr>
-            <tr><td style="padding:6px 0;color:#666">Reportado por</td><td style="padding:6px 0"><b>${params.reporterName}</b> &lt;${params.reporterEmail}&gt;</td></tr>
-            <tr><td style="padding:6px 0;color:#666">Título</td><td style="padding:6px 0;font-weight:bold">${params.title}</td></tr>
-          </table>
-          <div style="background:#fff;border:1px solid #e5e0d8;border-radius:8px;padding:16px">
-            <b style="font-size:13px;color:#666;text-transform:uppercase;letter-spacing:0.5px">Descripción</b>
-            <p style="margin:8px 0 0;white-space:pre-wrap">${params.description}</p>
-          </div>
-          ${imagesHtml}
-          <hr style="border:none;border-top:1px solid #e5e0d8;margin:20px 0"/>
-          <p style="color:#777;font-size:12px;margin:0">Este correo fue generado automáticamente por la plataforma Apoteósicas.</p>
-        </div>
-      </div>
-    `,
+    to: params.to,
+    replyTo: `${params.reporterName} <${params.reporterEmail}>`,
+    subject: `[Bug] ${typeLabel} — ${params.title}`,
+    html: shell(`Bug Report — ${params.title}`, body),
+  });
+}
+
+// ──────────────────────────────────────────────────────────
+// 5. Certificado emitido
+// ──────────────────────────────────────────────────────────
+type CertificateEmailParams = {
+  to: string;
+  studentName: string;
+  courseName: string;
+  certificateCode: string;
+  pdfUrl: string;
+};
+
+export async function sendCertificateEmail(params: CertificateEmailParams) {
+  if (!isGmailConfigured()) { warn("sendCertificateEmail", params); return; }
+
+  const appUrl    = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const verifyUrl = `${appUrl}/verify/certificate/${params.certificateCode}`;
+
+  const codeBlock = `
+    <div style="background-color:${C.cardAlt};border:1px solid ${C.copperMid};
+      border-radius:8px;padding:20px;text-align:center;margin:0 0 24px">
+      <p style="font-family:Arial,sans-serif;font-size:11px;color:${C.ivoryDim};
+        margin:0 0 6px;letter-spacing:1.5px;text-transform:uppercase">Código de certificado</p>
+      <p style="font-family:'Courier New',Courier,monospace;font-size:18px;
+        color:${C.copper};margin:0;font-weight:bold;letter-spacing:2px">${params.certificateCode}</p>
+    </div>
+  `;
+
+  // Buttons side by side using table (email-safe, no flex)
+  const buttons = `
+    <table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px">
+      <tr>
+        <td style="padding-right:8px">
+          ${ctaButton("Descargar certificado", params.pdfUrl)}
+        </td>
+        <td>
+          ${ctaButton("Verificar", verifyUrl, true)}
+        </td>
+      </tr>
+    </table>
+  `;
+
+  const body = `
+    ${emailTitle("&#127891;&nbsp; ¡Felicitaciones!")}
+    ${para(`Hola <strong>${params.studentName}</strong>,`)}
+    ${para(`Tu examen fue revisado y aprobado. Has completado exitosamente el curso <strong style="color:${C.copper}">${params.courseName}</strong>.`)}
+    ${codeBlock}
+    ${buttons}
+    ${divider()}
+    ${para("Podés descargar el certificado con el botón de arriba o verificarlo en la plataforma con el código.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: `Tu certificado de "${params.courseName}" está listo`,
+    html: shell(`Certificado — ${params.courseName}`, body),
   });
 }

@@ -9,10 +9,9 @@ import Rizo1 from "@/components/marketing/svgs/Rizo";
 
 const NAV_ITEMS = [
   { label: "Servicios", href: "/#services" },
-  { label: "Resultados", href: "/#results" },
-  { label: "Método", href: "/#method" },
   { label: "Academia", href: "/#academy" },
   { label: "FAQ", href: "/#faq" },
+  { label: "Horarios", href: "/horarios" },
 ];
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
@@ -77,17 +76,27 @@ function Header() {
             <a
               key={item.href}
               href={item.href}
-              className="opacity-70 hover:opacity-100 transition hover:font-bold text-white"
+              className="opacity-70 hover:opacity-100 transition hover:font-bold text-white text-xs"
             >
               {item.label}
             </a>
           ))}
 
           <div className="flex items-center gap-3">
+            {/* Crear cuenta — only when logged out */}
+            {!session?.user && (
+              <Link
+                href="/register"
+                className="inline-flex text-white items-center justify-center gap-2 rounded-full px-4 py-2 border border-white/20 hover:bg-white/10 transition text-sm"
+              >
+                Crear cuenta
+              </Link>
+            )}
+
             {/* Primary CTA */}
             <Link
               href={buttonConfig.href}
-              className="inline-flex bg-(--acent) text-white items-center justify-center gap-2 rounded-full px-4 py-2 bg-ap-copper text-ap-ivory shadow-soft2 hover:opacity-95 transition"
+              className="inline-flex bg-ap-copper items-center justify-center gap-2 rounded-full px-4 py-2 text-ap-ivory shadow-soft2 hover:opacity-95 transition"
             >
               {buttonConfig.label}
               {ButtonIcon && <ButtonIcon className="w-4 h-4" />}
@@ -155,7 +164,7 @@ function MobileMenu() {
               <a
                 key={item.href}
                 href={item.href}
-                className="py-2 text-base opacity-80 hover:opacity-100 transition text-white "
+                className="py-2 text-sm opacity-80 hover:opacity-100 transition text-white "
               >
                 {item.label}
               </a>
@@ -168,6 +177,16 @@ function MobileMenu() {
               >
                 {buttonConfig.label}
               </Link>
+
+              {/* Crear cuenta — only when logged out */}
+              {!session?.user && (
+                <Link
+                  href="/register"
+                  className="inline-flex text-white items-center justify-center gap-2 rounded-full px-4 py-2 border border-white/20 hover:bg-white/10 transition text-sm"
+                >
+                  Crear cuenta
+                </Link>
+              )}
 
               {/* Logout button - only show when authenticated */}
               {session?.user && (

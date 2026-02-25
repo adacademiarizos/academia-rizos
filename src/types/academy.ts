@@ -5,6 +5,7 @@ export type Course = {
   title: string
   description?: string | null
   trailerUrl?: string | null
+  thumbnailUrl?: string | null
   priceCents: number       // net price admin receives
   totalPriceCents: number  // what the customer pays (base + Stripe fees)
   feeCents: number         // Stripe fee amount

@@ -223,11 +223,7 @@ export default function CourseLandingPage() {
                 <p>✓ {accessLabel}</p>
                 <p>✓ Acceso en dispositivos múltiples</p>
                 <p>✓ Descarga certificado al completar</p>
-                {feeCents > 0 && (
-                  <p className="text-xs text-zinc-400 pt-1">
-                    Precio base €{basePriceFormatted} + comisión Stripe €{feeFormatted} = <strong>€{priceFormatted} EUR</strong>
-                  </p>
-                )}
+                
               </div>
             </div>
 

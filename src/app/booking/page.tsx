@@ -69,6 +69,7 @@ function BookingContent() {
   const serviceIdParam = searchParams.get("serviceId") ?? "";
 
   const [services, setServices] = useState<Service[]>([]);
+  const [selectedServiceId, setSelectedServiceId] = useState(serviceIdParam);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [staffId, setStaffId] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -85,24 +86,29 @@ function BookingContent() {
       .catch(() => {});
   }, []);
 
+  // Sync with URL when navigating with serviceId
+  useEffect(() => {
+    if (serviceIdParam) setSelectedServiceId(serviceIdParam);
+  }, [serviceIdParam]);
+
   const service = useMemo(
-    () => services.find((s) => s.id === serviceIdParam) ?? null,
-    [services, serviceIdParam]
+    () => services.find((s) => s.id === selectedServiceId) ?? null,
+    [services, selectedServiceId]
   );
 
   // Fetch staff when service is known
   useEffect(() => {
-    if (!serviceIdParam) return;
+    if (!selectedServiceId) return;
     setStaffId("");
     setSelectedDate(null);
     setSelectedSlot(null);
     setStaff([]);
 
-    fetch(`/api/services/${serviceIdParam}/staff`, { cache: "no-store" })
+    fetch(`/api/services/${selectedServiceId}/staff`, { cache: "no-store" })
       .then(readJsonSafe)
       .then((j) => setStaff(j.data?.staff ?? []))
       .catch(() => {});
-  }, [serviceIdParam]);
+  }, [selectedServiceId]);
 
   // Reset date/slot when staff changes
   useEffect(() => {
@@ -121,7 +127,7 @@ function BookingContent() {
   );
 
   async function handlePay() {
-    if (!serviceIdParam || !staffId || !selectedSlot || !customer.email || !customer.name) return;
+    if (!selectedServiceId || !staffId || !selectedSlot || !customer.email || !customer.name) return;
 
     setLoading(true);
     setErrorMsg(null);
@@ -131,7 +137,7 @@ function BookingContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          serviceId: serviceIdParam,
+          serviceId: selectedServiceId,
           staffId,
           startAt: selectedSlot,
           customer,
@@ -178,7 +184,7 @@ function BookingContent() {
   }
 
   const canPay =
-    !!serviceIdParam && !!staffId && !!selectedSlot && !!customer.email && !!customer.name;
+    !!selectedServiceId && !!staffId && !!selectedSlot && !!customer.email && !!customer.name;
 
   return (
     <main className="min-h-screen bg-[#181716] px-4 py-10 md:px-8 text-white">
@@ -201,7 +207,7 @@ function BookingContent() {
                     className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-1 ring-white/10"
                   />
                 )}
-                <div>
+                <div className="flex-1">
                   <p className="font-semibold text-white">{service.name}</p>
                   {service.description && (
                     <p className="mt-0.5 text-xs text-white/55">{service.description}</p>
@@ -214,11 +220,38 @@ function BookingContent() {
                     )}
                   </div>
                 </div>
+                {!serviceIdParam && (
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedServiceId(""); setStaffId(""); setSelectedDate(null); setSelectedSlot(null); }}
+                    className="shrink-0 text-xs text-white/40 hover:text-white/70 transition"
+                  >
+                    Cambiar
+                  </button>
+                )}
+              </div>
+            ) : services.length > 0 ? (
+              <div className="grid gap-2">
+                <p className="text-xs text-white/40 mb-1">Seleccioná un servicio para continuar</p>
+                {services.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setSelectedServiceId(s.id)}
+                    className="flex items-center gap-3 w-full rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-3 text-left transition"
+                  >
+                    {s.imageUrls[0] && (
+                      <img src={s.imageUrls[0]} alt={s.name} className="h-10 w-10 shrink-0 rounded-xl object-cover" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{s.name}</p>
+                      <p className="text-xs text-[#c8cf94] mt-0.5">{s.durationMin} min</p>
+                    </div>
+                  </button>
+                ))}
               </div>
             ) : (
-              <p className="text-sm text-white/40">
-                {serviceIdParam ? "Cargando servicio…" : "No se indicó servicio."}
-              </p>
+              <p className="text-sm text-white/40">Cargando servicios…</p>
             )}
           </SectionCard>
 
@@ -232,7 +265,7 @@ function BookingContent() {
             <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
               {/* Calendar */}
               <CalendarPicker
-                serviceId={serviceIdParam}
+                serviceId={selectedServiceId}
                 staffId={staffId}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
@@ -245,7 +278,7 @@ function BookingContent() {
                     Horarios disponibles
                   </p>
                   <TimeSlotPicker
-                    serviceId={serviceIdParam}
+                    serviceId={selectedServiceId}
                     staffId={staffId}
                     date={selectedDate}
                     selectedSlot={selectedSlot}
@@ -301,12 +334,34 @@ function BookingContent() {
                     })}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Total</span>
-                  <span className="font-semibold text-[#c8cf94]">
-                    {(selectedStaff.priceCents / 100).toFixed(2)} {selectedStaff.currency}
-                  </span>
-                </div>
+                {service?.billingRule === "DEPOSIT" && service.depositPct ? (() => {
+                  const depositCents = Math.round(selectedStaff.priceCents * service.depositPct / 100);
+                  const remainingCents = selectedStaff.priceCents - depositCents;
+                  return (
+                    <>
+                      <div className="border-t border-white/8 my-1" />
+                      <div className="flex justify-between font-semibold text-[#c8cf94]">
+                        <span>Pagás ahora (seña {service.depositPct}%)</span>
+                        <span>{(depositCents / 100).toFixed(2)} {selectedStaff.currency}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Resto al final del servicio</span>
+                        <span className="text-white/70">{(remainingCents / 100).toFixed(2)} {selectedStaff.currency}</span>
+                      </div>
+                      <div className="flex justify-between text-white/30 pt-0.5">
+                        <span>Total</span>
+                        <span>{(selectedStaff.priceCents / 100).toFixed(2)} {selectedStaff.currency}</span>
+                      </div>
+                    </>
+                  );
+                })() : (
+                  <div className="flex justify-between">
+                    <span>{service?.billingRule === "AUTHORIZE" ? "Pagás en el local" : "Total a pagar"}</span>
+                    <span className="font-semibold text-[#c8cf94]">
+                      {(selectedStaff.priceCents / 100).toFixed(2)} {selectedStaff.currency}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 

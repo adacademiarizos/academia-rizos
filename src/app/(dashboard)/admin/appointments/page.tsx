@@ -2,15 +2,24 @@ import { db } from "@/lib/db";
 import AppointmentsTable from "./ui/AppointmentsTable";
 
 export default async function AdminAppointmentsPage() {
-  const appointments = await db.appointment.findMany({
+  const raw = await db.appointment.findMany({
     orderBy: { startAt: "asc" },
     include: {
       service: true,
       staff: true,
-      customer: true,
       payments: true,
     },
   });
+
+  // Normalize customer display data: prefer linked User, fall back to inline fields
+  const appointments = raw.map((a) => ({
+    ...a,
+    customer: {
+      id:    a.customerId ?? "guest",
+      name:  a.customerName  ?? null,
+      email: a.customerEmail ?? "—",
+    },
+  }));
 
   return (
     <main className="min-h-screen bg-[#181716] px-6 py-10 text-white">

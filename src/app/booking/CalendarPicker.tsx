@@ -31,6 +31,22 @@ export default function CalendarPicker({
   const [month, setMonth] = useState(today.getMonth()); // 0-indexed
   const [availableDates, setAvailableDates] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [closedDaysOfWeek, setClosedDaysOfWeek] = useState<Set<number>>(new Set());
+
+  // Fetch business hours once to know which days of week are always closed
+  useEffect(() => {
+    fetch("/api/schedule", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        const closed = new Set<number>(
+          (j.data?.businessHours ?? [])
+            .filter((h: { isOpen: boolean }) => !h.isOpen)
+            .map((h: { dayOfWeek: number }) => h.dayOfWeek)
+        );
+        setClosedDaysOfWeek(closed);
+      })
+      .catch(() => {});
+  }, []);
 
   // Fetch available days whenever service/staff/month changes
   useEffect(() => {
@@ -117,9 +133,10 @@ export default function CalendarPicker({
           const ymd = toYMD(date);
           const isPast = date <= today;
           const isBeyond = date > maxDate;
-          const isAvailable = !isPast && !isBeyond && availableDates.has(ymd);
+          const isClosed = closedDaysOfWeek.has(date.getDay());
+          const isAvailable = !isPast && !isBeyond && !isClosed && availableDates.has(ymd);
           const isSelected = selectedDate === ymd;
-          const isDisabled = isPast || isBeyond || (!loading && !isAvailable);
+          const isDisabled = isPast || isBeyond || isClosed || (!loading && !isAvailable);
 
           return (
             <button

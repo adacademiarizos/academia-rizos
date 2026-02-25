@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { verifyStripeWebhook } from "@/lib/stripe";
 import { db } from "@/lib/db";
-import { sendPaymentReceiptEmail, sendAppointmentConfirmationEmail } from "@/lib/mail";
+import { sendPaymentReceiptEmail, sendAppointmentConfirmationEmail, sendAppointmentNotificationEmail } from "@/lib/mail";
 import { CourseService } from "@/server/services/course-service";
 import { NotificationService } from "@/server/services/notification-service";
 import { AchievementService } from "@/server/services/achievement-service";
@@ -80,17 +80,17 @@ export async function POST(req: Request) {
           data: { status: "CONFIRMED" },
           include: {
             service: { select: { name: true } },
-            staff: { select: { name: true } },
-            customer: { select: { name: true, email: true } },
+            staff: { select: { name: true, email: true } },
           },
         });
 
         // Email de confirmación de cita al cliente
-        const customerEmail = appointment.customer?.email ?? payerEmail;
+        const customerEmail = appointment.customerEmail ?? payerEmail;
+        const customerName = appointment.customerName ?? "Cliente";
         if (customerEmail) {
           sendAppointmentConfirmationEmail({
             to: customerEmail,
-            customerName: appointment.customer?.name ?? "Cliente",
+            customerName,
             serviceName: appointment.service?.name ?? "Servicio",
             staffName: appointment.staff?.name ?? "Especialista",
             startAt: appointment.startAt,
@@ -99,7 +99,32 @@ export async function POST(req: Request) {
           }).catch((e) => console.error("[mail] appointment confirmation error", e));
         }
 
-        // Notificación in-app al cliente
+        // Email de notificación al staff y admins
+        const admins = await db.user.findMany({
+          where: { role: "ADMIN" },
+          select: { email: true },
+        });
+        const adminEmails = admins.map((a) => a.email);
+        const staffEmail = appointment.staff?.email;
+        const notifyRecipients = [
+          ...(staffEmail ? [staffEmail] : []),
+          ...adminEmails,
+        ].filter((e, i, arr) => arr.indexOf(e) === i); // deduplicate
+
+        if (notifyRecipients.length > 0 && customerEmail) {
+          sendAppointmentNotificationEmail({
+            to: notifyRecipients,
+            customerName,
+            customerEmail,
+            serviceName: appointment.service?.name ?? "Servicio",
+            staffName: appointment.staff?.name ?? "Especialista",
+            startAt: appointment.startAt,
+            endAt: appointment.endAt,
+            notes: appointment.notes ?? undefined,
+          }).catch((e) => console.error("[mail] staff notification error", e));
+        }
+
+        // Notificación in-app al cliente (solo si tiene cuenta)
         if (appointment.customerId) {
           NotificationService.createNotification({
             userId: appointment.customerId,

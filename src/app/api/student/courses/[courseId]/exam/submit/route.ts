@@ -105,61 +105,27 @@ export async function POST(
 
     let submission
     if (existingSubmission) {
-      // Update existing submission
+      // Update existing submission — reset to PENDING for new review
       submission = await db.examSubmission.update({
         where: { id: existingSubmission.id },
         data: {
           score: scorePercentage,
           isPassed,
+          status: 'PENDING',
+          reviewedAt: null,
+          reviewNote: null,
           submittedAt: new Date(),
         },
       })
     } else {
-      // Create new submission
+      // Create new submission — always PENDING, awaiting admin approval
       submission = await db.examSubmission.create({
         data: {
           examId: exam.id,
           userId: user.id,
           score: scorePercentage,
           isPassed,
-        },
-      })
-    }
-
-    // If exam is passed, create/update certificate and record activity
-    let certificateUrl = null
-    if (isPassed) {
-      // Check if certificate exists
-      const existingCert = await db.certificate.findFirst({
-        where: {
-          userId: user.id,
-          courseId,
-        },
-      })
-
-      if (!existingCert) {
-        const cert = await db.certificate.create({
-          data: {
-            code: generateCertificateCode(),
-            courseId,
-            userId: user.id,
-            issuedAt: new Date(),
-            valid: true,
-            pdfUrl: null, // TODO: Generate certificate PDF
-          },
-        })
-        certificateUrl = cert.code
-      } else {
-        certificateUrl = existingCert.code
-      }
-
-      // Record activity
-      await db.userActivity.create({
-        data: {
-          userId: user.id,
-          type: 'TEST_PASSED',
-          courseId,
-          metadata: { examScore: scorePercentage },
+          status: 'PENDING',
         },
       })
     }
@@ -173,10 +139,8 @@ export async function POST(
         passingScore: exam.passingScore,
         correctCount,
         totalAutoGradedQuestions: autoGradedCount,
-        certificateCode: certificateUrl,
-        message: isPassed
-          ? `Congratulations! You scored ${Math.round(scorePercentage)}% and passed the exam.`
-          : `You scored ${Math.round(scorePercentage)}%. You need ${exam.passingScore}% to pass.`,
+        pending: true,
+        message: 'Tu examen fue enviado. Un administrador lo revisará y recibirás tu certificado cuando sea aprobado.',
       },
     })
   } catch (error) {
@@ -200,13 +164,4 @@ export async function POST(
       { status: 500 }
     )
   }
-}
-
-/**
- * Generate a unique certificate code
- */
-function generateCertificateCode(): string {
-  const timestamp = Date.now().toString(36).toUpperCase()
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase()
-  return `CERT-${timestamp}-${random}`
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { db } from '@/lib/db'
+import { generateAndSaveCertificate } from '@/server/services/certificate.service'
 
 const ReviewSchema = z.object({
   status: z.enum(['APPROVED', 'REVISION_REQUESTED']),
@@ -26,7 +27,7 @@ export async function PUT(
 
     const { courseId, testId, submissionId } = await params
 
-    const test = await db.courseTest.findUnique({ where: { id: testId }, select: { courseId: true } })
+    const test = await db.courseTest.findUnique({ where: { id: testId }, select: { courseId: true, isFinalExam: true } })
     if (!test || test.courseId !== courseId) {
       return NextResponse.json({ success: false, error: 'Test not found' }, { status: 404 })
     }
@@ -44,14 +45,22 @@ export async function PUT(
       data: {
         status: data.status,
         isPassed: data.isPassed ?? (data.status === 'APPROVED'),
+        reviewedAt: new Date(),
       },
     })
+
+    // Trigger certificate generation when approving a final exam
+    if (data.status === 'APPROVED' && test.isFinalExam) {
+      await generateAndSaveCertificate(existing.userId, courseId)
+    }
 
     return NextResponse.json({ success: true, data: submission })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ success: false, error: error.errors }, { status: 400 })
     }
-    return NextResponse.json({ success: false, error: 'Failed to review submission' }, { status: 500 })
+    console.error('Error reviewing submission:', error)
+    const message = error instanceof Error ? error.message : 'Failed to review submission'
+    return NextResponse.json({ success: false, error: message }, { status: 500 })
   }
 }

@@ -31,16 +31,19 @@ export default function AdminCoursesPage() {
   const [newCourse, setNewCourse] = useState<{
     title: string
     description: string
-    priceCents: number
     rentalDays: number | undefined
     isActive: boolean
+    thumbnailUrl: string
   }>({
     title: '',
     description: '',
-    priceCents: 0,
     rentalDays: undefined,
     isActive: true,
+    thumbnailUrl: '',
   })
+  const [priceInput, setPriceInput] = useState('')
+  const [thumbnailUploading, setThumbnailUploading] = useState(false)
+  const [thumbnailError, setThumbnailError] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -85,6 +88,27 @@ export default function AdminCoursesPage() {
     }
   }
 
+  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setThumbnailError(null)
+    setThumbnailUploading(true)
+
+    try {
+      const form = new FormData()
+      form.append('image', file)
+      const res = await fetch('/api/admin/uploads/image', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok || !data.ok) throw new Error(data.error?.message ?? 'Error al subir imagen')
+      setNewCourse((prev) => ({ ...prev, thumbnailUrl: data.data.url }))
+    } catch (err: any) {
+      setThumbnailError(err.message)
+    } finally {
+      setThumbnailUploading(false)
+    }
+  }
+
   const handleCreateCourse = async () => {
     try {
       if (!newCourse.title.trim()) {
@@ -92,11 +116,25 @@ export default function AdminCoursesPage() {
         return
       }
 
+      if (!newCourse.thumbnailUrl) {
+        alert('La miniatura del curso es requerida')
+        return
+      }
+
+      const baseVal = parseFloat(priceInput)
+      if (!priceInput || isNaN(baseVal) || baseVal <= 0) {
+        alert('Ingresá un precio válido mayor a 0')
+        return
+      }
+
+      const baseCents = Math.round(baseVal * 100)
+
       const response = await fetch('/api/admin/courses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newCourse,
+          priceCents: baseCents,
           rentalDays: newCourse.rentalDays || undefined,
         }),
       })
@@ -106,10 +144,11 @@ export default function AdminCoursesPage() {
         setNewCourse({
           title: '',
           description: '',
-          priceCents: 0,
           rentalDays: undefined,
           isActive: true,
+          thumbnailUrl: '',
         })
+        setPriceInput('')
         fetchCourses()
         alert('Curso creado exitosamente')
       } else {
@@ -257,12 +296,6 @@ export default function AdminCoursesPage() {
                   </td>
                   <td className="px-6 py-4 text-sm text-white/60">
                     <span className="text-white">€{(course.priceCents / 100).toFixed(2)}</span>
-                    {(() => {
-                      const fee = Math.round(course.priceCents * (feeSettings.feePercent / 100) + feeSettings.feeFixedCents)
-                      return (
-                        <span className="text-white/40 ml-1 text-xs">(cliente: €{((course.priceCents + fee) / 100).toFixed(2)})</span>
-                      )
-                    })()}
                   </td>
                   <td className="px-6 py-4 text-sm">
                     <span
@@ -306,117 +339,128 @@ export default function AdminCoursesPage() {
 
       {/* Modal - Create Course */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#1a1a2e] border border-white/10 rounded-[28px] p-8 max-w-md w-full mx-4">
-            <h2 className="text-xl font-semibold text-white mb-5">Crear nuevo curso</h2>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
+          <div className="bg-[#181716] border border-white/10 rounded-3xl p-7 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <h2
+              className="text-xl text-white mb-6"
+              style={{ fontFamily: 'Georgia, serif' }}
+            >
+              Nuevo curso
+            </h2>
 
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
+              {/* Thumbnail upload */}
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-1.5">
-                  Título
+                <label className="block text-xs font-semibold text-white/50 uppercase tracking-wide mb-2">
+                  Miniatura <span className="text-red-400">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={newCourse.title}
-                  onChange={(e) =>
-                    setNewCourse({ ...newCourse, title: e.target.value })
-                  }
-                  className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-xl px-4 py-2.5 outline-none focus:border-ap-copper/50 transition"
-                  placeholder="Nombre del curso"
-                />
+                {newCourse.thumbnailUrl ? (
+                  <div className="relative w-full h-36 rounded-2xl overflow-hidden">
+                    <img src={newCourse.thumbnailUrl} alt="Miniatura" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setNewCourse((prev) => ({ ...prev, thumbnailUrl: '' }))}
+                      className="absolute top-2 right-2 bg-black/60 text-white text-xs px-3 py-1.5 rounded-xl hover:bg-black/80 transition"
+                    >
+                      Cambiar
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-28 cursor-pointer rounded-2xl border border-dashed border-white/20 hover:border-white/40 transition">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleThumbnailUpload}
+                      disabled={thumbnailUploading}
+                    />
+                    <span className="text-sm text-white/40">
+                      {thumbnailUploading ? 'Subiendo…' : 'Seleccionar imagen'}
+                    </span>
+                    <span className="text-xs text-white/25 mt-1">JPG, PNG, WebP · máx 5 MB</span>
+                  </label>
+                )}
+                {thumbnailError && <p className="text-xs text-red-400 mt-1.5">{thumbnailError}</p>}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1.5">
-                  Descripción
-                </label>
-                <textarea
-                  value={newCourse.description}
-                  onChange={(e) =>
-                    setNewCourse({ ...newCourse, description: e.target.value })
-                  }
-                  className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-xl px-4 py-2.5 outline-none focus:border-ap-copper/50 transition"
-                  placeholder="Descripción del curso"
-                  rows={3}
-                />
-              </div>
+              <input
+                type="text"
+                value={newCourse.title}
+                onChange={(e) => setNewCourse({ ...newCourse, title: e.target.value })}
+                placeholder="Título del curso"
+                className="h-11 rounded-2xl bg-white/5 px-4 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition"
+              />
+
+              <textarea
+                value={newCourse.description}
+                onChange={(e) => setNewCourse({ ...newCourse, description: e.target.value })}
+                placeholder="Descripción (opcional)"
+                rows={3}
+                className="rounded-2xl bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition resize-none"
+              />
 
               <div>
-                <label className="block text-sm font-medium text-white/70 mb-1.5">
-                  Precio (€ EUR)
-                </label>
                 <input
                   type="number"
-                  value={newCourse.priceCents / 100}
-                  onChange={(e) =>
-                    setNewCourse({
-                      ...newCourse,
-                      priceCents: Math.round(parseFloat(e.target.value) * 100),
-                    })
-                  }
-                  className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-xl px-4 py-2.5 outline-none focus:border-ap-copper/50 transition"
-                  placeholder="0.00"
+                  value={priceInput}
+                  onChange={(e) => setPriceInput(e.target.value)}
+                  placeholder="Precio base (€)"
                   min="0"
                   step="0.01"
+                  className="h-11 w-full rounded-2xl bg-white/5 px-4 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition"
                 />
-                {newCourse.priceCents > 0 && (() => {
-                  const fee = Math.round(newCourse.priceCents * (feeSettings.feePercent / 100) + feeSettings.feeFixedCents)
-                  const total = newCourse.priceCents + fee
+                {priceInput && !isNaN(parseFloat(priceInput)) && parseFloat(priceInput) > 0 && (() => {
+                  const baseCents = Math.round(parseFloat(priceInput) * 100)
+                  const feeCents = Math.round(baseCents * feeSettings.feePercent / 100) + feeSettings.feeFixedCents
+                  const totalCents = baseCents + feeCents
                   return (
                     <p className="text-xs text-white/40 mt-1.5">
-                      El cliente paga: <span className="text-ap-copper font-medium">€{(total / 100).toFixed(2)}</span>
-                      {' '}(base €{(newCourse.priceCents / 100).toFixed(2)} + Stripe €{(fee / 100).toFixed(2)})
+                      El cliente paga{' '}
+                      <span className="text-[#c8cf94] font-medium">€{(totalCents / 100).toFixed(2)}</span>
+                      {' '}(base €{(baseCents / 100).toFixed(2)} + Stripe €{(feeCents / 100).toFixed(2)})
                     </p>
                   )
                 })()}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-white/70 mb-1.5">
-                  Días de acceso (opcional, dejar en blanco para acceso de por vida)
-                </label>
-                <input
-                  type="number"
-                  value={newCourse.rentalDays || ''}
-                  onChange={(e) =>
-                    setNewCourse({
-                      ...newCourse,
-                      rentalDays: e.target.value ? parseInt(e.target.value) : undefined,
-                    })
-                  }
-                  className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-xl px-4 py-2.5 outline-none focus:border-ap-copper/50 transition"
-                  min="1"
-                />
-              </div>
+              <input
+                type="number"
+                value={newCourse.rentalDays ?? ''}
+                onChange={(e) =>
+                  setNewCourse({
+                    ...newCourse,
+                    rentalDays: e.target.value ? parseInt(e.target.value) : undefined,
+                  })
+                }
+                placeholder="Días de acceso (vacío = vitalicio)"
+                min="1"
+                className="h-11 rounded-2xl bg-white/5 px-4 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition"
+              />
 
-              <div className="flex items-center gap-2">
+              <label className="flex items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
-                  id="isActive"
                   checked={newCourse.isActive}
-                  onChange={(e) =>
-                    setNewCourse({ ...newCourse, isActive: e.target.checked })
-                  }
+                  onChange={(e) => setNewCourse({ ...newCourse, isActive: e.target.checked })}
                   className="rounded"
                 />
-                <label htmlFor="isActive" className="text-sm text-white/70">
-                  Curso activo
-                </label>
-              </div>
+                <span className="text-sm text-white/60">Activar curso al crear</span>
+              </label>
             </div>
 
             <div className="mt-6 flex gap-3">
               <button
-                onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2.5 bg-white/10 text-white/80 rounded-xl hover:bg-white/15 transition"
+                onClick={() => { setShowModal(false); setPriceInput('') }}
+                className="flex-1 h-11 rounded-2xl bg-white/5 border border-white/10 text-sm text-white/70 hover:bg-white/10 transition"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateCourse}
-                className="flex-1 px-4 py-2.5 bg-ap-copper text-white rounded-xl hover:bg-orange-700 transition font-medium"
+                disabled={!newCourse.thumbnailUrl || thumbnailUploading}
+                className="flex-1 h-11 rounded-2xl bg-[#646a40] text-sm font-semibold text-white ring-1 ring-white/10 hover:opacity-90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
-                Crear
+                Crear curso
               </button>
             </div>
           </div>

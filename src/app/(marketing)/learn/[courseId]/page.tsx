@@ -27,12 +27,20 @@ interface CourseTestItem {
   _count: { questions: number };
 }
 
+interface Certificate {
+  id: string;
+  code: string;
+  pdfUrl: string;
+  issuedAt: string;
+}
+
 interface DashboardData {
   course: Course;
   modules: Module[];
   progress: number;
   allModulesCompleted: boolean;
   courseTests: CourseTestItem[];
+  certificate: Certificate | null;
 }
 
 export default function LearningDashboard() {
@@ -68,12 +76,25 @@ export default function LearningDashboard() {
           // Course tests are optional — don't fail the whole page
         }
 
+        // Fetch certificate (non-critical)
+        let certificate: Certificate | null = null;
+        try {
+          const certResponse = await fetch(`/api/student/courses/${courseId}/certificate`);
+          if (certResponse.ok) {
+            const certData = await certResponse.json();
+            certificate = certData.data ?? null;
+          }
+        } catch {
+          // Certificate is optional — don't fail the whole page
+        }
+
         setData({
           course: courseData.data,
           modules: modulesData.data.modules,
           progress: modulesData.data.progress,
           allModulesCompleted: modulesData.data.progress === 100,
           courseTests,
+          certificate,
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
@@ -319,9 +340,27 @@ export default function LearningDashboard() {
               <button className="w-full py-2 rounded-lg bg-ap-copper/20 text-ap-copper hover:bg-ap-copper/30 transition text-sm font-medium">
                 Descargar Materiales
               </button>
-              <button className="w-full py-2 rounded-lg bg-zinc-700/50 text-zinc-300 hover:bg-zinc-700 transition text-sm font-medium">
-                Ver Certificado
-              </button>
+
+              {/* Certificate section */}
+              {data.certificate ? (
+                <div className="space-y-2">
+                  <a
+                    href={data.certificate.pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-green-500/20 text-green-400 hover:bg-green-500/30 transition text-sm font-medium border border-green-500/30"
+                  >
+                    <span>⬇</span> Descargar Certificado
+                  </a>
+                  <p className="text-xs text-zinc-500 text-center">
+                    Código: <span className="font-mono text-zinc-400">{data.certificate.code}</span>
+                  </p>
+                </div>
+              ) : (
+                <div className="w-full py-2 rounded-lg bg-white/5 text-zinc-500 text-sm font-medium text-center border border-zinc-700 cursor-default select-none">
+                  {data.allModulesCompleted ? "⏳ Certificado pendiente de revisión" : "Certificado no disponible aún"}
+                </div>
+              )}
             </div>
 
             {/* Tips Card */}

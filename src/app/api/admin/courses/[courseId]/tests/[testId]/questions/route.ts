@@ -8,7 +8,7 @@ const CreateQuestionSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
   order: z.number().int().min(0).optional(),
-  config: z.record(z.any()).default({}),
+  config: z.record(z.string(), z.unknown()).default({}),
 })
 
 async function requireAdmin() {

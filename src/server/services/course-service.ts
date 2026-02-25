@@ -45,6 +45,7 @@ export class CourseService {
         title: course.title,
         description: course.description,
         trailerUrl: course.trailerUrl,
+        thumbnailUrl: course.thumbnailUrl,
         priceCents: course.priceCents,
         totalPriceCents: totalCents,
         feeCents,
@@ -112,6 +113,7 @@ export class CourseService {
       title: course.title,
       description: course.description,
       trailerUrl: course.trailerUrl,
+      thumbnailUrl: course.thumbnailUrl,
       priceCents: course.priceCents,
       totalPriceCents: totalCents,
       feeCents,
@@ -141,15 +143,16 @@ export class CourseService {
     })
 
     if (!access) {
-      return { hasAccess: false, isExpired: false }
+      return { hasAccess: false, isExpired: false, canWatchVideos: false }
     }
 
-    // Check if rental has expired
-    const isExpired = access.accessUntil && access.accessUntil < new Date()
+    // Check if video rental period has expired
+    const isExpired = !!(access.accessUntil && access.accessUntil < new Date())
 
     return {
-      hasAccess: !isExpired,
-      isExpired: isExpired || false,
+      hasAccess: true,          // purchased — always true once enrolled
+      isExpired,
+      canWatchVideos: !isExpired, // false only when rentalDays has passed
       accessUntil: access.accessUntil,
     }
   }

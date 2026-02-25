@@ -1,7 +1,7 @@
 "use client";
 
 import SectionHead from "./SectionHead";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useState } from "react";
 
 function clamp(n: number, min = 0, max = 100) {
   return Math.max(min, Math.min(max, n));
@@ -16,24 +16,31 @@ function isInteractiveTarget(target: EventTarget | null) {
   );
 }
 
-export default function BeforeAfter() {
+type Pair = { id: string; beforeUrl: string; afterUrl: string; label: string | null };
+
+export default function BeforeAfter({ pairs }: { pairs: Pair[] }) {
   const [currentCase, setCurrentCase] = useState(0);
   const [sliderPosition, setSliderPosition] = useState(50);
   const [dragging, setDragging] = useState(false);
 
-  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const wrapRef = React.useRef<HTMLDivElement | null>(null);
 
-  const cases = useMemo(
-    () =>
-      Array.from({ length: 8 }).map((_, i) => ({
-        id: i,
-        before: `https://images.unsplash.com/photo-1520975916090-3105956dac38?auto=format&fit=crop&w=900&q=70&sig=before${i}`,
-        after: `https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=900&q=70&sig=after${i}`,
-      })),
-    []
-  );
+  if (pairs.length === 0) {
+    return (
+      <section id="results" className="mx-auto max-w-6xl">
+        <SectionHead
+          kicker="Resultados"
+          title="Inspirate con transformaciones"
+          subtitle="Arrastrá el control para comparar el antes y después"
+        />
+        <div className="mt-10 flex items-center justify-center h-40 rounded-xl border border-white/10 bg-white/5 text-sm text-white/40">
+          Próximamente — resultados reales de nuestras clientas
+        </div>
+      </section>
+    );
+  }
 
-  const current = cases[currentCase];
+  const current = pairs[currentCase];
 
   const setFromClientX = (clientX: number) => {
     const el = wrapRef.current;
@@ -45,12 +52,12 @@ export default function BeforeAfter() {
   };
 
   const handlePrevious = () => {
-    setCurrentCase((prev) => (prev === 0 ? cases.length - 1 : prev - 1));
+    setCurrentCase((prev) => (prev === 0 ? pairs.length - 1 : prev - 1));
     setSliderPosition(50);
   };
 
   const handleNext = () => {
-    setCurrentCase((prev) => (prev === cases.length - 1 ? 0 : prev + 1));
+    setCurrentCase((prev) => (prev === pairs.length - 1 ? 0 : prev + 1));
     setSliderPosition(50);
   };
 
@@ -88,7 +95,7 @@ export default function BeforeAfter() {
         >
           {/* AFTER (base) */}
           <img
-            src={current.after}
+            src={current.afterUrl}
             alt="Después"
             className="absolute inset-0 h-full w-full object-cover"
             draggable={false}
@@ -96,7 +103,7 @@ export default function BeforeAfter() {
 
           {/* BEFORE (clip-path, no reescala) */}
           <img
-            src={current.before}
+            src={current.beforeUrl}
             alt="Antes"
             className="absolute inset-0 h-full w-full object-cover"
             style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}
@@ -143,7 +150,7 @@ export default function BeforeAfter() {
 
             <div className="pointer-events-none text-center bg-black/50 px-4 py-2 rounded-full">
               <p className="text-xs font-semibold text-ap-ivory">
-                {currentCase + 1}/{cases.length}
+                {currentCase + 1}/{pairs.length}
               </p>
             </div>
 

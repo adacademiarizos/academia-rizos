@@ -171,9 +171,6 @@ p {
   background: rgba(100, 106, 64, 0.60);
 }
 
-/* ── Scroll-driven section reveal — GSAP handles animation ──── */
-/* clip-path, opacity and y are set directly by ScrollRevealSection.tsx */
-
 @media (width >= 768px) {
   .own_animated {
     height: 60px;

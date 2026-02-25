@@ -19,6 +19,11 @@ import {
   MessageSquare,
   Bug,
   UserCog,
+  Images,
+  HelpCircle,
+  ClipboardCheck,
+  Clock,
+  BookOpen,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { MobileDrawer } from "./mobile/MobileDrawer";
@@ -28,13 +33,18 @@ const ADMIN_NAV = [
   { label: "Servicios", href: "/admin/services", icon: Scissors },
   { label: "Staff", href: "/admin/staff", icon: Users },
   { label: "Citas", href: "/admin/appointments", icon: CalendarDays },
+  { label: "Horarios", href: "/admin/schedule", icon: Clock },
   { label: "Cursos", href: "/admin/courses", icon: GraduationCap },
   { label: "Certificados", href: "/admin/certificates", icon: FileCheck },
+  { label: "Revisar Exámenes", href: "/admin/certificates/review", icon: ClipboardCheck },
   { label: "Links de pago", href: "/admin/payment-links", icon: Link2 },
+  { label: "Antes y Después", href: "/admin/before-after", icon: Images },
+  { label: "FAQ", href: "/admin/faq", icon: HelpCircle },
   { label: "Usuarios", href: "/admin/users", icon: UserCog },
   { label: "Comunidad", href: "/community", icon: MessageSquare },
   { label: "Settings", href: "/admin/settings", icon: Settings },
   { label: "Reportar Bug", href: "/bug-report", icon: Bug },
+  { label: "Manuales", href: "/admin/manuales", icon: BookOpen },
 ];
 
 const STAFF_NAV = [
@@ -43,6 +53,7 @@ const STAFF_NAV = [
   { label: "Mis Clientes", href: "/staff/clients", icon: Users },
   { label: "Comunidad", href: "/community", icon: MessageSquare },
   { label: "Reportar Bug", href: "/bug-report", icon: Bug },
+  { label: "Manual", href: "/staff/manual", icon: BookOpen },
 ];
 
 const STUDENT_NAV = [
@@ -138,7 +149,7 @@ export function Sidebar() {
         {/* Logo */}
         <div className="px-5 py-5 border-b border-white/5">
           <Link
-            href={userRole === "ADMIN" ? "/admin" : userRole === "STAFF" ? "/staff/appointments" : "/student"}
+            href="/"
             className="flex items-center gap-3"
           >
             <img src="/logo.png" alt="Logo" className="h-10 w-auto" />
@@ -205,6 +216,7 @@ function NavLinks({ navItems }: { navItems: typeof ADMIN_NAV }) {
           pathname === item.href ||
           (item.href !== "/admin" &&
             item.href !== "/student" &&
+            item.href !== "/admin/certificates" &&
             pathname.startsWith(item.href));
         const Icon = item.icon;
 
