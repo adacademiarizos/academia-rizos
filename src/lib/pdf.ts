@@ -1,4 +1,3 @@
-import puppeteer from 'puppeteer'
 // @ts-ignore
 import QRCode from 'qrcode'
 
@@ -380,6 +379,10 @@ export async function generateCertificatePdf(params: CertificatePdfParams): Prom
   </div>
 </body>
 </html>`
+
+  // Lazy-load puppeteer so it is only evaluated at runtime (not during build)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const puppeteer = (await import('puppeteer')).default
 
   const browser = await puppeteer.launch({
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
