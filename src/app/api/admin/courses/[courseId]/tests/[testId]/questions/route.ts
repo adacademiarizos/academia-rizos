@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { db } from '@/lib/db'
+import { Prisma } from '@prisma/client'
 
 const CreateQuestionSchema = z.object({
   type: z.enum(['MULTIPLE_CHOICE', 'WRITTEN', 'FILE_UPLOAD']),
@@ -72,14 +73,14 @@ export async function POST(
         title: data.title,
         description: data.description,
         order,
-        config: data.config,
+        config: data.config as Prisma.InputJsonValue,
       },
     })
 
     return NextResponse.json({ success: true, data: question }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors }, { status: 400 })
+      return NextResponse.json({ success: false, error: error.issues }, { status: 400 })
     }
     console.error('Error creating question:', error)
     return NextResponse.json({ success: false, error: 'Failed to create question' }, { status: 500 })

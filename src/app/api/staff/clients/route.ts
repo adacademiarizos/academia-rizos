@@ -34,7 +34,8 @@ export async function GET() {
   }>();
 
   for (const appt of appointments) {
-    const cid = appt.customerId;
+    if (!appt.customer) continue;
+    const cid = appt.customerId!;
     if (!clientMap.has(cid)) {
       clientMap.set(cid, {
         id: cid,

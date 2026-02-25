@@ -132,7 +132,7 @@ export async function POST(
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors }, { status: 400 })
+      return NextResponse.json({ success: false, error: error.issues }, { status: 400 })
     }
     console.error('Error submitting test:', error)
     return NextResponse.json({ success: false, error: 'Failed to submit test' }, { status: 500 })

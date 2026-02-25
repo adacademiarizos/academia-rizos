@@ -44,7 +44,7 @@ export async function PATCH(
     return NextResponse.json({ success: true, data: certificate })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors }, { status: 400 })
+      return NextResponse.json({ success: false, error: error.issues }, { status: 400 })
     }
     return NextResponse.json({ success: false, error: 'Failed to update certificate' }, { status: 500 })
   }

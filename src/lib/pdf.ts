@@ -1,4 +1,5 @@
 import puppeteer from 'puppeteer'
+// @ts-ignore
 import QRCode from 'qrcode'
 
 export interface CertificatePdfParams {

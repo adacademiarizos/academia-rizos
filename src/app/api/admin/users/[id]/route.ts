@@ -18,7 +18,7 @@ export async function PATCH(
   }
 
   // Prevent self-demotion (admin can't change their own role)
-  if (id === auth.user.id) {
+  if (id === auth.user!.id) {
     return NextResponse.json(
       { ok: false, error: "No puedes cambiar tu propio rol" },
       { status: 400 }

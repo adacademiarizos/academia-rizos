@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { db } from '@/lib/db'
+import { Prisma } from '@prisma/client'
 
 const UpdateQuestionSchema = z.object({
   type: z.enum(['MULTIPLE_CHOICE', 'WRITTEN', 'FILE_UPLOAD']).optional(),
@@ -42,12 +43,12 @@ export async function PUT(
     const body = await req.json()
     const data = UpdateQuestionSchema.parse(body)
 
-    const question = await db.question.update({ where: { id: questionId }, data })
+    const question = await db.question.update({ where: { id: questionId }, data: { ...data, config: data.config as Prisma.InputJsonValue | undefined } })
 
     return NextResponse.json({ success: true, data: question })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors }, { status: 400 })
+      return NextResponse.json({ success: false, error: error.issues }, { status: 400 })
     }
     return NextResponse.json({ success: false, error: 'Failed to update question' }, { status: 500 })
   }

@@ -28,12 +28,12 @@ export default function AdminServicesPage() {
 
   // Create form
   const [creating, setCreating] = useState(false);
-  const emptyNew = { name: "", description: "", durationMin: 60, billingRule: "FULL" as const, depositPct: "" };
+  const emptyNew = { name: "", description: "", durationMin: 60, billingRule: "FULL" as "FULL" | "DEPOSIT" | "AUTHORIZE", depositPct: "" };
   const [newService, setNewService] = useState(emptyNew);
 
   // Edit state — keyed by service id
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<Partial<Service & { depositPct: string | number | null }>>({});
+  const [editDraft, setEditDraft] = useState<Partial<Omit<Service, 'depositPct'> & { depositPct: string | number | null }>>({});
 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);

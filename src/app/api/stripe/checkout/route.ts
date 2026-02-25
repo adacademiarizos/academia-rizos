@@ -93,7 +93,7 @@ export async function POST(req: Request) {
       mode: "payment",
       success_url: `${baseUrl}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/booking?canceled=1`,
-      customer_email: appointment.customer.email,
+      customer_email: appointment.customer!.email,
       line_items: [
         {
           quantity: 1,
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
         currency: price.currency,
         stripeCheckoutSessionId: session.id,
         appointmentId: appointment.id,
-        payerEmail: appointment.customer.email,
+        payerEmail: appointment.customer!.email,
         payerId: appointment.customerId,
         metadata: session.metadata as any,
       },

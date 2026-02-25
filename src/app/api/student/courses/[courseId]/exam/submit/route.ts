@@ -85,7 +85,7 @@ export async function POST(
 
       if (question.type === 'MULTIPLE_CHOICE' && answer) {
         autoGradedCount++
-        if (answer === question.config.correctAnswer) {
+        if (answer === (question.config as Record<string, any>)?.correctAnswer) {
           correctCount++
         }
       }

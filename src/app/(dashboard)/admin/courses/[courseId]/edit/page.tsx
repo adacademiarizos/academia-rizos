@@ -28,6 +28,7 @@ interface TestQuestion {
   title: string
   order: number
   config: Record<string, any>
+  type?: string
 }
 
 interface ModuleTest {
@@ -135,6 +136,7 @@ export default function CourseEditPage() {
     order: 1,
     title: '',
     description: '',
+    videoUrl: '',
     transcript: '',
   })
 
@@ -364,6 +366,7 @@ export default function CourseEditPage() {
       order: 1,
       title: '',
       description: '',
+      videoUrl: '',
       transcript: '',
     })
   }

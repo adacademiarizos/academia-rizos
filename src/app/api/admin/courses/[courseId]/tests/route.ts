@@ -77,7 +77,7 @@ export async function POST(
     return NextResponse.json({ success: true, data: test }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors }, { status: 400 })
+      return NextResponse.json({ success: false, error: error.issues }, { status: 400 })
     }
     console.error('Error creating course test:', error)
     return NextResponse.json({ success: false, error: 'Failed to create test' }, { status: 500 })

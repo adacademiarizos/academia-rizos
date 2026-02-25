@@ -66,7 +66,7 @@ export async function PUT(
     return NextResponse.json({ success: true, data: submission })
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors }, { status: 400 })
+      return NextResponse.json({ success: false, error: error.issues }, { status: 400 })
     }
     console.error('Error reviewing submission:', error)
     const message = error instanceof Error ? error.message : 'Failed to review submission'
