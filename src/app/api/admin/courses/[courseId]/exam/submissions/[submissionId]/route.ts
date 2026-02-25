@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { generateAndSaveCertificate } from '@/server/services/certificate.service'
+import { NotificationService } from '@/server/services/notification-service'
 
 const ReviewSchema = z.object({
   status: z.enum(['APPROVED', 'REVISION_REQUESTED']),
@@ -60,6 +61,14 @@ export async function PUT(
     if (data.status === 'APPROVED') {
       await generateAndSaveCertificate(existing.userId, courseId)
     }
+
+    // Notify student of review result
+    await NotificationService.triggerOnExamReview(
+      existing.userId,
+      courseId,
+      data.status,
+      data.reviewNote
+    )
 
     return NextResponse.json({ success: true, data: submission })
   } catch (error) {

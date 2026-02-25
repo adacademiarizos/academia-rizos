@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { db } from '@/lib/db'
+import { NotificationService } from '@/server/services/notification-service'
 
 const PatchSchema = z.object({
   valid: z.boolean(),
@@ -34,6 +35,11 @@ export async function PATCH(
       where: { id },
       data: { valid },
     })
+
+    // Notify student when certificate is revoked
+    if (!valid) {
+      await NotificationService.triggerOnCertificateRevoked(certificate.userId, certificate.courseId)
+    }
 
     return NextResponse.json({ success: true, data: certificate })
   } catch (error) {

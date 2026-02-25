@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 
 interface Notification {
@@ -17,13 +17,8 @@ export function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-
-  useEffect(() => {
-    fetchNotifications()
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000)
-    return () => clearInterval(interval)
-  }, [])
+  const eventSourceRef = useRef<EventSource | null>(null)
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchNotifications = async () => {
     try {
@@ -33,48 +28,113 @@ export function NotificationBell() {
         setNotifications(data.data || [])
         setUnreadCount(data.unreadCount || 0)
       }
-    } catch (error) {
-      console.error('Error fetching notifications:', error)
+    } catch {
+      // ignore
     } finally {
       setIsLoading(false)
     }
   }
 
+  const startPolling = () => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+    pollIntervalRef.current = setInterval(fetchNotifications, 5000)
+  }
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+  }
+
+  const connectSSE = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+    }
+
+    const es = new EventSource('/api/notifications/stream')
+    eventSourceRef.current = es
+
+    es.addEventListener('notifications', (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data)
+        setNotifications(data.notifications || [])
+        setUnreadCount(data.unreadCount || 0)
+        setIsLoading(false)
+      } catch {
+        // ignore parse errors
+      }
+    })
+
+    es.onerror = () => {
+      // SSE failed — fall back to polling
+      es.close()
+      eventSourceRef.current = null
+      startPolling()
+    }
+
+    // Stop polling while SSE is active
+    stopPolling()
+  }
+
+  useEffect(() => {
+    fetchNotifications()
+
+    // Try SSE first, poll as fallback
+    connectSSE()
+
+    // Refresh immediately when tab becomes visible
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      eventSourceRef.current?.close()
+      stopPolling()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleMarkAsRead = async (notificationId: string) => {
     try {
-      await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'POST',
-      })
+      await fetch(`/api/notifications/${notificationId}/read`, { method: 'POST' })
       fetchNotifications()
-    } catch (error) {
-      console.error('Error marking notification as read:', error)
+    } catch {
+      // ignore
     }
   }
 
   const handleMarkAllAsRead = async () => {
     try {
-      await fetch('/api/notifications/mark-all-read', {
-        method: 'POST',
-      })
+      await fetch('/api/notifications/mark-all-read', { method: 'POST' })
       fetchNotifications()
-    } catch (error) {
-      console.error('Error marking all as read:', error)
+    } catch {
+      // ignore
     }
+  }
+
+  const typeIcon: Record<string, string> = {
+    APPOINTMENT: '📅',
+    CERTIFICATE: '🎓',
+    EXAM_REVIEW: '📝',
+    PAYMENT: '💳',
+    COMMENT: '💬',
+    LIKE: '❤️',
+    COURSE_COMPLETION: '✅',
   }
 
   return (
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-600 hover:text-gray-900"
-        aria-label="Notifications"
+        className="relative p-2 text-white/60 hover:text-white transition-colors"
+        aria-label="Notificaciones"
       >
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -83,67 +143,73 @@ export function NotificationBell() {
           />
         </svg>
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-600 rounded-full">
+          <span className="absolute top-1 right-1 min-w-[16px] h-4 flex items-center justify-center px-1 text-[10px] font-bold text-white bg-[#B16E34] rounded-full leading-none">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-50">
-          <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-            <h3 className="font-semibold text-gray-900">Notificaciones</h3>
+        <div className="absolute right-0 mt-2 w-80 rounded-xl border border-white/10 bg-[#1F1C19] shadow-2xl z-50 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
+            <span className="text-sm font-semibold text-[#FAF4EA]">Notificaciones</span>
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllAsRead}
-                className="text-xs text-blue-600 hover:text-blue-800"
+                className="text-xs text-[#B16E34] hover:text-[#c8813f] transition-colors"
               >
-                Marcar todos como leídos
+                Marcar todo como leído
               </button>
             )}
           </div>
 
-          <div className="max-h-96 overflow-y-auto">
+          {/* List */}
+          <div className="max-h-96 overflow-y-auto divide-y divide-white/5">
             {isLoading ? (
-              <div className="p-4 text-center text-gray-500">Cargando...</div>
+              <div className="p-6 text-center text-sm text-white/40">Cargando...</div>
             ) : notifications.length === 0 ? (
-              <div className="p-4 text-center text-gray-500">
-                No tienes notificaciones
+              <div className="p-6 text-center text-sm text-white/40">
+                Sin notificaciones
               </div>
             ) : (
-              notifications.map((notification) => (
+              notifications.map((n) => (
                 <div
-                  key={notification.id}
-                  className={`p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                    !notification.isRead ? 'bg-blue-50' : ''
+                  key={n.id}
+                  className={`flex gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-white/5 ${
+                    !n.isRead ? 'bg-[#B16E34]/10' : ''
                   }`}
-                  onClick={() => !notification.isRead && handleMarkAsRead(notification.id)}
+                  onClick={() => !n.isRead && handleMarkAsRead(n.id)}
                 >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm text-gray-900">
-                        {notification.title}
-                      </p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {new Date(notification.createdAt).toLocaleDateString('es-ES')}
-                      </p>
-                    </div>
-                    {!notification.isRead && (
-                      <div className="w-2 h-2 bg-blue-600 rounded-full mt-1"></div>
-                    )}
+                  <span className="text-base leading-none mt-0.5 shrink-0">
+                    {typeIcon[n.type] ?? '🔔'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#FAF4EA] truncate">{n.title}</p>
+                    <p className="text-xs text-white/50 mt-0.5 line-clamp-2">{n.message}</p>
+                    <p className="text-[10px] text-white/30 mt-1">
+                      {new Date(n.createdAt).toLocaleDateString('es-AR', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
                   </div>
+                  {!n.isRead && (
+                    <div className="w-2 h-2 rounded-full bg-[#B16E34] shrink-0 mt-1.5" />
+                  )}
                 </div>
               ))
             )}
           </div>
 
-          <div className="p-3 border-t border-gray-200">
+          {/* Footer */}
+          <div className="px-4 py-3 border-t border-white/8">
             <Link
               href="/notifications"
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              onClick={() => setIsOpen(false)}
+              className="text-xs font-medium text-[#B16E34] hover:text-[#c8813f] transition-colors"
             >
               Ver todas las notificaciones →
             </Link>

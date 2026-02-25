@@ -190,11 +190,202 @@ export class NotificationService {
 
       if (!liker?.name) return
 
-      // Notify relevant users (e.g., course owners)
-      // For now, we'll just log it
-      // In production, this would notify course authors, etc.
+      if (targetType === 'COMMENT') {
+        // Notify the comment author
+        const comment = await db.comment.findUnique({
+          where: { id: targetId },
+          select: { userId: true },
+        })
+        if (comment && comment.userId !== likerId) {
+          await this.createNotification({
+            userId: comment.userId,
+            type: 'LIKE',
+            title: 'A alguien le gustó tu comentario',
+            message: `${liker.name} le dio me gusta a tu comentario`,
+            relatedId: targetId,
+          })
+        }
+      }
     } catch (error) {
       console.error('Error triggering like notification:', error)
+      // Don't throw
+    }
+  }
+
+  /**
+   * Trigger notification when a certificate is issued to a student
+   */
+  static async triggerOnCertificateIssued(userId: string, courseId: string) {
+    try {
+      const course = await db.course.findUnique({
+        where: { id: courseId },
+        select: { title: true },
+      })
+
+      if (!course?.title) return
+
+      await this.createNotification({
+        userId,
+        type: 'CERTIFICATE',
+        title: '¡Certificado disponible!',
+        message: `Tu certificado de "${course.title}" está listo para descargar`,
+        relatedId: courseId,
+      })
+    } catch (error) {
+      console.error('Error triggering certificate notification:', error)
+      // Don't throw
+    }
+  }
+
+  /**
+   * Trigger notification when a certificate is revoked
+   */
+  static async triggerOnCertificateRevoked(userId: string, courseId: string) {
+    try {
+      const course = await db.course.findUnique({
+        where: { id: courseId },
+        select: { title: true },
+      })
+
+      await this.createNotification({
+        userId,
+        type: 'CERTIFICATE',
+        title: 'Certificado revocado',
+        message: `Tu certificado de "${course?.title ?? 'un curso'}" ha sido revocado por un administrador`,
+        relatedId: courseId,
+      })
+    } catch (error) {
+      console.error('Error triggering certificate revoked notification:', error)
+      // Don't throw
+    }
+  }
+
+  /**
+   * Trigger notification when an exam submission is reviewed
+   */
+  static async triggerOnExamReview(
+    userId: string,
+    courseId: string,
+    status: 'APPROVED' | 'REVISION_REQUESTED',
+    reviewNote?: string | null
+  ) {
+    try {
+      const course = await db.course.findUnique({
+        where: { id: courseId },
+        select: { title: true },
+      })
+
+      const courseName = course?.title ?? 'tu curso'
+
+      if (status === 'APPROVED') {
+        await this.createNotification({
+          userId,
+          type: 'EXAM_REVIEW',
+          title: '¡Examen aprobado!',
+          message: `Tu examen de "${courseName}" fue aprobado. Recibirás tu certificado en breve.`,
+          relatedId: courseId,
+        })
+      } else {
+        await this.createNotification({
+          userId,
+          type: 'EXAM_REVIEW',
+          title: 'Revisión solicitada en tu examen',
+          message: reviewNote
+            ? `Tu examen de "${courseName}" necesita revisiones: ${reviewNote}`
+            : `Tu examen de "${courseName}" necesita algunas correcciones`,
+          relatedId: courseId,
+        })
+      }
+    } catch (error) {
+      console.error('Error triggering exam review notification:', error)
+      // Don't throw
+    }
+  }
+
+  /**
+   * Trigger notification when a course test submission is reviewed
+   */
+  static async triggerOnTestReview(
+    userId: string,
+    courseId: string,
+    status: 'APPROVED' | 'REVISION_REQUESTED',
+    isFinalExam: boolean,
+  ) {
+    try {
+      const course = await db.course.findUnique({
+        where: { id: courseId },
+        select: { title: true },
+      })
+
+      const courseName = course?.title ?? 'tu curso'
+
+      if (status === 'APPROVED') {
+        const message = isFinalExam
+          ? `Tu examen final de "${courseName}" fue aprobado. Tu certificado está listo.`
+          : `Tu evaluación de "${courseName}" fue aprobada. ¡Buen trabajo!`
+        await this.createNotification({
+          userId,
+          type: 'EXAM_REVIEW',
+          title: isFinalExam ? '¡Examen final aprobado!' : '¡Evaluación aprobada!',
+          message,
+          relatedId: courseId,
+        })
+      } else {
+        await this.createNotification({
+          userId,
+          type: 'EXAM_REVIEW',
+          title: 'Revisión solicitada',
+          message: `Tu evaluación de "${courseName}" necesita algunas correcciones`,
+          relatedId: courseId,
+        })
+      }
+    } catch (error) {
+      console.error('Error triggering test review notification:', error)
+      // Don't throw
+    }
+  }
+
+  /**
+   * Trigger notification when an appointment status changes
+   */
+  static async triggerOnAppointmentStatus(
+    userId: string,
+    appointmentId: string,
+    status: string,
+    serviceName: string
+  ) {
+    try {
+      const statusMessages: Record<string, { title: string; message: string }> = {
+        CONFIRMED: {
+          title: 'Cita confirmada',
+          message: `Tu cita de "${serviceName}" ha sido confirmada`,
+        },
+        CANCELLED: {
+          title: 'Cita cancelada',
+          message: `Tu cita de "${serviceName}" fue cancelada`,
+        },
+        COMPLETED: {
+          title: 'Cita completada',
+          message: `Tu cita de "${serviceName}" fue marcada como completada`,
+        },
+        PENDING: {
+          title: 'Cita en espera',
+          message: `Tu cita de "${serviceName}" está en espera de confirmación`,
+        },
+      }
+
+      const notif = statusMessages[status]
+      if (!notif) return
+
+      await this.createNotification({
+        userId,
+        type: 'APPOINTMENT',
+        title: notif.title,
+        message: notif.message,
+        relatedId: appointmentId,
+      })
+    } catch (error) {
+      console.error('Error triggering appointment status notification:', error)
       // Don't throw
     }
   }
