@@ -25,7 +25,7 @@ const MB = 1024 * 1024
 const RESOURCE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt'
 const VIDEO_ACCEPT = 'video/*'
 const RESOURCE_MAX_MB = 100
-const VIDEO_MAX_MB = 2000
+const VIDEO_MAX_MB = 3072 // 3 GB
 
 export default function FileUploadProgress({
   onUploadComplete,
@@ -83,29 +83,75 @@ export default function FileUploadProgress({
     setUploadProgress(0)
 
     try {
-      const formData = new FormData()
-      formData.append('file', selectedFile)
-
-      const params = new URLSearchParams()
-      params.append('type', uploadType)
-      if (moduleId) params.append('moduleId', moduleId)
-      if (lessonId) params.append('lessonId', lessonId)
-      if (courseId) params.append('courseId', courseId)
-
-      const response = await fetch(`/api/uploads?${params.toString()}`, {
+      // Step 1: Get presigned PUT URL from server (tiny request, no file data)
+      const presignedRes = await fetch('/api/uploads/presigned', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contentType: selectedFile.type,
+          fileSize: selectedFile.size,
+          uploadType,
+          moduleId,
+          lessonId,
+          courseId,
+          fileName: selectedFile.name,
+        }),
       })
 
-      if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Error al subir')
+      if (!presignedRes.ok) {
+        const d = await presignedRes.json().catch(() => ({}))
+        throw new Error(d.error || 'Error al obtener URL de subida')
       }
 
-      const data = await response.json()
+      const { data: { presignedUrl, fileUrl } } = await presignedRes.json()
+
+      // Step 2: Upload file directly to R2 via presigned URL (bypasses Vercel — supports up to 3GB)
+      // Using XHR instead of fetch so we get real upload progress events
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('PUT', presignedUrl)
+        xhr.setRequestHeader('Content-Type', selectedFile.type)
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            setUploadProgress(Math.round((e.loaded / e.total) * 95))
+          }
+        }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve()
+          } else {
+            reject(new Error(`Error al subir archivo (${xhr.status})`))
+          }
+        }
+        xhr.onerror = () => reject(new Error('Error de red al subir archivo'))
+        xhr.send(selectedFile)
+      })
+
+      // Step 3: Confirm with server to update the DB
+      const confirmRes = await fetch('/api/uploads/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileUrl,
+          fileName: selectedFile.name,
+          fileSize: selectedFile.size,
+          mimeType: selectedFile.type,
+          uploadType,
+          moduleId,
+          lessonId,
+          courseId,
+        }),
+      })
+
+      if (!confirmRes.ok) {
+        const d = await confirmRes.json().catch(() => ({}))
+        throw new Error(d.error || 'Error al confirmar subida')
+      }
+
+      const { data } = await confirmRes.json()
       setUploadProgress(100)
       setSuccess(true)
-      onUploadComplete(data.data)
+      onUploadComplete(data)
 
       setTimeout(() => {
         setSelectedFile(null)

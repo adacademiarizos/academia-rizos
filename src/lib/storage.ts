@@ -94,6 +94,43 @@ export async function uploadFile(
 }
 
 /**
+ * Generate presigned PUT URL for direct client-to-R2 upload (bypasses Vercel size limits)
+ * @param key - File path in bucket
+ * @param contentType - MIME type of the file
+ * @param expirationSeconds - How long URL is valid (default 3600 = 1 hour)
+ * @returns Presigned URL the client can PUT the file to directly
+ */
+export async function generateUploadPresignedUrl(
+  key: string,
+  contentType: string,
+  expirationSeconds: number = 3600
+): Promise<string> {
+  try {
+    const client = getStorageClient()
+    const bucketName = process.env.R2_BUCKET_NAME
+
+    if (!bucketName) {
+      throw new Error('R2_BUCKET_NAME not configured')
+    }
+
+    const url = await getSignedUrl(
+      client,
+      new PutObjectCommand({
+        Bucket: bucketName,
+        Key: key,
+        ContentType: contentType,
+      }),
+      { expiresIn: expirationSeconds }
+    )
+
+    return url
+  } catch (error) {
+    console.error('Presigned upload URL error:', error)
+    throw new Error('Failed to generate upload URL')
+  }
+}
+
+/**
  * Get signed (temporary) download URL for file
  * @param key - File path in bucket
  * @param expirationSeconds - How long URL is valid (default 3600 = 1 hour)
