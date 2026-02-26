@@ -10,7 +10,6 @@ export default async function AdminStaffPage() {
   });
 
   const services = await db.service.findMany({
-    where: { isActive: true },
     orderBy: { createdAt: "desc" },
   });
 
