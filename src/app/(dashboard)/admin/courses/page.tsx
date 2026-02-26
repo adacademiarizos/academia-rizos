@@ -92,6 +92,11 @@ export default function AdminCoursesPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
+    if (file.size > 4 * 1024 * 1024) {
+      setThumbnailError('La imagen es demasiado grande. Usá una imagen menor a 4MB.')
+      return
+    }
+
     setThumbnailError(null)
     setThumbnailUploading(true)
 
@@ -99,6 +104,14 @@ export default function AdminCoursesPage() {
       const form = new FormData()
       form.append('image', file)
       const res = await fetch('/api/admin/uploads/image', { method: 'POST', body: form })
+
+      if (res.status === 413) throw new Error('La imagen es demasiado grande. Usá una imagen menor a 4MB.')
+
+      const contentType = res.headers.get('content-type') ?? ''
+      if (!contentType.includes('application/json')) {
+        throw new Error('Error del servidor al subir la imagen. Intentá con una imagen más pequeña.')
+      }
+
       const data = await res.json()
       if (!res.ok || !data.ok) throw new Error(data.error?.message ?? 'Error al subir imagen')
       setNewCourse((prev) => ({ ...prev, thumbnailUrl: data.data.url }))
