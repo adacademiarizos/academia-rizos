@@ -3,19 +3,36 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-function buildSlotsForDay(day: Date, stepMin: number, startHour: number, endHour: number) {
+/**
+ * Build start-time slots for a day.
+ * A slot is valid only if the entire service fits before closing time:
+ *   slotStart + durationMin <= closeMinutes
+ *
+ * @param openMinutes  Minutes from midnight when the business opens (e.g. 10:00 → 600)
+ * @param closeMinutes Minutes from midnight when the business closes (e.g. 18:00 → 1080)
+ * @param stepMin      Service duration in minutes — slots are spaced this far apart
+ */
+function buildSlotsForDay(
+  day: Date,
+  stepMin: number,
+  openMinutes: number,
+  closeMinutes: number
+): Date[] {
   const slots: Date[] = [];
   const d = new Date(day);
   d.setHours(0, 0, 0, 0);
 
-  for (let h = startHour; h < endHour; h++) {
-    for (let m = 0; m < 60; m += stepMin) {
-      const x = new Date(d);
-      x.setHours(h, m, 0, 0);
-      slots.push(x);
-    }
+  for (let mins = openMinutes; mins + stepMin <= closeMinutes; mins += stepMin) {
+    const x = new Date(d);
+    x.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
+    slots.push(x);
   }
   return slots;
+}
+
+function toMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + (m || 0);
 }
 
 async function getSlotsForDate(targetDay: Date, stepMin: number): Promise<Date[]> {
@@ -36,10 +53,10 @@ async function getSlotsForDate(targetDay: Date, stepMin: number): Promise<Date[]
   // Closed day or off-day → no slots
   if (!hrs || !hrs.isOpen || offDay) return [];
 
-  const startHour = parseInt(hrs.openTime.split(":")[0], 10);
-  const endHour   = parseInt(hrs.closeTime.split(":")[0], 10);
+  const openMinutes  = toMinutes(hrs.openTime);
+  const closeMinutes = toMinutes(hrs.closeTime);
 
-  return buildSlotsForDay(targetDay, stepMin, startHour, endHour);
+  return buildSlotsForDay(targetDay, stepMin, openMinutes, closeMinutes);
 }
 
 export async function GET(req: Request) {
@@ -69,7 +86,8 @@ export async function GET(req: Request) {
     }
 
     const durationMin = service.durationMin ?? 30;
-    const stepMin = 30;
+    // Step equals the service duration: each slot occupies the full service block
+    const stepMin = durationMin;
 
     let slots: Date[];
 
