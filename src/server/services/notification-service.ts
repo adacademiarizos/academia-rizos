@@ -391,6 +391,31 @@ export class NotificationService {
   }
 
   /**
+   * Notify all admin users (in-app)
+   */
+  static async notifyAllAdmins({
+    type,
+    title,
+    message,
+    relatedId,
+  }: { type: string; title: string; message: string; relatedId?: string }) {
+    try {
+      const admins = await db.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { id: true },
+      })
+      await Promise.all(
+        admins.map((admin) =>
+          this.createNotification({ userId: admin.id, type, title, message, relatedId })
+        )
+      )
+    } catch (error) {
+      console.error('Error notifying admins:', error)
+      // Don't throw
+    }
+  }
+
+  /**
    * Trigger notification when user completes a course/test
    */
   static async triggerOnCourseCompletion(userId: string, courseId: string) {

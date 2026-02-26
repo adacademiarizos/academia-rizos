@@ -241,7 +241,7 @@ function Footer() {
             <a className="opacity-70 hover:opacity-100 transition" href="/#faq">
               FAQ
             </a>
-            <Link className="opacity-70 hover:opacity-100 transition" href="/contact">
+            <Link className="opacity-70 hover:opacity-100 transition" href="/#contacto">
               Contacto
             </Link>
           </div>

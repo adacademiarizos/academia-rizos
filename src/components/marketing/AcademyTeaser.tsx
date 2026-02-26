@@ -48,7 +48,7 @@ function AcademyTeaser() {
             ACADEMIA DE RIZOS
           </p>
           <h2 className="mt-3 text-balance text-white text-3xl font-semibold tracking-tight md:text-4xl">
-            Aprendé el método y cuidá tu rizo a tu ritmo
+            Aprende el método y cuida tu rizo a tu ritmo
           </h2>
           <p className="mt-3 text-sm text-zinc-300 md:text-base">
             Cursos por módulos, recursos descargables, evaluación final y certificado con QR verificable.

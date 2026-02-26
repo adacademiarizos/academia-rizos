@@ -101,7 +101,7 @@ export default function RegisterForm() {
           >
             Crear cuenta
           </h1>
-          <p className="text-sm text-white/40">Unite a nuestra comunidad</p>
+          <p className="text-sm text-white/40">Únete a nuestra comunidad</p>
         </div>
 
         {/* Card */}
@@ -183,7 +183,7 @@ export default function RegisterForm() {
 
           <div className="my-5 flex items-center gap-3">
             <div className="flex-1 border-t border-white/10" />
-            <span className="text-xs text-white/30">o registrate con</span>
+            <span className="text-xs text-white/30">o regístrate con</span>
             <div className="flex-1 border-t border-white/10" />
           </div>
 
@@ -203,9 +203,9 @@ export default function RegisterForm() {
           </button>
 
           <p className="mt-5 text-center text-sm text-white/40">
-            ¿Ya tenés cuenta?{' '}
+            ¿Ya tienes cuenta?{' '}
             <Link href="/signin" className="text-[#c8cf94] hover:text-white transition font-medium">
-              Iniciá sesión
+              Inicia sesión
             </Link>
           </p>
         </div>

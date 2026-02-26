@@ -171,7 +171,7 @@ export default async function AdminManualPage() {
             </Card>
             <Tip>
               Si aparece un ícono de advertencia naranja junto a &quot;Exámenes pendientes&quot;, hay estudiantes esperando revisión.
-              Hacé clic en &quot;Revisar Exámenes&quot; en el menú lateral para atenderlos.
+              Haz clic en &quot;Revisar Exámenes&quot; en el menú lateral para atenderlos.
             </Tip>
           </section>
 
@@ -217,10 +217,10 @@ export default async function AdminManualPage() {
               id="staff"
               icon={Users}
               title="Staff y Precios"
-              subtitle="Gestioná el equipo y sus tarifas por servicio"
+              subtitle="Gestiona el equipo y sus tarifas por servicio"
             />
             <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              En esta sección ves todos los usuarios con rol Staff o Admin, y podés asignarles precios
+              En esta sección ves todos los usuarios con rol Staff o Admin, y puedes asignarles precios
               individuales por servicio. El precio del servicio varía según el profesional.
             </p>
 
@@ -234,7 +234,7 @@ export default async function AdminManualPage() {
             ]} />
 
             <Tip>
-              Podés asignar precios distintos al mismo servicio para diferentes profesionales.
+              Puedes asignar precios distintos al mismo servicio para diferentes profesionales.
               Si un profesional no tiene precio asignado para un servicio, ese servicio no aparecerá disponible
               para ese profesional en el proceso de reserva.
             </Tip>
@@ -256,14 +256,14 @@ export default async function AdminManualPage() {
             />
             <p className="text-sm text-white/60 mb-4 leading-relaxed">
               La sección de Citas muestra todas las reservas del negocio. Por defecto se filtran las citas
-              del día actual, pero podés navegar por cualquier fecha.
+              del día actual, pero puedes navegar por cualquier fecha.
             </p>
 
             <h3 className="text-sm font-semibold text-white/80 mb-2">Filtros disponibles</h3>
             <Card>
               <Field label="Nombre del cliente" desc="Busca por nombre o email del cliente reservante." />
-              <Field label="Fecha"              desc="Navegá día a día con las flechas o abrí el selector de fecha." />
-              <Field label="Estado"             desc="Filtrá por: Pendiente, Confirmada, Completada, Cancelada o No-show." />
+              <Field label="Fecha"              desc="Navega día a día con las flechas o abre el selector de fecha." />
+              <Field label="Estado"             desc="Filtra por: Pendiente, Confirmada, Completada, Cancelada o No-show." />
             </Card>
 
             <h3 className="text-sm font-semibold text-white/80 mb-2">Estados de una cita</h3>
@@ -446,7 +446,7 @@ export default async function AdminManualPage() {
             <Warning>
               Al aprobar un examen, el certificado se genera con Puppeteer y se sube a R2. Si hay
               un error de conexión o configuración, recibirás un mensaje de error. En ese caso,
-              podés intentarlo de nuevo desde la sección Certificados.
+              puedes intentarlo de nuevo desde la sección Certificados.
             </Warning>
           </section>
 
@@ -531,7 +531,7 @@ export default async function AdminManualPage() {
               "Ingresar la pregunta y su respuesta.",
               "Guardar. La pregunta aparecerá en el sitio público inmediatamente.",
               "Para editar, hacer clic sobre el elemento. Para eliminar, usar el ícono de papelera.",
-              "Podés reordenar las preguntas arrastrando para priorizar las más importantes.",
+              "Puedes reordenar las preguntas arrastrando para priorizar las más importantes.",
             ]} />
           </section>
 
@@ -544,7 +544,7 @@ export default async function AdminManualPage() {
               subtitle="Administración de todos los usuarios registrados"
             />
             <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              En esta sección podés ver todos los usuarios de la plataforma, buscarlos, filtrarlos
+              En esta sección puedes ver todos los usuarios de la plataforma, buscarlos, filtrarlos
               por rol y cambiar sus permisos.
             </p>
 

@@ -147,10 +147,10 @@ export default async function StaffManualPage() {
               id="overview"
               icon={BookOpen}
               title="Introducción al Panel de Staff"
-              subtitle="Qué podés hacer desde tu panel"
+              subtitle="Qué puedes hacer desde tu panel"
             />
             <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              Como miembro del equipo, tenés acceso a las herramientas que necesitás para atender
+              Como miembro del equipo, tienes acceso a las herramientas que necesitas para atender
               a tus clientes: gestionar tus citas asignadas, crear links de pago personalizados
               y revisar el historial de tus clientes.
             </p>
@@ -162,7 +162,7 @@ export default async function StaffManualPage() {
               <Field label="Reportar Bug"   desc="Reportar problemas o errores en la plataforma." />
             </Card>
             <Tip>
-              Solo podés ver las citas y clientes asignados a tu perfil. No tenés acceso
+              Solo puedes ver las citas y clientes asignados a tu perfil. No tienes acceso
               a la información de otros profesionales del equipo.
             </Tip>
           </section>
@@ -176,14 +176,14 @@ export default async function StaffManualPage() {
               subtitle="Seguimiento de todas las reservas asignadas a tu perfil"
             />
             <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              En esta sección encontrás todas las citas que los clientes reservaron contigo.
-              Podés filtrar para ver solo las próximas o explorar el historial completo.
+              En esta sección encuentras todas las citas que los clientes reservaron contigo.
+              Puedes filtrar para ver solo las próximas o explorar el historial completo.
             </p>
 
             <h3 className="text-sm font-semibold text-white/80 mb-2">Filtros disponibles</h3>
             <Card>
-              <Field label="Próximas / Todas" desc="Alterná entre ver solo citas futuras (por defecto) o todo el historial." />
-              <Field label="Estado"           desc="Filtrá por: Pendiente, Confirmada, Completada, Cancelada o No-show." />
+              <Field label="Próximas / Todas" desc="Alterna entre ver solo citas futuras (por defecto) o todo el historial." />
+              <Field label="Estado"           desc="Filtra por: Pendiente, Confirmada, Completada, Cancelada o No-show." />
             </Card>
 
             <h3 className="text-sm font-semibold text-white/80 mb-2">Información de cada cita</h3>
@@ -206,8 +206,8 @@ export default async function StaffManualPage() {
             </Card>
 
             <Tip>
-              Si necesitás cambiar el estado de una cita (confirmar, completar, cancelar),
-              contactá al administrador ya que los cambios de estado son gestionados desde
+              Si necesitas cambiar el estado de una cita (confirmar, completar, cancelar),
+              contacta al administrador ya que los cambios de estado son gestionados desde
               el panel de administración.
             </Tip>
           </section>
@@ -245,13 +245,13 @@ export default async function StaffManualPage() {
             </Card>
 
             <Tip>
-              Podés ver el historial completo de todos tus links con su estado actual.
+              Puedes ver el historial completo de todos tus links con su estado actual.
               Los links pagados quedan como registro y no pueden eliminarse.
             </Tip>
 
             <Warning>
-              Los links que creás son de tu autoría. Si necesitás transferir o cancelar
-              un link de otro miembro del equipo, contactá al administrador.
+              Los links que creas son de tu autoría. Si necesitas transferir o cancelar
+              un link de otro miembro del equipo, contacta al administrador.
             </Warning>
           </section>
 
@@ -265,7 +265,7 @@ export default async function StaffManualPage() {
             />
             <p className="text-sm text-white/60 mb-4 leading-relaxed">
               Esta sección centraliza toda la información de los clientes que han reservado
-              contigo al menos una vez. Podés ver estadísticas generales y el historial
+              contigo al menos una vez. Puedes ver estadísticas generales y el historial
               detallado de cada cliente.
             </p>
 
@@ -294,7 +294,7 @@ export default async function StaffManualPage() {
 
             <Tip>
               El historial de clientes se actualiza automáticamente cuando se registran
-              nuevas citas o pagos. No necesitás hacer nada manualmente.
+              nuevas citas o pagos. No necesitas hacer nada manualmente.
             </Tip>
           </section>
 
@@ -307,12 +307,12 @@ export default async function StaffManualPage() {
               subtitle="Espacio de interacción con estudiantes y el equipo"
             />
             <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              La sección de Comunidad es un espacio compartido donde podés interactuar con
+              La sección de Comunidad es un espacio compartido donde puedes interactuar con
               los estudiantes de la academia y otros miembros del equipo.
             </p>
             <Tip>
               La Comunidad es accesible para todos los roles: Admin, Staff y Student.
-              Podés ver publicaciones, responder preguntas y participar activamente.
+              Puedes ver publicaciones, responder preguntas y participar activamente.
             </Tip>
           </section>
 
@@ -325,8 +325,8 @@ export default async function StaffManualPage() {
               subtitle="Cómo informar errores o problemas en la plataforma"
             />
             <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              Si encontrás algún error, comportamiento inesperado o problema en la plataforma,
-              podés reportarlo directamente desde el panel.
+              Si encuentras algún error, comportamiento inesperado o problema en la plataforma,
+              puedes reportarlo directamente desde el panel.
             </p>
             <Steps items={[
               "Ir a 'Reportar Bug' en el menú lateral.",

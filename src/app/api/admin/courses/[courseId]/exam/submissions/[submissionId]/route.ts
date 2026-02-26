@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { db } from '@/lib/db'
 import { generateAndSaveCertificate } from '@/server/services/certificate.service'
 import { NotificationService } from '@/server/services/notification-service'
+import { sendAdminAlertEmail } from '@/lib/mail'
 
 const ReviewSchema = z.object({
   status: z.enum(['APPROVED', 'REVISION_REQUESTED']),
@@ -60,6 +61,36 @@ export async function PUT(
     // Trigger certificate generation on approval
     if (data.status === 'APPROVED') {
       await generateAndSaveCertificate(existing.userId, courseId)
+
+      // Notify all admins about course completion
+      const [completedUser, completedCourse] = await Promise.all([
+        db.user.findUnique({ where: { id: existing.userId }, select: { name: true, email: true } }),
+        db.course.findUnique({ where: { id: courseId }, select: { title: true } }),
+      ]).catch(() => [null, null])
+
+      const adminsList = await db.user.findMany({ where: { role: 'ADMIN' }, select: { email: true } }).catch(() => [])
+      const adminEmails = adminsList.map((a) => a.email)
+
+      if (adminEmails.length > 0 && completedUser && completedCourse) {
+        sendAdminAlertEmail({
+          to: adminEmails,
+          subject: `Estudiante completó un curso — ${completedCourse.title}`,
+          title: 'Curso completado',
+          rows: [
+            ['Curso', completedCourse.title],
+            ['Estudiante', completedUser.name ?? '—'],
+            ['Email', completedUser.email],
+            ['Fecha', new Date().toLocaleDateString('es-ES', { dateStyle: 'long' })],
+          ],
+        }).catch((e) => console.error('[mail] admin course-completion notification error', e))
+      }
+
+      NotificationService.notifyAllAdmins({
+        type: 'COURSE_COMPLETION',
+        title: 'Estudiante completó un curso',
+        message: `${completedUser?.name ?? '—'} completó "${completedCourse?.title ?? 'un curso'}"`,
+        relatedId: courseId,
+      }).catch(() => {})
     }
 
     // Notify student of review result

@@ -20,7 +20,7 @@ function AboutFounder() {
           />
         </div>
 
-        <div className="rounded-3xl border p-8 shadow-sm backdrop-blur-md">
+        <div className="rounded-3xl p-8 shadow-sm backdrop-blur-md">
           <h3 className="text-6xl text-white font-main font-semibold">Tu rizo no es “difícil”, está mal entendido.</h3>
           <p className="mt-3 text-sm text-zinc-400 md:text-base">
             El objetivo no es solo que se vea bien hoy: es que tengas una rutina clara, productos adecuados y técnica para

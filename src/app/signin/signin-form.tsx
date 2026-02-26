@@ -141,9 +141,9 @@ export default function SignInForm() {
           </button>
 
           <p className="mt-5 text-center text-sm text-white/40">
-            ¿No tenés cuenta?{' '}
+            ¿No tienes cuenta?{' '}
             <Link href="/register" className="text-[#c8cf94] hover:text-white transition font-medium">
-              Registrate
+              Regístrate
             </Link>
           </p>
         </div>

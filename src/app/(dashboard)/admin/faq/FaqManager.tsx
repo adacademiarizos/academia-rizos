@@ -23,7 +23,7 @@ export default function FaqManager({ initial }: { initial: FaqItem[] }) {
 
   async function handleAdd() {
     if (!newQ.trim() || !newA.trim()) {
-      setError("Completá la pregunta y la respuesta.");
+      setError("Completa la pregunta y la respuesta.");
       return;
     }
     setError(null);

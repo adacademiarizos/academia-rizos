@@ -11,6 +11,8 @@ import HowItWorks from "@/components/marketing/HowItWorks";
 import StyleTokens from "@/components/marketing/StyleTokens";
 import ServicesSection3D from "@/components/marketing/ServicesSection3D";
 import Schedule from "@/components/marketing/Schedule";
+import LatestCourses from "@/components/marketing/LatestCourses";
+import ContactSection from "@/components/marketing/ContactSection";
 import Link from "next/link";
 
 export default async function MarketingHomePage() {
@@ -53,6 +55,8 @@ export default async function MarketingHomePage() {
         <AcademyTeaser />
       </section>
 
+      <LatestCourses />
+
       <section className="px-6 py-16">
         <Testimonials />
       </section>
@@ -85,6 +89,8 @@ export default async function MarketingHomePage() {
           </Link>
         </div>
       </section>
+
+      <ContactSection />
 
       <StyleTokens />
     </main>

@@ -9,6 +9,7 @@ interface Course {
   id: string
   title: string
   description: string | null
+  thumbnailUrl: string | null
   priceCents: number
   rentalDays: number | null
   isActive: boolean
@@ -200,6 +201,8 @@ export default function CourseEditPage() {
       if (courseForm.title !== course?.title) updates.title = courseForm.title
       if (courseForm.description !== course?.description)
         updates.description = courseForm.description
+      if (courseForm.thumbnailUrl !== course?.thumbnailUrl)
+        updates.thumbnailUrl = courseForm.thumbnailUrl ?? null
       if (courseForm.priceCents !== course?.priceCents)
         updates.priceCents = courseForm.priceCents
       if (courseForm.rentalDays !== course?.rentalDays)
@@ -928,6 +931,33 @@ export default function CourseEditPage() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-white/70 mb-2">
+              Miniatura del curso
+            </label>
+            {courseForm.thumbnailUrl ? (
+              <div className="space-y-2">
+                <div className="relative w-48 h-32 rounded-xl overflow-hidden border border-white/20">
+                  <img src={courseForm.thumbnailUrl} alt="Miniatura" className="w-full h-full object-cover" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCourseForm({ ...courseForm, thumbnailUrl: null })}
+                  className="text-xs text-red-400 hover:text-red-300 transition"
+                >
+                  Eliminar miniatura
+                </button>
+              </div>
+            ) : (
+              <FileUploadProgress
+                uploadType="resource"
+                accept=".jpg,.jpeg,.png,.webp"
+                maxSize={10}
+                onUploadComplete={(file) => setCourseForm({ ...courseForm, thumbnailUrl: file.fileUrl })}
+              />
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-white/70 mb-2">
@@ -1148,23 +1178,13 @@ export default function CourseEditPage() {
 
                           {/* Transcripción del Módulo */}
                           <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <label className="block text-sm font-medium text-white/70">
-                                Transcripción
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => editingModuleId && handleTranscribe('module', editingModuleId)}
-                                disabled={!editingModuleId || !!transcribing[editingModuleId ?? '']}
-                                className="text-xs px-3 py-1 rounded-lg bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-600/30 disabled:opacity-50 transition"
-                              >
-                                {transcribing[editingModuleId ?? ''] ? '⏳ Transcribiendo...' : '✨ Transcribir'}
-                              </button>
-                            </div>
+                            <label className="block text-sm font-medium text-white/70 mb-2">
+                              Transcripción
+                            </label>
                             <textarea
                               value={editModuleForm.transcript}
                               onChange={(e) => setEditModuleForm({ ...editModuleForm, transcript: e.target.value })}
-                              placeholder="Transcripción del video del módulo (se completa automáticamente al transcribir)..."
+                              placeholder="Transcripción del módulo..."
                               rows={4}
                               className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-xl px-3 py-2 text-sm resize-none outline-none focus:border-indigo-500/50 transition"
                             />

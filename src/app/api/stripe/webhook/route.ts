@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { verifyStripeWebhook } from "@/lib/stripe";
 import { db } from "@/lib/db";
-import { sendPaymentReceiptEmail, sendAppointmentConfirmationEmail, sendAppointmentNotificationEmail } from "@/lib/mail";
+import { sendPaymentReceiptEmail, sendAppointmentConfirmationEmail, sendAppointmentNotificationEmail, sendAdminAlertEmail } from "@/lib/mail";
 import { CourseService } from "@/server/services/course-service";
 import { NotificationService } from "@/server/services/notification-service";
 import { AchievementService } from "@/server/services/achievement-service";
@@ -134,6 +134,14 @@ export async function POST(req: Request) {
             relatedId: payment.appointmentId,
           }).catch(() => {});
         }
+
+        // Notificación in-app a todos los admins
+        NotificationService.notifyAllAdmins({
+          type: "APPOINTMENT",
+          title: "Nueva cita reservada",
+          message: `${appointment.customerName ?? "Un cliente"} reservó ${appointment.service?.name ?? "una cita"}`,
+          relatedId: payment.appointmentId ?? undefined,
+        }).catch(() => {});
       }
 
       // ✅ Si es payment link, marcarlo como PAID
@@ -149,6 +157,41 @@ export async function POST(req: Request) {
         try {
           await CourseService.createCourseAccess(payment.payerId, payment.courseId);
           console.log(`✅ Granted course access: ${payment.payerId} → ${payment.courseId}`);
+
+          // Get course and payer info for admin notifications
+          const [courseInfo, payerInfo] = await Promise.all([
+            db.course.findUnique({ where: { id: payment.courseId }, select: { title: true } }),
+            db.user.findUnique({ where: { id: payment.payerId }, select: { name: true, email: true } }),
+          ]).catch(() => [null, null])
+
+          // Notify admins about course purchase
+          const adminsForNotif = await db.user.findMany({
+            where: { role: "ADMIN" },
+            select: { email: true },
+          }).catch(() => [])
+          const adminEmailsForNotif = adminsForNotif.map((a) => a.email)
+
+          if (adminEmailsForNotif.length > 0 && courseInfo && payerInfo) {
+            sendAdminAlertEmail({
+              to: adminEmailsForNotif,
+              subject: `Nuevo pago de curso — ${courseInfo.title}`,
+              title: 'Curso adquirido',
+              rows: [
+                ['Curso', courseInfo.title],
+                ['Estudiante', payerInfo.name ?? '—'],
+                ['Email', payerInfo.email],
+                ['Monto', `${(payment.amountCents / 100).toFixed(2)} ${payment.currency}`],
+                ['Fecha', new Date().toLocaleDateString('es-ES', { dateStyle: 'long' })],
+              ],
+            }).catch((e) => console.error('[mail] admin course-purchase notification error', e))
+          }
+
+          NotificationService.notifyAllAdmins({
+            type: "PAYMENT",
+            title: "Nuevo pago de curso",
+            message: `${payerInfo?.name ?? payerEmail ?? "Un estudiante"} compró "${courseInfo?.title ?? "un curso"}"`,
+            relatedId: payment.courseId,
+          }).catch(() => {})
 
           // Trigger notifications and activity recording after successful enrollment
           await Promise.all([
@@ -183,6 +226,16 @@ export async function POST(req: Request) {
               : "Pago",
           stripePaymentIntentId: payment.stripePaymentIntentId ?? undefined,
         });
+
+        // Notify admins about the payment (if not a course — we notify separately above)
+        if (payment.type !== "COURSE") {
+          NotificationService.notifyAllAdmins({
+            type: "PAYMENT",
+            title: "Nuevo pago recibido",
+            message: `Pago de ${(payment.amountCents / 100).toFixed(2)} ${payment.currency} — ${payment.type === "APPOINTMENT" ? "Cita" : "Link de pago"}`,
+            relatedId: payment.id,
+          }).catch(() => {})
+        }
 
         await db.payment.update({
           where: { id: payment.id },

@@ -12,6 +12,13 @@ interface CourseDetail extends Course {
   totalHours: number;
 }
 
+interface Module {
+  id: string;
+  title: string;
+  order: number;
+  description: string | null;
+}
+
 export default function CourseLandingPage() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -21,6 +28,7 @@ export default function CourseLandingPage() {
   const canceled = searchParams.get("canceled");
 
   const [course, setCourse] = useState<CourseDetail | null>(null);
+  const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
@@ -44,10 +52,17 @@ export default function CourseLandingPage() {
   useEffect(() => {
     const fetchCourse = async () => {
       try {
-        const response = await fetch(`/api/courses/${courseId}`);
-        if (!response.ok) throw new Error("Course not found");
-        const data = await response.json();
-        setCourse(data.data);
+        const [courseRes, modulesRes] = await Promise.all([
+          fetch(`/api/courses/${courseId}`),
+          fetch(`/api/courses/${courseId}/modules`),
+        ]);
+        if (!courseRes.ok) throw new Error("Course not found");
+        const courseData = await courseRes.json();
+        setCourse(courseData.data);
+        if (modulesRes.ok) {
+          const modulesData = await modulesRes.json();
+          setModules(modulesData.data?.modules || []);
+        }
         await checkCourseAccess();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
@@ -95,11 +110,22 @@ export default function CourseLandingPage() {
       window.location.href = data.data.checkoutUrl;
     } catch (error) {
       alert(
-        "Error starting checkout: " +
-          (error instanceof Error ? error.message : "Unknown error")
+        "Error al iniciar el pago: " +
+          (error instanceof Error ? error.message : "Error desconocido")
       );
     } finally {
       setIsCheckingOut(false);
+    }
+  };
+
+  const handleModuleClick = (moduleId: string) => {
+    if (hasAccess) {
+      router.push(`/learn/${courseId}/modules/${moduleId}`);
+    } else {
+      const buySection = document.getElementById("buy");
+      if (buySection) {
+        buySection.scrollIntoView({ behavior: "smooth" });
+      }
     }
   };
 
@@ -197,11 +223,14 @@ export default function CourseLandingPage() {
                       disabled={isCheckingOut}
                       className="px-8 py-3 rounded-full bg-ap-copper text-ap-ivory font-medium hover:bg-ap-copper/90 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isCheckingOut ? "Cargando..." : `Comprar Curso - €${priceFormatted}`}
+                      {isCheckingOut ? "Cargando..." : `Comprar Curso — €${priceFormatted}`}
                     </button>
-                    <button className="px-8 py-3 rounded-full border-2 border-ap-copper text-ap-copper font-medium hover:bg-ap-copper/10 transition">
+                    <a
+                      href="#buy"
+                      className="px-8 py-3 rounded-full border-2 border-ap-copper text-ap-copper font-medium hover:bg-ap-copper/10 transition text-center"
+                    >
                       Más Información
-                    </button>
+                    </a>
                   </>
                 )}
               </div>
@@ -214,10 +243,18 @@ export default function CourseLandingPage() {
               </div>
             </div>
 
-            {/* Right: Image Placeholder */}
+            {/* Right: Thumbnail */}
             <div className="hidden md:flex items-center justify-center">
-              <div className="w-full aspect-square rounded-3xl bg-gradient-to-br from-ap-copper/30 to-ap-olive/30 flex items-center justify-center">
-                <div className="text-6xl text-ap-copper/50">{course.title.charAt(0)}</div>
+              <div className="w-full aspect-square rounded-3xl overflow-hidden bg-gradient-to-br from-ap-copper/30 to-ap-olive/30 flex items-center justify-center">
+                {course.thumbnailUrl ? (
+                  <img
+                    src={course.thumbnailUrl}
+                    alt={course.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="text-6xl text-ap-copper/50">{course.title.charAt(0)}</div>
+                )}
               </div>
             </div>
           </div>
@@ -235,8 +272,8 @@ export default function CourseLandingPage() {
           <div className="max-w-3xl mx-auto flex items-center gap-3">
             <div className="text-2xl">✅</div>
             <div>
-              <h3 className="font-bold text-green-300">¡Pago Exitoso!</h3>
-              <p className="text-sm text-green-400">Ya tienes acceso al curso. ¡Comienza a aprender ahora!</p>
+              <h3 className="font-bold text-green-300">¡Pago exitoso!</h3>
+              <p className="text-sm text-green-400">Ya tienes acceso al curso. ¡Empieza a aprender ahora!</p>
             </div>
           </div>
         </div>
@@ -247,8 +284,8 @@ export default function CourseLandingPage() {
           <div className="max-w-3xl mx-auto flex items-center gap-3">
             <div className="text-2xl">⚠️</div>
             <div>
-              <h3 className="font-bold text-yellow-300">Pago Cancelado</h3>
-              <p className="text-sm text-yellow-400">Si lo deseas, puedes intentar de nuevo cuando estés listo.</p>
+              <h3 className="font-bold text-yellow-300">Pago cancelado</h3>
+              <p className="text-sm text-yellow-400">Si lo deseas, puedes intentarlo de nuevo cuando estés listo.</p>
             </div>
           </div>
         </div>
@@ -287,27 +324,50 @@ export default function CourseLandingPage() {
           </h2>
 
           <div className="space-y-3">
-            {Array.from({ length: Math.min(course.moduleCount, 6) }).map((_, idx) => (
-              <div
-                key={idx}
-                className="flex items-center gap-4 p-4 rounded-xl bg-white/8 border border-white/10 hover:border-ap-copper/50 transition"
-              >
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-ap-copper/20 text-ap-copper font-bold flex-shrink-0">
-                  {idx + 1}
-                </div>
-                <div className="flex-1">
-                  <div className="font-medium text-ap-ivory">
-                    Módulo {idx + 1}: Contenido del módulo
+            {modules.length > 0
+              ? modules.slice(0, 6).map((module, idx) => (
+                  <button
+                    key={module.id}
+                    onClick={() => handleModuleClick(module.id)}
+                    className="w-full flex items-center gap-4 p-4 rounded-xl bg-white/8 border border-white/10 hover:border-ap-copper/50 hover:bg-white/10 transition text-left cursor-pointer"
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-ap-copper/20 text-ap-copper font-bold flex-shrink-0">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-ap-ivory">
+                        {module.title}
+                      </div>
+                      {module.description && (
+                        <div className="text-sm text-zinc-400 mt-0.5 line-clamp-1">
+                          {module.description}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-ap-copper text-sm font-medium flex-shrink-0">
+                      {hasAccess ? (
+                        <span className="text-green-400">✓ Acceso</span>
+                      ) : (
+                        <span className="text-zinc-500">🔒</span>
+                      )}
+                    </div>
+                  </button>
+                ))
+              : Array.from({ length: Math.min(course.moduleCount, 6) }).map((_, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-4 p-4 rounded-xl bg-white/8 border border-white/10"
+                  >
+                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-ap-copper/20 text-ap-copper font-bold flex-shrink-0">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-ap-ivory">
+                        Módulo {idx + 1}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-sm text-zinc-400">
-                    5-15 minutos de video + materiales
-                  </div>
-                </div>
-                <div className="text-ap-copper text-sm font-medium">
-                  {hasAccess ? "✓ Acceso" : "Bloqueado"}
-                </div>
-              </div>
-            ))}
+                ))}
             {course.moduleCount > 6 && (
               <div className="text-center text-sm text-zinc-400 py-4">
                 + {course.moduleCount - 6} módulos más
@@ -317,49 +377,12 @@ export default function CourseLandingPage() {
         </div>
       </section>
 
-      {/* Reviews/Testimonials */}
-      <section className="px-6 py-16">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl font-bold text-ap-ivory mb-8">
-            Lo que dicen nuestras estudiantes
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[
-              {
-                name: "María",
-                text: "Excelente curso, muy práctico y fácil de seguir. Mis rizos nunca se vieron mejor.",
-                rating: 5,
-              },
-              {
-                name: "Lucas",
-                text: "Las técnicas son increíbles y los materiales están muy bien organizados.",
-                rating: 5,
-              },
-            ].map((review, idx) => (
-              <div
-                key={idx}
-                className="p-6 rounded-2xl bg-white/8 border border-white/10 backdrop-blur-md"
-              >
-                <div className="flex gap-1 mb-3">
-                  {Array.from({ length: review.rating }).map((_, i) => (
-                    <span key={i} className="text-ap-copper text-lg">★</span>
-                  ))}
-                </div>
-                <p className="text-white/70 mb-4">{review.text}</p>
-                <p className="font-medium text-ap-ivory">{review.name}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Bottom CTA */}
       {!hasAccess && (
-        <section className="px-6 py-16 bg-gradient-to-r from-ap-copper/10 to-ap-olive/10 border-y border-white/8">
+        <section id="buy" className="px-6 py-16 bg-gradient-to-r from-ap-copper/10 to-ap-olive/10 border-y border-white/8">
           <div className="max-w-3xl mx-auto text-center space-y-6">
             <h2 className="text-3xl font-bold text-ap-ivory">
-              ¿Lista para comenzar?
+              ¿Lista para empezar?
             </h2>
             <p className="text-lg text-white/70">
               Acceso completo, de por vida, con certificado de finalización
@@ -369,7 +392,7 @@ export default function CourseLandingPage() {
               disabled={isCheckingOut}
               className="px-12 py-4 rounded-full bg-ap-copper text-ap-ivory font-bold text-lg hover:bg-ap-copper/90 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isCheckingOut ? "Cargando..." : `Comprar ahora - €${priceFormatted}`}
+              {isCheckingOut ? "Cargando..." : `Comprar ahora — €${priceFormatted}`}
             </button>
           </div>
         </section>

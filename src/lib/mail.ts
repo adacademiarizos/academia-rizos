@@ -156,7 +156,7 @@ export async function sendPaymentReceiptEmail(params: PaymentReceiptParams) {
     ${para("Tu pago fue procesado correctamente.")}
     ${dataTable(rows)}
     ${divider()}
-    ${para("¿Necesitás ayuda? Respondé a este correo.", true)}
+    ${para("¿Necesitas ayuda? Responde a este correo.", true)}
   `;
 
   const transport = await createGmailTransport();
@@ -204,7 +204,7 @@ export async function sendAppointmentConfirmationEmail(params: AppointmentConfir
     ${para(`Hola <strong>${params.customerName}</strong>, estos son los detalles de tu cita.`)}
     ${dataTable(rows)}
     ${divider()}
-    ${para("¿Necesitás cancelar o reprogramar? Respondé a este correo.", true)}
+    ${para("¿Necesitas cancelar o reprogramar? Responde a este correo.", true)}
   `;
 
   const transport = await createGmailTransport();
@@ -254,7 +254,7 @@ export async function sendAppointmentNotificationEmail(params: AppointmentNotifi
     ${para(`<strong>${params.customerName}</strong> confirmó una cita. Estos son los detalles:`)}
     ${dataTable(rows)}
     ${divider()}
-    ${para("Respondé este correo para contactar directamente al cliente.", true)}
+    ${para("Responde a este correo para contactar directamente con el cliente.", true)}
   `;
 
   const transport = await createGmailTransport();
@@ -303,7 +303,7 @@ export async function sendNewCourseNotificationEmail(params: NewCourseNotificati
       ${ctaButton("Ver curso →", coursesUrl)}
     </td></tr></table>
     ${divider()}
-    ${para("Recibís este correo porque estás registrada/o en Apoteósicas.", true)}
+    ${para("Recibes este correo porque estás registrado/a en Apoteósicas.", true)}
   `;
 
   const transport = await createGmailTransport();
@@ -454,7 +454,7 @@ export async function sendCertificateEmail(params: CertificateEmailParams) {
     ${codeBlock}
     ${buttons}
     ${divider()}
-    ${para("Podés descargar el certificado con el botón de arriba o verificarlo en la plataforma con el código.", true)}
+    ${para("Puedes descargar el certificado con el botón de arriba o verificarlo en la plataforma con el código.", true)}
   `;
 
   const transport = await createGmailTransport();
@@ -464,5 +464,35 @@ export async function sendCertificateEmail(params: CertificateEmailParams) {
     replyTo: params.to,
     subject: `Tu certificado de "${params.courseName}" está listo`,
     html: shell(`Certificado — ${params.courseName}`, body),
+  });
+}
+
+// ──────────────────────────────────────────────────────────
+// 6. Alerta de administrador (notificaciones para admins)
+// ──────────────────────────────────────────────────────────
+type AdminAlertEmailParams = {
+  to: string | string[];
+  subject: string;
+  title: string;
+  rows: Array<[string, string]>;
+  note?: string;
+};
+
+export async function sendAdminAlertEmail(params: AdminAlertEmailParams) {
+  if (!isGmailConfigured()) { warn("sendAdminAlertEmail", params); return; }
+
+  const body = `
+    ${emailTitle(params.title)}
+    ${dataTable(params.rows)}
+    ${divider()}
+    ${para(params.note ?? "Este mensaje fue generado automáticamente por la plataforma.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    subject: params.subject,
+    html: shell(params.title, body),
   });
 }

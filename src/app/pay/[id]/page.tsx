@@ -52,7 +52,7 @@ export default async function PayPage({
         {/* Usamos resolvedSearchParams aquí */}
         {resolvedSearchParams.canceled ? (
           <div className="mt-4 text-sm text-white/70">
-            Pago cancelado. Podés intentarlo de nuevo.
+            Pago cancelado. Puedes intentarlo de nuevo.
           </div>
         ) : null}
 
