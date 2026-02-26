@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { checkAdminAuth } from "@/lib/admin-auth";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: Request) {
   // Check authentication
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
     update: { priceCents, currency },
   });
 
+  revalidatePath("/admin/staff");
   return NextResponse.json({ ok: true });
 }
 
@@ -44,5 +46,6 @@ export async function DELETE(req: Request) {
     where: { serviceId_staffId: { serviceId, staffId } },
   });
 
+  revalidatePath("/admin/staff");
   return NextResponse.json({ ok: true });
 }

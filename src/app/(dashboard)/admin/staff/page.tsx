@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import PriceForm from "./PriceForm";
 import RemovePriceButton from "./RemovePriceButton";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminStaffPage() {
   const staff = await db.user.findMany({
     where: { role: { in: ["STAFF", "ADMIN"] } },
