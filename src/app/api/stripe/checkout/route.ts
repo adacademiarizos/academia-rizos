@@ -9,11 +9,12 @@ type Body = {
   appointmentId: string;
 };
 
-function getBaseUrl() {
-  if (process.env.NODE_ENV === "development") return "http://localhost:3000";
+function getBaseUrl(req: Request): string {
+  // 1. Explicit env var always wins (set this in your hosting dashboard)
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "";
+  // 2. Derive from the actual incoming request — always correct in production
+  const { protocol, host } = new URL(req.url);
+  return `${protocol}//${host}`;
 }
 
 export async function POST(req: Request) {
@@ -87,7 +88,7 @@ export async function POST(req: Request) {
     }
 
     const currency = (price.currency || "EUR").toLowerCase();
-    const baseUrl = getBaseUrl();
+    const baseUrl = getBaseUrl(req);
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
