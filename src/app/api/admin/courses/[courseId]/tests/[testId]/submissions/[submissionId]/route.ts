@@ -6,6 +6,8 @@ import { generateAndSaveCertificate } from '@/server/services/certificate.servic
 import { NotificationService } from '@/server/services/notification-service'
 import { sendAdminAlertEmail } from '@/lib/mail'
 
+export const maxDuration = 60;
+
 const ReviewSchema = z.object({
   status: z.enum(['APPROVED', 'REVISION_REQUESTED']),
   isPassed: z.boolean().optional(),

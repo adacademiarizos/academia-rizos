@@ -380,14 +380,25 @@ export async function generateCertificatePdf(params: CertificatePdfParams): Prom
 </body>
 </html>`
 
-  // Lazy-load puppeteer so it is only evaluated at runtime (not during build)
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const puppeteer = (await import('puppeteer')).default
-
-  const browser = await puppeteer.launch({
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
-    headless: true,
-  })
+  // In production (Vercel serverless), use @sparticuz/chromium which ships a
+  // pre-built Chromium binary compatible with the Lambda environment.
+  // In development, fall back to the locally installed puppeteer bundle.
+  let browser: import('puppeteer-core').Browser
+  if (process.env.NODE_ENV === 'production') {
+    const { default: chromium } = await import('@sparticuz/chromium')
+    const { default: puppeteerCore } = await import('puppeteer-core')
+    browser = await puppeteerCore.launch({
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
+      headless: true,
+    })
+  } else {
+    const { default: puppeteer } = await import('puppeteer')
+    browser = await (puppeteer as unknown as typeof import('puppeteer-core').default).launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu'],
+      headless: true,
+    })
+  }
 
   try {
     const page = await browser.newPage()

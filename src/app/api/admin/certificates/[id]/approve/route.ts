@@ -4,6 +4,8 @@ import { db } from '@/lib/db'
 import { generateAndSaveCertificate } from '@/server/services/certificate.service'
 import { NotificationService } from '@/server/services/notification-service'
 
+export const maxDuration = 60;
+
 async function requireAdmin() {
   const session = await getServerSession()
   if (!session?.user?.email) return null
