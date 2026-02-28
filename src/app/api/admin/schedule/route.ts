@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { checkAdminAuth } from "@/lib/admin-auth";
+import { revalidatePath } from "next/cache";
 
 const DEFAULT_HOURS = [
   { dayOfWeek: 0, isOpen: false, openTime: "09:00", closeTime: "18:00" }, // Sun
@@ -56,5 +57,7 @@ export async function PUT(req: Request) {
     )
   );
 
+  revalidatePath("/");
+  revalidatePath("/horarios");
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { checkAdminAuth } from "@/lib/admin-auth";
+import { revalidatePath } from "next/cache";
 
 export async function POST(req: Request) {
   const auth = await checkAdminAuth();
@@ -23,6 +24,8 @@ export async function POST(req: Request) {
     data: { date: dateObj, reason: reason?.trim() || null },
   });
 
+  revalidatePath("/");
+  revalidatePath("/horarios");
   return NextResponse.json({ ok: true, data: offDay }, { status: 201 });
 }
 
@@ -42,5 +45,7 @@ export async function DELETE(req: Request) {
 
   await db.businessOffDay.delete({ where: { id } });
 
+  revalidatePath("/");
+  revalidatePath("/horarios");
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Schedule from "@/components/marketing/Schedule";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Horarios — Apoteósicas",
   description: "Consultá los horarios de atención de Apoteósicas by Elizabeth Rizos.",
