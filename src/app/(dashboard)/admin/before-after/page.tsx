@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import BeforeAfterUploader from "./BeforeAfterUploader";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminBeforeAfterPage() {
   const pairs = await db.beforeAfterPair.findMany({
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],

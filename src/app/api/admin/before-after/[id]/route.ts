@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { checkAdminAuth } from "@/lib/admin-auth";
+import { revalidatePath } from "next/cache";
 
 export async function DELETE(
   _req: Request,
@@ -20,5 +21,6 @@ export async function DELETE(
   }
 
   await db.beforeAfterPair.delete({ where: { id } });
+  revalidatePath("/");
   return NextResponse.json({ ok: true });
 }

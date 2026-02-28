@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { CourseTestReviewCard, ExamReviewCard } from "./ReviewActions";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminCertificatesReviewPage() {
   // Pending CourseTest final exam submissions
   const courseTestPending = await db.courseTestSubmission.findMany({

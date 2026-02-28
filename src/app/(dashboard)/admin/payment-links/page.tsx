@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import CopyOpenRow from "@/app/(dashboard)/components/CopyOpenRow";
 import DeleteButton from "@/components/dashboard/DeleteButton";
 
+export const dynamic = "force-dynamic";
+
 function money(cents: number, currency = "EUR") {
   const symbol = currency === "EUR" ? "€" : currency + " ";
   return `${symbol}${(cents / 100).toFixed(2)}`;

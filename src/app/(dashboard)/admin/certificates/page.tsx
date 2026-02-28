@@ -3,6 +3,8 @@ import CertificateList from "./CertificateList";
 import Link from "next/link";
 import { ClipboardCheck } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminCertificatesPage() {
   const certificates = await db.certificate.findMany({
     include: {

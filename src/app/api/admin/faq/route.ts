@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { checkAdminAuth } from "@/lib/admin-auth";
+import { revalidatePath } from "next/cache";
 
 export async function GET() {
   const items = await db.faqItem.findMany({
@@ -30,5 +31,6 @@ export async function POST(req: Request) {
     data: { question: question.trim(), answer: answer.trim(), order },
   });
 
+  revalidatePath("/");
   return NextResponse.json({ ok: true, data: item }, { status: 201 });
 }

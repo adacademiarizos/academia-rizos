@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { checkAdminAuth } from "@/lib/admin-auth";
+import { revalidatePath } from "next/cache";
 
 export async function PUT(
   req: Request,
@@ -25,6 +26,7 @@ export async function PUT(
     data: { question: question.trim(), answer: answer.trim() },
   });
 
+  revalidatePath("/");
   return NextResponse.json({ ok: true, data: item });
 }
 
@@ -46,5 +48,6 @@ export async function DELETE(
   }
 
   await db.faqItem.delete({ where: { id } });
+  revalidatePath("/");
   return NextResponse.json({ ok: true });
 }

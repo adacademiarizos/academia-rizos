@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import AppointmentsTable from "./ui/AppointmentsTable";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminAppointmentsPage() {
   const raw = await db.appointment.findMany({
     orderBy: { startAt: "asc" },

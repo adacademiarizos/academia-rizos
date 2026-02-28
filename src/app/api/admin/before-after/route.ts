@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { uploadFile } from "@/lib/storage";
 import { checkAdminAuth } from "@/lib/admin-auth";
+import { revalidatePath } from "next/cache";
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
@@ -70,5 +71,6 @@ export async function POST(req: Request) {
     data: { beforeUrl, afterUrl, label: label || null, order },
   });
 
+  revalidatePath("/");
   return NextResponse.json({ ok: true, data: pair }, { status: 201 });
 }

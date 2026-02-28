@@ -1,6 +1,8 @@
 import { protectAdminPage } from '@/lib/protect-admin-page'
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 function money(cents: number, currency = "EUR") {
   const sym = currency === "EUR" ? "€" : currency + " ";
   return `${sym}${(cents / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

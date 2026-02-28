@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import FaqManager from "./FaqManager";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminFaqPage() {
   const items = await db.faqItem.findMany({
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],
