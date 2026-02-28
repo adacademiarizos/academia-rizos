@@ -380,16 +380,20 @@ export async function generateCertificatePdf(params: CertificatePdfParams): Prom
 </body>
 </html>`
 
-  // In production (Vercel serverless), use @sparticuz/chromium which ships a
-  // pre-built Chromium binary compatible with the Lambda environment.
+  // In production (Vercel serverless), use @sparticuz/chromium-min which
+  // downloads Chromium at runtime from GitHub releases into /tmp (writable).
+  // The full @sparticuz/chromium bundle is too large for Vercel's deploy limit.
   // In development, fall back to the locally installed puppeteer bundle.
+  const CHROMIUM_BINARY_URL =
+    'https://github.com/Sparticuz/chromium/releases/download/v143.0.0/chromium-v143.0.0-pack.tar'
+
   let browser: import('puppeteer-core').Browser
   if (process.env.NODE_ENV === 'production') {
-    const { default: chromium } = await import('@sparticuz/chromium')
+    const { default: chromium } = await import('@sparticuz/chromium-min')
     const { default: puppeteerCore } = await import('puppeteer-core')
     browser = await puppeteerCore.launch({
       args: chromium.args,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(CHROMIUM_BINARY_URL),
       headless: true,
     })
   } else {

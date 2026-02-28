@@ -19,7 +19,7 @@
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^6.19.2",
-    "@sparticuz/chromium": "^143.0.4",
+    "@sparticuz/chromium-min": "^143.0.4",
     "@types/nodemailer": "^7.0.11",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
