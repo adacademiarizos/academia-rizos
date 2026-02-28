@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import ScheduleEditor from "./ScheduleEditor";
 
+export const dynamic = "force-dynamic";
+
 const DEFAULT_HOURS = [
   { dayOfWeek: 0, isOpen: false, openTime: "09:00", closeTime: "18:00" },
   { dayOfWeek: 1, isOpen: true,  openTime: "09:00", closeTime: "18:00" },

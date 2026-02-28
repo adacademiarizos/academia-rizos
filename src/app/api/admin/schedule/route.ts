@@ -59,5 +59,6 @@ export async function PUT(req: Request) {
 
   revalidatePath("/");
   revalidatePath("/horarios");
+  revalidatePath("/admin/schedule");
   return NextResponse.json({ ok: true });
 }
