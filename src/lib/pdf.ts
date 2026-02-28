@@ -385,7 +385,7 @@ export async function generateCertificatePdf(params: CertificatePdfParams): Prom
   // The full @sparticuz/chromium bundle is too large for Vercel's deploy limit.
   // In development, fall back to the locally installed puppeteer bundle.
   const CHROMIUM_BINARY_URL =
-    'https://github.com/Sparticuz/chromium/releases/download/v143.0.0/chromium-v143.0.0-pack.tar'
+    'https://github.com/Sparticuz/chromium/releases/download/v143.0.0/chromium-v143.0.0-pack.x64.tar'
 
   let browser: import('puppeteer-core').Browser
   if (process.env.NODE_ENV === 'production') {
