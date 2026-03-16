@@ -1,0 +1,13 @@
+analiza la estructura en general de todo el apartado de las citas y luego haz lo siguiente:
+
+ok, en esta ruta tengo el formato en el cual quiero modificar el flujo de cmo funcionan las citas: C:\Users\ramse\Documents\Proyectos\Desarrollo\Elizabeth\Data proporcionada\servicios
+
+Tengo 2 documentos, uno que tiene las categorias de servicios, y el otro que tiene los servicios perce, Quiero que modifiques la estructura de prisma para que encaje con esos esquemas y que anadas los datos que tienen cada documento.
+
+Quiero la posibilidad de poder anadir variantes de servicio a los servicios, y que el precio del servicio base se muestre como un rango de las variantes (ej si el servicio tiene 3 variantes, una de 100 euros y otra de 120, y otra de 144, el precio del servicio mostrara 100-144), quiero que a la hora de pasar al apartado de reservar una cita, si el servicio tiene variantes que para poder seguir con el proceso debas seleccionar alguna variante. si el servicio no tiene, pues que directamente no te salga el cuadro de las variantes y te deje continuar como de costumbre.
+
+quiero que a parte de la seleccion de subservicio, en el formulario de reserva te muestre tanto las imagenes del servicio, como su descripcion e informacion en general. pero que tambien te de un boton para poder hacer consultas a whatsapp antes de reservar por si el cliente tiene alguna duda
+
+Realiza test unitarios y de integracion para comprobar que todo funcione como deberia.
+
+Aparte me gustaria crear un apartado en el menu adminstrador de estadisticas, para ver desde que pagina estan entrando los clientes y que ratio de clientes que entran a la pagina compran cursos o reservan una cita.

@@ -19,6 +19,7 @@ export async function GET(req: Request) {
     const staffId = url.searchParams.get("staffId") ?? "";
     const year = Number(url.searchParams.get("year"));
     const month = Number(url.searchParams.get("month")); // 1-12
+    const variantId = url.searchParams.get("variantId");
 
     if (!serviceId || !staffId || !year || !month) {
       return NextResponse.json(
@@ -39,7 +40,13 @@ export async function GET(req: Request) {
       );
     }
 
-    const durationMin = service.durationMin ?? 30;
+    let durationMin: number;
+    if (variantId) {
+      const variant = await db.serviceVariant.findUnique({ where: { id: variantId }, select: { durationMin: true } });
+      durationMin = variant?.durationMin ?? service.durationMin ?? 30;
+    } else {
+      durationMin = service.durationMin ?? 30;
+    }
     // Step equals the service duration so slots don't overlap
     const stepMin = durationMin;
     const now = new Date();

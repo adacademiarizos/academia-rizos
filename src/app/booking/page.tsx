@@ -6,15 +6,44 @@ import { Clock } from "lucide-react";
 import StaffCards from "./StaffCards";
 import CalendarPicker from "./CalendarPicker";
 import TimeSlotPicker from "./TimeSlotPicker";
+import VariantSelector from "./VariantSelector";
+import WhatsAppButton from "./WhatsAppButton";
+
+/* ───── Types ───── */
+
+type Variant = {
+  id: string;
+  name: string;
+  durationMin: number;
+  order: number;
+  minPriceCents: number | null;
+  maxPriceCents: number | null;
+  currency: string;
+};
 
 type Service = {
   id: string;
   name: string;
   description: string | null;
-  durationMin: number;
+  durationMin: number | null;
   billingRule: "FULL" | "DEPOSIT" | "AUTHORIZE";
   depositPct: number | null;
   imageUrls: string[];
+  typeOfService: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  hasVariants: boolean;
+  variants: Variant[];
+  minPriceCents: number | null;
+  maxPriceCents: number | null;
+  currency: string;
+};
+
+type CategoryGroup = {
+  categoryId: string;
+  categoryName: string;
+  categorySlug: string;
+  services: Service[];
 };
 
 type StaffMember = {
@@ -25,6 +54,8 @@ type StaffMember = {
   currency: string;
 };
 
+/* ───── Helpers ───── */
+
 async function readJsonSafe(res: Response) {
   const text = await res.text();
   try {
@@ -33,6 +64,20 @@ async function readJsonSafe(res: Response) {
     throw new Error(`API returned non-JSON (${res.status}): ${text.slice(0, 200)}`);
   }
 }
+
+function priceRangeLabel(
+  minCents: number | null,
+  maxCents: number | null,
+  currency = "EUR"
+): string {
+  if (minCents == null && maxCents == null) return "Consultar";
+  const min = minCents ?? maxCents!;
+  const max = maxCents ?? minCents!;
+  if (min === max) return `${(min / 100).toFixed(0)}€`;
+  return `${(min / 100).toFixed(0)} - ${(max / 100).toFixed(0)}€`;
+}
+
+/* ───── SectionCard ───── */
 
 function SectionCard({
   step,
@@ -64,12 +109,17 @@ function SectionCard({
   );
 }
 
+/* ───── Main booking content ───── */
+
 function BookingContent() {
   const searchParams = useSearchParams();
   const serviceIdParam = searchParams.get("serviceId") ?? "";
 
+  /* State */
   const [services, setServices] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<CategoryGroup[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState(serviceIdParam);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [staffId, setStaffId] = useState("");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -77,46 +127,85 @@ function BookingContent() {
   const [customer, setCustomer] = useState({ name: "", email: "", phone: "" });
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
 
-  // Fetch all services once
+  // Filtered services based on selected category tag
+  const filteredServices = useMemo(() => {
+    if (!filterCategory) return services;
+    return services.filter((s) => s.categoryId === filterCategory);
+  }, [services, filterCategory]);
+
+  /* Fetch all services once */
   useEffect(() => {
     fetch("/api/services", { cache: "no-store" })
       .then(readJsonSafe)
-      .then((j) => setServices(j.data?.services ?? []))
+      .then((j) => {
+        setServices(j.data?.services ?? []);
+        setCategories(j.data?.groupedByCategory ?? []);
+      })
       .catch(() => {});
   }, []);
 
-  // Sync with URL when navigating with serviceId
+  /* Sync with URL param */
   useEffect(() => {
     if (serviceIdParam) setSelectedServiceId(serviceIdParam);
   }, [serviceIdParam]);
 
+  /* Derived */
   const service = useMemo(
     () => services.find((s) => s.id === selectedServiceId) ?? null,
     [services, selectedServiceId]
   );
 
-  // Fetch staff when service is known
+  const selectedVariant = useMemo(
+    () => service?.variants.find((v) => v.id === selectedVariantId) ?? null,
+    [service, selectedVariantId]
+  );
+
+  const hasVariants = !!service?.hasVariants && (service.variants.length ?? 0) > 0;
+
+  // Service is "ready" when either variant is selected (if needed) or no variants
+  const serviceReady = !!service && (!hasVariants || !!selectedVariantId);
+
+  /* Fetch staff when service (and variant if needed) are known */
   useEffect(() => {
-    if (!selectedServiceId) return;
+    if (!selectedServiceId || !serviceReady) return;
     setStaffId("");
     setSelectedDate(null);
     setSelectedSlot(null);
     setStaff([]);
 
-    fetch(`/api/services/${selectedServiceId}/staff`, { cache: "no-store" })
+    const params = new URLSearchParams({ });
+    if (selectedVariantId) params.set("variantId", selectedVariantId);
+
+    fetch(`/api/services/${selectedServiceId}/staff?${params.toString()}`, { cache: "no-store" })
       .then(readJsonSafe)
       .then((j) => setStaff(j.data?.staff ?? []))
       .catch(() => {});
+  }, [selectedServiceId, selectedVariantId, serviceReady]);
+
+  /* Reset cascades */
+  useEffect(() => {
+    // When service changes, reset everything downstream
+    setSelectedVariantId(null);
+    setStaffId("");
+    setSelectedDate(null);
+    setSelectedSlot(null);
+    setStaff([]);
   }, [selectedServiceId]);
 
-  // Reset date/slot when staff changes
+  useEffect(() => {
+    // When variant changes, reset staff/date/slot (but NOT via the service reset above)
+    setStaffId("");
+    setSelectedDate(null);
+    setSelectedSlot(null);
+  }, [selectedVariantId]);
+
   useEffect(() => {
     setSelectedDate(null);
     setSelectedSlot(null);
   }, [staffId]);
 
-  // Reset slot when date changes
   useEffect(() => {
     setSelectedSlot(null);
   }, [selectedDate]);
@@ -126,6 +215,16 @@ function BookingContent() {
     [staff, staffId]
   );
 
+  /* Dynamic step numbers */
+  const variantStep = hasVariants ? 2 : null;
+  const professionalStep = hasVariants ? 3 : 2;
+  const dateStep = hasVariants ? 4 : 3;
+  const dataStep = hasVariants ? 5 : 4;
+
+  /* Duration label */
+  const displayDuration = selectedVariant?.durationMin ?? service?.durationMin;
+
+  /* Handle payment */
   async function handlePay() {
     if (!selectedServiceId || !staffId || !selectedSlot || !customer.email || !customer.name) return;
 
@@ -138,6 +237,7 @@ function BookingContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           serviceId: selectedServiceId,
+          variantId: selectedVariantId || undefined,
           staffId,
           startAt: selectedSlot,
           customer,
@@ -156,10 +256,8 @@ function BookingContent() {
       };
 
       if (billingRule === "AUTHORIZE") {
-        alert("✅ Solicitud enviada. Te enviaremos el link de pago cuando sea autorizada.");
-        setStaffId("");
-        setSelectedDate(null);
-        setSelectedSlot(null);
+        alert("Solicitud enviada. Te enviaremos el link de pago cuando sea autorizada.");
+        setSelectedServiceId("");
         setCustomer({ name: "", email: "", phone: "" });
         return;
       }
@@ -199,79 +297,157 @@ function BookingContent() {
           {/* ── 1. SERVICIO ───────────────────────────────────────── */}
           <SectionCard step={1} title="Servicio" active={true}>
             {service ? (
-              <div className="flex items-start gap-4">
-                {service.imageUrls[0] && (
-                  <img
-                    src={service.imageUrls[0]}
-                    alt={service.name}
-                    className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-1 ring-white/10"
-                  />
-                )}
-                <div className="flex-1">
-                  <p className="font-semibold text-white">{service.name}</p>
-                  {service.description && (
-                    <p className="mt-0.5 text-xs text-white/55">{service.description}</p>
+              <div>
+                <div className="flex items-start gap-4">
+                  {service.imageUrls[0] && (
+                    <img
+                      src={service.imageUrls[0]}
+                      alt={service.name}
+                      className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-1 ring-white/10"
+                    />
                   )}
-                  <div className="mt-2 flex items-center gap-1.5 text-xs text-[#c8cf94]">
-                    <Clock className="h-3 w-3" />
-                    <span>{service.durationMin} min</span>
-                    {service.depositPct && (
-                      <span className="ml-2 text-white/40">· Seña {service.depositPct}%</span>
+                  <div className="flex-1">
+                    <p className="font-semibold text-white">{service.name}</p>
+                    {service.categoryName && (
+                      <p className="text-[11px] text-white/35 mt-0.5">{service.categoryName}</p>
                     )}
+                    <div className="mt-2 flex items-center gap-1.5 text-xs text-[#c8cf94]">
+                      {displayDuration ? (
+                        <>
+                          <Clock className="h-3 w-3" />
+                          <span>{displayDuration} min</span>
+                        </>
+                      ) : (
+                        <span className="text-white/40">Duración según opción</span>
+                      )}
+                      <span className="ml-2 font-semibold">
+                        {priceRangeLabel(service.minPriceCents, service.maxPriceCents, service.currency)}
+                      </span>
+                    </div>
                   </div>
+                  {!serviceIdParam && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedServiceId("")}
+                      className="shrink-0 text-xs text-white/40 hover:text-white/70 transition"
+                    >
+                      Cambiar
+                    </button>
+                  )}
                 </div>
-                {!serviceIdParam && (
-                  <button
-                    type="button"
-                    onClick={() => { setSelectedServiceId(""); setStaffId(""); setSelectedDate(null); setSelectedSlot(null); }}
-                    className="shrink-0 text-xs text-white/40 hover:text-white/70 transition"
-                  >
-                    Cambiar
-                  </button>
+
+                {/* Description + WhatsApp */}
+                {service.description && (
+                  <p className="mt-3 text-xs text-white/45 leading-relaxed">{service.description}</p>
                 )}
+                <div className="mt-3">
+                  <WhatsAppButton
+                    serviceName={service.name}
+                    variantName={selectedVariant?.name}
+                  />
+                </div>
               </div>
             ) : services.length > 0 ? (
-              <div className="grid gap-2">
-                <p className="text-xs text-white/40 mb-1">Seleccioná un servicio para continuar</p>
-                {services.map((s) => (
+              <div className="grid gap-3">
+                <p className="text-xs text-white/40 mb-1">Selecciona un servicio para continuar</p>
+
+                {/* ── Category filter tags ── */}
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" style={{ scrollbarWidth: "none" }}>
                   <button
-                    key={s.id}
                     type="button"
-                    onClick={() => setSelectedServiceId(s.id)}
-                    className="flex items-center gap-3 w-full rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-3 text-left transition"
+                    onClick={() => setFilterCategory(null)}
+                    className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition
+                      ${filterCategory === null
+                        ? "bg-[#646a40] text-white ring-1 ring-[#646a40]/60"
+                        : "bg-white/5 text-white/50 ring-1 ring-white/10 hover:bg-white/10 hover:text-white/70"
+                      }`}
                   >
-                    {s.imageUrls[0] && (
-                      <img src={s.imageUrls[0]} alt={s.name} className="h-10 w-10 shrink-0 rounded-xl object-cover" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">{s.name}</p>
-                      <p className="text-xs text-[#c8cf94] mt-0.5">{s.durationMin} min</p>
-                    </div>
+                    Todos
                   </button>
-                ))}
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.categoryId}
+                      type="button"
+                      onClick={() => setFilterCategory(filterCategory === cat.categoryId ? null : cat.categoryId)}
+                      className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition
+                        ${filterCategory === cat.categoryId
+                          ? "bg-[#646a40] text-white ring-1 ring-[#646a40]/60"
+                          : "bg-white/5 text-white/50 ring-1 ring-white/10 hover:bg-white/10 hover:text-white/70"
+                        }`}
+                    >
+                      {cat.categoryName}
+                    </button>
+                  ))}
+                </div>
+
+                {/* ── Service cards ── */}
+                <div className="grid gap-2 max-h-[420px] overflow-y-auto pr-1" style={{ scrollbarWidth: "thin" }}>
+                  {filteredServices.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSelectedServiceId(s.id)}
+                      className="flex items-center gap-3 w-full rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 px-3 py-3 text-left transition"
+                    >
+                      {s.imageUrls[0] && (
+                        <img
+                          src={s.imageUrls[0]}
+                          alt={s.name}
+                          className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{s.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {s.durationMin ? (
+                            <span className="text-[11px] text-white/40">{s.durationMin} min</span>
+                          ) : s.hasVariants ? (
+                            <span className="text-[11px] text-white/30">Varias opciones</span>
+                          ) : null}
+                          <span className="text-xs font-semibold text-[#c8cf94]">
+                            {priceRangeLabel(s.minPriceCents, s.maxPriceCents, s.currency)}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                  {filteredServices.length === 0 && (
+                    <p className="text-xs text-white/30 py-4 text-center">No hay servicios en esta categoría.</p>
+                  )}
+                </div>
               </div>
             ) : (
               <p className="text-sm text-white/40">Cargando servicios…</p>
             )}
           </SectionCard>
 
-          {/* ── 2. PROFESIONAL ────────────────────────────────────── */}
-          <SectionCard step={2} title="Profesional" active={!!service}>
+          {/* ── 2. VARIANTE (condicional) ──────────────────────────── */}
+          {hasVariants && (
+            <SectionCard step={variantStep!} title="Opción del servicio" active={!!service}>
+              <VariantSelector
+                variants={service!.variants}
+                selected={selectedVariantId}
+                onSelect={setSelectedVariantId}
+              />
+            </SectionCard>
+          )}
+
+          {/* ── PROFESIONAL ────────────────────────────────────────── */}
+          <SectionCard step={professionalStep} title="Profesional" active={serviceReady}>
             <StaffCards staff={staff} selected={staffId} onSelect={setStaffId} />
           </SectionCard>
 
-          {/* ── 3. FECHA Y HORA ───────────────────────────────────── */}
-          <SectionCard step={3} title="Fecha y hora" active={!!staffId}>
+          {/* ── FECHA Y HORA ───────────────────────────────────────── */}
+          <SectionCard step={dateStep} title="Fecha y hora" active={!!staffId}>
             <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-start">
-              {/* Calendar */}
               <CalendarPicker
                 serviceId={selectedServiceId}
                 staffId={staffId}
+                variantId={selectedVariantId}
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
               />
 
-              {/* Time slots */}
               {selectedDate && (
                 <div className="md:w-48">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-white/40 mb-1">
@@ -280,6 +456,7 @@ function BookingContent() {
                   <TimeSlotPicker
                     serviceId={selectedServiceId}
                     staffId={staffId}
+                    variantId={selectedVariantId}
                     date={selectedDate}
                     selectedSlot={selectedSlot}
                     onSelect={setSelectedSlot}
@@ -289,8 +466,8 @@ function BookingContent() {
             </div>
           </SectionCard>
 
-          {/* ── 4. TUS DATOS ──────────────────────────────────────── */}
-          <SectionCard step={4} title="Tus datos" active={!!selectedSlot}>
+          {/* ── TUS DATOS ──────────────────────────────────────────── */}
+          <SectionCard step={dataStep} title="Tus datos" active={!!selectedSlot}>
             <div className="grid gap-3">
               <input
                 placeholder="Nombre completo"
@@ -317,6 +494,12 @@ function BookingContent() {
             {/* Summary */}
             {selectedStaff && selectedSlot && (
               <div className="mt-4 rounded-2xl bg-white/[0.04] px-4 py-3 text-xs text-white/55 space-y-1">
+                <div className="flex justify-between">
+                  <span>Servicio</span>
+                  <span className="text-white text-right max-w-[60%] truncate">
+                    {service?.name}{selectedVariant ? ` - ${selectedVariant.name}` : ""}
+                  </span>
+                </div>
                 <div className="flex justify-between">
                   <span>Profesional</span>
                   <span className="text-white">{selectedStaff.name ?? "—"}</span>

@@ -6,9 +6,12 @@ import { z } from "zod";
 const UpdateServiceSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
-  durationMin: z.number().int().positive().optional(),
+  durationMin: z.number().int().positive().optional().nullable(),
   billingRule: z.enum(["FULL", "DEPOSIT", "AUTHORIZE"]).optional(),
   depositPct: z.number().int().min(1).max(100).optional().nullable(),
+  categoryId: z.string().optional().nullable(),
+  isActive: z.boolean().optional(),
+  order: z.number().int().optional(),
 });
 
 export async function PUT(
@@ -30,6 +33,16 @@ export async function PUT(
       ...(data.durationMin !== undefined && { durationMin: data.durationMin }),
       ...(data.billingRule !== undefined && { billingRule: data.billingRule as any }),
       ...(data.depositPct !== undefined && { depositPct: data.depositPct }),
+      ...(data.categoryId !== undefined && { categoryId: data.categoryId }),
+      ...(data.isActive !== undefined && { isActive: data.isActive }),
+      ...(data.order !== undefined && { order: data.order }),
+    },
+    include: {
+      category: { select: { id: true, name: true, slug: true } },
+      variants: {
+        orderBy: { order: "asc" },
+        select: { id: true, name: true, durationMin: true, order: true, isActive: true },
+      },
     },
   });
 

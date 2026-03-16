@@ -1,0 +1,225 @@
+{
+    "servicios": [
+        {
+            "name": "Monarquia Apoteósica (Peinados)",
+            "typeOfService": "Peinados",
+            "time": 120,
+            "typeOfPrice": "variable",
+            "price": null,
+            "variants": [],
+            "category": "Peinados",
+            "description": "Despues de reservar tu cita envianos a whatsapp 692376669 foto o video de tu cabello y foto de inspiracion del peinado o estilo que te gustaria. Boda, bautizos, comuniones y fechas especiales.",
+            "images": []
+        },
+        {
+            "name": "Experiencia Apoteósica (pack premium)",
+            "typeOfService": "Corte para mujer",
+            "time": 120,
+            "typeOfPrice": "fijo",
+            "price": 125,
+            "variants": [],
+            "category": "Pack Cabello ondulado densidad media-baja",
+            "description": "Asesoria completa, corte de puntas o diseño, tratamiento proteína (el más reconstructor) con máquina vapor ozono para potenciar el tratamiento, styling y secado al 100% Es el tratamiento mas completo: devuelve brillo, elasticidad, fuerza. Es el que siempre recomendamos y sobre todo si es tu primera visita en nuestro salón para que veas un resultado APOTEÓSICO. Incluye: Lavado, tratamiento, corte, styling, secado 100% y asesoramiento de tu rutina en casa (masterclass sobre tu textura).",
+            "images": []
+        },
+        {
+            "name": "Ritual de Identidad (Pack completo básico)",
+            "typeOfService": "Corte para mujer",
+            "time": 120,
+            "typeOfPrice": "fijo",
+            "price": 85,
+            "variants": [],
+            "category": "Pack Cabello ondulado densidad media-baja",
+            "description": "Asesoramiento, corte para dar forma (no incluye corte de diseño), un tratamiento hidratante (solo aporta suavidad pero no elasticidad) no incluye vapor ozono, styling y secado al 100% Si tu cabello esta maltratado, seco o decolorado te recomiendo el pack Experiencia apoteósica ya que tiene tratamiento de proteina para reconstrucción que es el que devuelve brillo y elasticidad.",
+            "images": []
+        },
+        {
+            "name": "Rizo vivo (tratamiento proteína y definición)",
+            "typeOfService": "Tratamiento acondicionador profundo",
+            "time": 90,
+            "typeOfPrice": "fijo",
+            "price": 75,
+            "variants": [],
+            "category": "Pack Cabello ondulado densidad media-baja",
+            "description": "Tratamiento premium reconstructor para recuperar la elasticidad de tus rizos con maquina de vapor ozono, lavado, styling y secado al 100% (no incluye asesoramiento pero si la explicación del paso a paso de todo lo que te haremos y utilizaremos).",
+            "images": []
+        },
+        {
+            "name": "Esencia apoteósica (Corte y definición)",
+            "typeOfService": "Corte para mujer",
+            "time": 90,
+            "typeOfPrice": "fijo",
+            "price": 65,
+            "variants": [],
+            "category": "Pack Cabello ondulado densidad media-baja",
+            "description": "No incluye lavado (venir con el cabello lavado, desenredado y sin nada de producto) puede hacer recogido o trenza para evitar que se vuelva a enredar. Este servicio solo lo recomendamos a clientas habituales en nuestro salón, ya que si no sueles acudir de manera habitual a una peluqueria especializada en rizos tu cabello no tendra salud capilar y el resultado no sera el mismo que esperas (como en la foto de abajo). El corte solo da forma pero el resto de cabello que esta sin brillo, con el rizo o la onda caida solo la recupera el tratamiento! por eso este servicio básico de corte y definición se le recomienda a clientas que ya han venido antes a nuestro salón y solo necesita retocar forma. Si llevas mucho sin hacer un buen tratamiento te recomiendo un pack mas completo. No incluye asesoramiento, si la explicación del paso a paso de lo que te hacemos.",
+            "images": []
+        },
+        {
+            "name": "Rizo vital (hidratación y definición)",
+            "typeOfService": "Tratamiento hidratante pelo",
+            "time": 90,
+            "typeOfPrice": "fijo",
+            "price": 65,
+            "variants": [],
+            "category": "Pack Cabello ondulado densidad media-baja",
+            "description": "Tratamiento básico para dar suavidad a tus rizos siempre y cuando este equilibrado con proteína (elasticidad) si no lo esta podemos perder la fuerza de nuestros rizos y que solo se marque en las puntas ya que sobre hidratarlo no es lo mas beneficioso. Incluye: Lavado, tratamiento (no incluye vapor ozono), styling y secado al 100% (no incluye asesoramiento pero si explicación del paso a paso de lo que te haremos en la cita).",
+            "images": []
+        },
+        {
+            "name": "Glow apoteósico (mechas densidad media baja)",
+            "typeOfService": "Mechas",
+            "time": null,
+            "typeOfPrice": "variable",
+            "price": null,
+            "variants": [
+                {
+                    "name": "Mechas y matiz + tratamiento proteína y definición",
+                    "time": "150",
+                    "typeOfPrice": "fijo",
+                    "price": 220
+                },
+                {
+                    "name": "Mechas y matiz + pack premium (Corte, proteína y definición)",
+                    "time": "180",
+                    "typeOfPrice": "fijo",
+                    "price": 270
+                }
+            ],
+            "category": "Pack Cabello ondulado densidad media-baja",
+            "description": "Mechas básicas, balayage, babyligths (Elige tu estilo). El valor de las mechas van desde 85€ a 120€ dependiendo densidad y largo del cabello, reconfirmaremos precio el día de la cita. Se recomienda que siempre que se hace color se realice tratamiento de proteína y definición como servicio mínimo junto a las mechas, ya que debemos recuperar la salud del cabello.",
+            "images": []
+        },
+        {
+            "name": "Corona apoteósica (pack afro)",
+            "typeOfService": "Corte para mujer",
+            "time": 150,
+            "typeOfPrice": "fijo",
+            "price": 150,
+            "variants": [],
+            "category": "Pack Cabello afro alta densidad",
+            "description": "130€ a 150€ dependiendo densidad y largo. Incluye una técnica especial para cabellos afros donde desde el shampoo empezamos a eliminar encrespamiento, eliminanos saturación de productos de medios a puntas como aceites y/o mantecas, aplicamos una mascarilla intensiva con maquina de vapor ozono para dar mas hidratación y brillo ademas, con la técnica de lavado ayudamos a formar la curvatura natural de afro y esto nos facilita el peinado. Utilizando técnicas de definición según el gusto del cliente: Volumen o definición. Ademas damos una masterclass del paso a paso y de tips para su textura.",
+            "images": []
+        },
+        {
+            "name": "Mechas cabello afro",
+            "typeOfService": "Mechas",
+            "time": 240,
+            "typeOfPrice": "fijo",
+            "price": 305,
+            "variants": [],
+            "category": "Pack Cabello afro alta densidad",
+            "description": "El valor de las mechas van desde 120 a 130€ dependiendo densidad y largo del cabello y el matiz 25€, reconfirmaremos precio el día de la cita. Mechas y matiz + pack afro (corte, tratamiento intensivo con maquina de vapor ozono y estilizado (volumen, sin volumen o ambos).",
+            "images": []
+        },
+        {
+            "name": "Experiencia apoteósica (pack premium) - Rizado",
+            "typeOfService": "Tratamiento acondicionador profundo",
+            "time": 110,
+            "typeOfPrice": "fijo",
+            "price": 135,
+            "variants": [],
+            "category": "Pack Cabello rizado densidad media/alta",
+            "description": "Asesoria completa, corte de puntas o diseño, lavado, tratamiento proteína (el más reconstructor) con máquina vapor ozono para potenciar el tratamiento, styling y secado al 100% y asesoramiento de tu rutina en casa (masterclass sobre tu textura). Es el tratamiento mas completo: devuelve brillo, elasticidad, fuerza. Es el que siempre recomendamos y sobre todo si es tu primera visita en nuestro salón para que veas un resultado APOTEÓSICO.",
+            "images": []
+        },
+        {
+            "name": "Rizo vivo (tratamiento proteina y definición) - Rizado",
+            "typeOfService": "Tratamiento acondicionador profundo",
+            "time": 120,
+            "typeOfPrice": "fijo",
+            "price": 100,
+            "variants": [],
+            "category": "Pack Cabello rizado densidad media/alta",
+            "description": "Tratamiento premium reconstructor para recuperar la elasticidad de tus rizos con maquina de vapor ozono, lavado, styling y secado al 100% (no incluye asesoramiento pero si la explicación del paso a paso de todo lo que te haremos y utilizaremos).",
+            "images": []
+        },
+        {
+            "name": "Esencia apoteósica (corte y definición) - Rizado",
+            "typeOfService": "Corte para mujer",
+            "time": 90,
+            "typeOfPrice": "fijo",
+            "price": 85,
+            "variants": [],
+            "category": "Pack Cabello rizado densidad media/alta",
+            "description": "No incluye lavado (venir con el cabello lavado, desenredado y sin nada de producto) puede hacer recogido o trenza para evitar que se vuelva a enredar, haremos corte y definición con 100% Este servicio solo lo recomendamos a clientas habituales en nuestro salón, ya que si no sueles acudir de manera habitual a una peluqueria especializada en rizos tu cabello no tendra salud capilar y el resultado no sera el mismo que esperas (como en la foto de abajo). El corte solo da forma pero el resto de cabello que esta sin brillo, con el rizo o la onda caida solo la recupera el tratamiento! por eso este servicio básico de corte y definición se le recomienda a clientas que ya han venido antes a nuestro salón y solo necesita retocar forma. Si llevas mucho sin hacer un buen tratamiento te recomiendo un pack mas completo. No incluye asesoramiento, si la explicación del paso a paso delo que te hacemos.",
+            "images": []
+        },
+        {
+            "name": "Rizo vital (hidratación y definición) - Rizado",
+            "typeOfService": "Tratamiento acondicionador profundo",
+            "time": 120,
+            "typeOfPrice": "fijo",
+            "price": 85,
+            "variants": [],
+            "category": "Pack Cabello rizado densidad media/alta",
+            "description": "Tratamiento básico para dar suavidad a tus rizos siempre y cuando este equilibrado con proteína (elasticidad) si no lo esta podemos perder la fuerza de nuestros rizos y que solo se marque en las puntas ya que sobre hidratarlo no es lo mas beneficioso. Incluye: Lavado, tratamiento (no incluye vapor ozono), styling y secado al 100% (no incluye asesoramiento pero si explicación del paso a paso de lo que te haremos en la cita).",
+            "images": []
+        },
+        {
+            "name": "Ritual de identidad (pack básico hidratante)",
+            "typeOfService": "Tratamiento hidratante",
+            "time": 90,
+            "typeOfPrice": "fijo",
+            "price": 115,
+            "variants": [],
+            "category": "Pack Cabello rizado densidad media/alta",
+            "description": "Asesoramiento, corte para dar forma (no incluye corte de diseño), un tratamiento hidratante (solo aporta suavidad pero no elasticidad) no incluye vapor ozono, styling y secado al 100% Si tu cabello esta maltratado, seco o decolorado te recomiendo el pack Experiencia apoteósica ya que tiene tratamiento de proteina para reconstrucción que es el que devuelve brillo y elasticidad.",
+            "images": []
+        },
+        {
+            "name": "Glow apoteósico (mechas densidad media-alta)",
+            "typeOfService": "Mechas",
+            "time": null,
+            "typeOfPrice": "variable",
+            "price": null,
+            "variants": [
+                {
+                    "name": "Mechas y matiz + pack premium",
+                    "time": 210,
+                    "typeOfPrice": "fijo",
+                    "price": 280
+                },
+                {
+                    "name": "Mechas y matiz + tratamiento proteina y definición",
+                    "time": 195,
+                    "typeOfPrice": "fijo",
+                    "price": 245
+                }
+            ],
+            "category": "Pack Cabello rizado densidad media/alta",
+            "description": "Mechas básicas, balayage, babyligths (Elige tu estilo). El valor de las mechas van desde 85€ a 135€ dependiendo densidad y largo del cabello, reconfirmaremos precio el dia de la cita. Se recomienda que siempre que se hace color se realice tratamiento de proteina y definicion como servicio minimo junto a las mechas, ya que debemos recuperar la salud del cabello.",
+            "images": []
+        },
+        {
+            "name": "Mini curly",
+            "typeOfService": "Corte para niño",
+            "time": null,
+            "typeOfPrice": "variable",
+            "price": null,
+            "variants": [
+                {
+                    "name": "Adolescentes densidad media-alta",
+                    "time": 90,
+                    "typeOfPrice": "fijo",
+                    "price": 85
+                },
+                {
+                    "name": "Densidad baja y medio corto",
+                    "time": 90,
+                    "typeOfPrice": "fijo",
+                    "price": 50
+                },
+                {
+                    "name": "Densidad media alta y un poco mas largo",
+                    "time": 90,
+                    "typeOfPrice": "fijo",
+                    "price": 65
+                }
+            ],
+            "category": "Pack Infantil",
+            "description": "El valor del servicio dependerá de la densidad y largo, no de la edad (confirmaremos el precio el mismo dia de la cita). Incluye corte, tratamiento y definición ademas de enseñarle las técnicas a los padres para que sepan cuidarlo en casa.",
+            "images": []
+        }
+    ]
+}

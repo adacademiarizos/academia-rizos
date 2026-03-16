@@ -88,27 +88,28 @@ model User {
   taughtAppointments Appointment[]       @relation("StaffAppointments")
   payments           Payment[]           @relation("PayerPayments")
   servicePrices      ServiceStaffPrice[] @relation("ServiceStaffPrice_staff")
+  variantPrices      VariantStaffPrice[] @relation("VariantStaffPrice_staff")
 
   // Relations - Academia
-  courseAccess CourseAccess[]
-  comments Comment[]
-  likes Like[]
-  chatMessages ChatMessage[]
-  submissions Submission[]
-  certificates Certificate[]
-  moduleProgress ModuleProgress[]
-  moduleSubmissions ModuleSubmission[]
-  questionSubmissions QuestionSubmission[]
-  examSubmissions ExamSubmission[]
+  courseAccess          CourseAccess[]
+  comments              Comment[]
+  likes                 Like[]
+  chatMessages          ChatMessage[]
+  submissions           Submission[]
+  certificates          Certificate[]
+  moduleProgress        ModuleProgress[]
+  moduleSubmissions     ModuleSubmission[]
+  questionSubmissions   QuestionSubmission[]
+  examSubmissions       ExamSubmission[]
   courseTestSubmissions CourseTestSubmission[]
 
   // Relations - ETAPA 5
   notifications Notification[]
-  activities UserActivity[]
-  achievements Achievement[]
+  activities    UserActivity[]
+  achievements  Achievement[]
 
   // Relations - New features
-  bugReports BugReport[]
+  bugReports          BugReport[]
   paymentLinksCreated PaymentLink[] @relation("PaymentLinkCreator")
 }
 
@@ -123,21 +124,69 @@ model StaffProfile {
   user User @relation(fields: [userId], references: [id])
 }
 
+model ServiceCategory {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  services Service[]
+}
+
 model Service {
-  id          String      @id @default(cuid())
-  name        String
-  description String?
-  durationMin Int
-  billingRule BillingRule @default(FULL)
-  depositPct  Int?
-  isActive    Boolean     @default(true)
-  imageUrls   String[]    @default([])
+  id            String      @id @default(cuid())
+  name          String
+  description   String?
+  durationMin   Int?
+  billingRule   BillingRule @default(FULL)
+  depositPct    Int?
+  isActive      Boolean     @default(true)
+  imageUrls     String[]    @default([])
+  typeOfService String?
+  order         Int         @default(0)
+  categoryId    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  category     ServiceCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   prices       ServiceStaffPrice[]
+  variants     ServiceVariant[]
   appointments Appointment[]
+
+  @@index([categoryId])
+}
+
+model ServiceVariant {
+  id          String  @id @default(cuid())
+  serviceId   String
+  name        String
+  durationMin Int
+  order       Int     @default(0)
+  isActive    Boolean @default(true)
+
+  service      Service             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  staffPrices  VariantStaffPrice[]
+  appointments Appointment[]
+
+  @@index([serviceId])
+}
+
+model VariantStaffPrice {
+  id         String @id @default(cuid())
+  variantId  String
+  staffId    String
+  priceCents Int
+  currency   String @default("EUR")
+
+  variant ServiceVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  staff   User           @relation("VariantStaffPrice_staff", fields: [staffId], references: [id])
+
+  @@unique([variantId, staffId])
+  @@index([variantId])
+  @@index([staffId])
 }
 
 model ServiceStaffPrice {
@@ -158,6 +207,7 @@ model ServiceStaffPrice {
 model Appointment {
   id         String            @id @default(cuid())
   serviceId  String
+  variantId  String?
   staffId    String
   customerId String?
   startAt    DateTime
@@ -172,9 +222,10 @@ model Appointment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  service  Service   @relation(fields: [serviceId], references: [id])
-  staff    User      @relation("StaffAppointments", fields: [staffId], references: [id])
-  customer User?     @relation("CustomerAppointments", fields: [customerId], references: [id])
+  service  Service         @relation(fields: [serviceId], references: [id])
+  variant  ServiceVariant? @relation(fields: [variantId], references: [id])
+  staff    User            @relation("StaffAppointments", fields: [staffId], references: [id])
+  customer User?           @relation("CustomerAppointments", fields: [customerId], references: [id])
   payments Payment[]
 
   @@index([staffId, startAt])
@@ -196,7 +247,7 @@ model Payment {
   appointmentId String?
   courseId      String?
   paymentLinkId String?
-  paymentLink PaymentLink? @relation(fields: [paymentLinkId], references: [id])
+  paymentLink   PaymentLink? @relation(fields: [paymentLinkId], references: [id])
 
   payerId    String?
   payerEmail String?
@@ -226,13 +277,12 @@ model Settings {
   updatedAt       DateTime @updatedAt
 }
 
-
 model PaymentLink {
   id String @id @default(cuid())
 
-  title String
+  title       String
   description String?
-  currency String @default("EUR")
+  currency    String  @default("EUR")
 
   // Lo que la clienta "quiere cobrar"
   baseAmountCents Int
@@ -249,62 +299,63 @@ model PaymentLink {
 
   // Stripe
   stripeCheckoutSessionId String?
-  status PaymentStatus @default(REQUIRES_PAYMENT)
+  status                  PaymentStatus @default(REQUIRES_PAYMENT)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   payments Payment[]
+
   @@index([createdById])
 }
 
 // ============= ACADEMIA DE RIZOS =============
 
 model Course {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
+  id           String  @id @default(cuid())
+  title        String
+  description  String?
   trailerUrl   String?
   thumbnailUrl String?
-  priceCents  Int
-  currency    String   @default("EUR")
-  rentalDays  Int?     // if null => lifetime access
-  isActive    Boolean  @default(true)
+  priceCents   Int
+  currency     String  @default("EUR")
+  rentalDays   Int? // if null => lifetime access
+  isActive     Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  modules   Module[]
-  resources Resource[]
+  modules         Module[]
+  resources       Resource[]
   courseResources CourseResource[]
-  courseTests CourseTest[]
-  access    CourseAccess[]
-  test      Test?
-  exam      CourseExam?
-  payments  Payment[]        @relation("CoursePayments")
+  courseTests     CourseTest[]
+  access          CourseAccess[]
+  test            Test?
+  exam            CourseExam?
+  payments        Payment[]        @relation("CoursePayments")
 
-  likes       Like[]        @relation("CourseLikes")
-  comments    Comment[]     @relation("CourseComments")
-  chatRoom    ChatRoom?
+  likes        Like[]        @relation("CourseLikes")
+  comments     Comment[]     @relation("CourseComments")
+  chatRoom     ChatRoom?
   certificates Certificate[] @relation("CourseCertificates")
 
   @@index([isActive])
 }
 
 model Module {
-  id          String   @id @default(cuid())
-  courseId    String
-  order       Int
-  title       String
-  description String?
-  videoUrl    String?
-  videoFileUrl String?  // New S3 video URL
-  transcript  String?   // for RAG/AI (will be searched by vector DB later)
+  id           String  @id @default(cuid())
+  courseId     String
+  order        Int
+  title        String
+  description  String?
+  videoUrl     String?
+  videoFileUrl String? // New S3 video URL
+  transcript   String? // for RAG/AI (will be searched by vector DB later)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  course      Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course      Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
   progress    ModuleProgress[]
   resources   ModuleResource[]
   tests       ModuleTest[]
@@ -319,14 +370,14 @@ model Module {
 }
 
 model Lesson {
-  id           String   @id @default(cuid())
+  id           String  @id @default(cuid())
   moduleId     String
   order        Int
   title        String
   description  String?
-  videoUrl     String?      // legacy/external URL
-  videoFileUrl String?      // S3/R2 uploaded URL
-  transcript   String?      // for future RAG/AI
+  videoUrl     String? // legacy/external URL
+  videoFileUrl String? // S3/R2 uploaded URL
+  transcript   String? // for future RAG/AI
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -338,14 +389,14 @@ model Lesson {
 }
 
 model ModuleProgress {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
   moduleId    String
-  completed   Boolean  @default(false)
+  completed   Boolean   @default(false)
   completedAt DateTime?
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  module Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@unique([userId, moduleId])
   @@index([moduleId])
@@ -353,14 +404,14 @@ model ModuleProgress {
 }
 
 model CourseAccess {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
   courseId    String
-  accessUntil DateTime?  // null = lifetime
-  createdAt   DateTime @default(now())
+  accessUntil DateTime? // null = lifetime
+  createdAt   DateTime  @default(now())
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([userId, courseId])
   @@index([courseId])
@@ -373,7 +424,7 @@ model Resource {
   type      ResourceType
   fileUrl   String
   fileName  String?
-  createdAt DateTime @default(now())
+  createdAt DateTime     @default(now())
 
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
@@ -388,9 +439,9 @@ model Like {
   moduleId   String?
   createdAt  DateTime       @default(now())
 
-  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course Course?  @relation("CourseLikes", fields: [courseId], references: [id], onDelete: Cascade)
-  module Module?  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course? @relation("CourseLikes", fields: [courseId], references: [id], onDelete: Cascade)
+  module Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@unique([userId, targetType, courseId, moduleId])
   @@index([targetType])
@@ -407,9 +458,9 @@ model Comment {
   body       String
   createdAt  DateTime          @default(now())
 
-  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course Course?  @relation("CourseComments", fields: [courseId], references: [id], onDelete: Cascade)
-  module Module?  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course? @relation("CourseComments", fields: [courseId], references: [id], onDelete: Cascade)
+  module Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@index([targetType])
   @@index([courseId])
@@ -418,25 +469,25 @@ model Comment {
 }
 
 model Test {
-  id        String @id @default(cuid())
-  courseId  String @unique
-  schemaJson Json  // Contains array of questions with their config
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  courseId   String   @unique
+  schemaJson Json // Contains array of questions with their config
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   course      Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
   submissions Submission[]
 }
 
 model Submission {
-  id          String           @id @default(cuid())
-  testId      String
-  userId      String
-  answersJson Json             // User responses to test questions
-  evidenceJson Json?           // list of file urls/metadata
-  status      SubmissionStatus @default(PENDING)
-  feedback    String?
-  reviewedAt  DateTime?
+  id           String           @id @default(cuid())
+  testId       String
+  userId       String
+  answersJson  Json // User responses to test questions
+  evidenceJson Json? // list of file urls/metadata
+  status       SubmissionStatus @default(PENDING)
+  feedback     String?
+  reviewedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -451,17 +502,17 @@ model Submission {
 }
 
 model Certificate {
-  id          String @id @default(cuid())
-  code        String @unique  // For public verification
-  courseId    String
-  userId      String
-  submissionId String? @unique
-  issuedAt    DateTime @default(now())
-  pdfUrl      String?
-  valid       Boolean @default(true)
+  id           String   @id @default(cuid())
+  code         String   @unique // For public verification
+  courseId     String
+  userId       String
+  submissionId String?  @unique
+  issuedAt     DateTime @default(now())
+  pdfUrl       String?
+  valid        Boolean  @default(true)
 
-  course     Course     @relation("CourseCertificates", fields: [courseId], references: [id], onDelete: Cascade)
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course     Course      @relation("CourseCertificates", fields: [courseId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   submission Submission? @relation(fields: [submissionId], references: [id], onDelete: SetNull)
 
   @@index([courseId])
@@ -477,8 +528,8 @@ enum ChatRoomType {
 model ChatRoom {
   id        String       @id @default(cuid())
   type      ChatRoomType @default(COURSE)
-  courseId  String?      @unique   // null for COMMUNITY room
-  name      String?               // display name (e.g. "Comunidad")
+  courseId  String?      @unique // null for COMMUNITY room
+  name      String? // display name (e.g. "Comunidad")
   createdAt DateTime     @default(now())
 
   course   Course?       @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -489,8 +540,8 @@ model ChatMessage {
   id        String   @id @default(cuid())
   roomId    String
   userId    String
-  body      String   @default("")  // text content (may be empty if imageUrl present)
-  imageUrl  String?                // S3 URL for image messages (max 3 MB)
+  body      String   @default("") // text content (may be empty if imageUrl present)
+  imageUrl  String? // S3 URL for image messages (max 3 MB)
   createdAt DateTime @default(now())
 
   room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
@@ -505,14 +556,14 @@ model ChatMessage {
 model Notification {
   id        String   @id @default(cuid())
   userId    String
-  type      String   // 'COMMENT', 'LIKE', 'COURSE_COMPLETION', 'NEW_COURSE', 'PAYMENT'
+  type      String // 'COMMENT', 'LIKE', 'COURSE_COMPLETION', 'NEW_COURSE', 'PAYMENT'
   title     String
   message   String
-  relatedId String?  // courseId, commentId, likeId, etc.
+  relatedId String? // courseId, commentId, likeId, etc.
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRead])
   @@index([createdAt])
@@ -521,13 +572,13 @@ model Notification {
 model UserActivity {
   id        String   @id @default(cuid())
   userId    String
-  type      String   // 'COURSE_STARTED', 'MODULE_COMPLETED', 'TEST_PASSED', 'COMMENT_POSTED', 'LIKE'
+  type      String // 'COURSE_STARTED', 'MODULE_COMPLETED', 'TEST_PASSED', 'COMMENT_POSTED', 'LIKE'
   courseId  String?
   moduleId  String?
-  metadata  Json?    // additional data
+  metadata  Json? // additional data
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, type])
   @@index([createdAt])
@@ -536,12 +587,12 @@ model UserActivity {
 model Achievement {
   id          String   @id @default(cuid())
   userId      String
-  type        String   // 'FIRST_COURSE', 'FIVE_COURSES', 'PERFECT_SCORE', 'COMMUNITY_CONTRIBUTOR'
+  type        String // 'FIRST_COURSE', 'FIVE_COURSES', 'PERFECT_SCORE', 'COMMUNITY_CONTRIBUTOR'
   name        String
   description String?
   earnedAt    DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, type])
 }
@@ -552,13 +603,14 @@ model ModuleResource {
   id        String   @id @default(cuid())
   moduleId  String
   title     String
-  fileUrl   String   // S3/R2 URL
-  fileType  String   // 'pdf', 'image', 'document', 'other'
-  fileSize  Int      // bytes
+  fileUrl   String // S3/R2 URL
+  fileType  String // 'pdf', 'image', 'document', 'other'
+  fileSize  Int // bytes
   order     Int      @default(0)
   createdAt DateTime @default(now())
 
-  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
   @@index([moduleId, order])
 }
 
@@ -566,13 +618,14 @@ model CourseResource {
   id        String   @id @default(cuid())
   courseId  String
   title     String
-  fileUrl   String   // S3/R2 URL
-  fileType  String   // 'pdf', 'image', 'document', 'other'
-  fileSize  Int      // bytes
+  fileUrl   String // S3/R2 URL
+  fileType  String // 'pdf', 'image', 'document', 'other'
+  fileSize  Int // bytes
   order     Int      @default(0)
   createdAt DateTime @default(now())
 
-  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
   @@index([courseId, order])
 }
 
@@ -582,37 +635,39 @@ model ModuleTest {
   title        String
   description  String?
   order        Int      @default(0)
-  isRequired   Boolean  @default(false)  // must pass to progress
-  maxAttempts  Int      @default(1)      // 0 = unlimited
-  passingScore Int      @default(70)     // percentage (0-100)
+  isRequired   Boolean  @default(false) // must pass to progress
+  maxAttempts  Int      @default(1) // 0 = unlimited
+  passingScore Int      @default(70) // percentage (0-100)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  module      Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  questions   Question[] @relation("ModuleTestQuestions")
+  module      Module             @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  questions   Question[]         @relation("ModuleTestQuestions")
   submissions ModuleSubmission[] @relation("ModuleTestSubmissions")
+
   @@index([moduleId])
 }
 
 model Question {
-  id          String   @id @default(cuid())
-  testId      String?  // ModuleTest
-  examId      String?  // CourseExam
-  courseTestId String?  // CourseTest
-  type        String   // 'MULTIPLE_CHOICE', 'SHORT_ANSWER', 'FILE_UPLOAD', 'WRITTEN'
-  title       String
-  description String?
-  order       Int      @default(0)
+  id           String  @id @default(cuid())
+  testId       String? // ModuleTest
+  examId       String? // CourseExam
+  courseTestId String? // CourseTest
+  type         String // 'MULTIPLE_CHOICE', 'SHORT_ANSWER', 'FILE_UPLOAD', 'WRITTEN'
+  title        String
+  description  String?
+  order        Int     @default(0)
 
   // Question configuration stored as JSON
-  config      Json     // { options: [], correctAnswer: String, allowedMimeTypes: [], maxFileSize: Int, etc }
+  config Json // { options: [], correctAnswer: String, allowedMimeTypes: [], maxFileSize: Int, etc }
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
 
-  moduleTest  ModuleTest? @relation("ModuleTestQuestions", fields: [testId], references: [id], onDelete: Cascade)
-  courseExam  CourseExam? @relation("CourseExamQuestions", fields: [examId], references: [id], onDelete: Cascade)
-  courseTest  CourseTest? @relation("CourseTestQuestions", fields: [courseTestId], references: [id], onDelete: Cascade)
+  moduleTest  ModuleTest?          @relation("ModuleTestQuestions", fields: [testId], references: [id], onDelete: Cascade)
+  courseExam  CourseExam?          @relation("CourseExamQuestions", fields: [examId], references: [id], onDelete: Cascade)
+  courseTest  CourseTest?          @relation("CourseTestQuestions", fields: [courseTestId], references: [id], onDelete: Cascade)
   submissions QuestionSubmission[]
+
   @@index([testId])
   @@index([examId])
   @@index([courseTestId])
@@ -623,51 +678,53 @@ model ModuleSubmission {
   moduleId      String
   testId        String
   userId        String
-  score         Float?   // percentage
+  score         Float? // percentage
   isPassed      Boolean  @default(false)
   attemptNumber Int      @default(1)
   submittedAt   DateTime @default(now())
 
-  module    Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  test      ModuleTest @relation("ModuleTestSubmissions", fields: [testId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  answers   QuestionSubmission[] @relation("ModuleSubmissionAnswers")
+  module  Module               @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  test    ModuleTest           @relation("ModuleTestSubmissions", fields: [testId], references: [id], onDelete: Cascade)
+  user    User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers QuestionSubmission[] @relation("ModuleSubmissionAnswers")
+
   @@index([userId, moduleId])
   @@index([testId])
   @@index([userId, testId])
 }
 
 model QuestionSubmission {
-  id           String   @id @default(cuid())
-  questionId   String
-  submissionId String?  // ModuleSubmission
-  courseTestSubmissionId String?  // CourseTestSubmission
-  userId       String
-  answer       String   // JSON: choice, text, fileUrl
-  isCorrect    Boolean?
-  score        Float?
-  createdAt    DateTime @default(now())
+  id                     String   @id @default(cuid())
+  questionId             String
+  submissionId           String? // ModuleSubmission
+  courseTestSubmissionId String? // CourseTestSubmission
+  userId                 String
+  answer                 String // JSON: choice, text, fileUrl
+  isCorrect              Boolean?
+  score                  Float?
+  createdAt              DateTime @default(now())
 
-  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  moduleSubmission ModuleSubmission? @relation("ModuleSubmissionAnswers", fields: [submissionId], references: [id], onDelete: Cascade)
+  question             Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  moduleSubmission     ModuleSubmission?     @relation("ModuleSubmissionAnswers", fields: [submissionId], references: [id], onDelete: Cascade)
   courseTestSubmission CourseTestSubmission? @relation("CourseTestAnswers", fields: [courseTestSubmissionId], references: [id], onDelete: Cascade)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([questionId])
   @@index([userId])
   @@index([courseTestSubmissionId])
 }
 
 model CourseExam {
-  id          String   @id @default(cuid())
-  courseId    String   @unique
-  title       String   @default("Final Exam")
-  description String?
-  passingScore Int     @default(70)  // percentage required to pass
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  courseId     String   @unique
+  title        String   @default("Final Exam")
+  description  String?
+  passingScore Int      @default(70) // percentage required to pass
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  questions   Question[] @relation("CourseExamQuestions")
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions   Question[]       @relation("CourseExamQuestions")
   submissions ExamSubmission[]
 }
 
@@ -682,11 +739,12 @@ model ExamSubmission {
   reviewNote  String?
   submittedAt DateTime         @default(now())
 
-  exam        CourseExam @relation(fields: [examId], references: [id], onDelete: Cascade)
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam CourseExam @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([examId, userId])
   @@index([examId, userId])
   @@index([status])
-  @@unique([examId, userId])
 }
 
 // ============= COURSE-LEVEL TESTS =============
@@ -699,31 +757,33 @@ model CourseTest {
   order        Int      @default(0)
   isRequired   Boolean  @default(false)
   isFinalExam  Boolean  @default(false)
-  maxAttempts  Int      @default(1)    // 0 = unlimited
-  passingScore Int      @default(70)   // % (only relevant when MC questions exist)
+  maxAttempts  Int      @default(1) // 0 = unlimited
+  passingScore Int      @default(70) // % (only relevant when MC questions exist)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  course       Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  questions    Question[]             @relation("CourseTestQuestions")
-  submissions  CourseTestSubmission[]
+  course      Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions   Question[]             @relation("CourseTestQuestions")
+  submissions CourseTestSubmission[]
+
   @@index([courseId])
 }
 
 model CourseTestSubmission {
-  id           String           @id @default(cuid())
-  courseTestId String
-  userId       String
-  score        Float?           // null if no MC questions
-  isPassed     Boolean          @default(false)
-  attemptNumber Int             @default(1)
-  status       SubmissionStatus @default(PENDING)
-  reviewedAt   DateTime?
-  submittedAt  DateTime         @default(now())
+  id            String           @id @default(cuid())
+  courseTestId  String
+  userId        String
+  score         Float? // null if no MC questions
+  isPassed      Boolean          @default(false)
+  attemptNumber Int              @default(1)
+  status        SubmissionStatus @default(PENDING)
+  reviewedAt    DateTime?
+  submittedAt   DateTime         @default(now())
 
-  courseTest   CourseTest   @relation(fields: [courseTestId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  answers      QuestionSubmission[] @relation("CourseTestAnswers")
+  courseTest CourseTest           @relation(fields: [courseTestId], references: [id], onDelete: Cascade)
+  user       User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers    QuestionSubmission[] @relation("CourseTestAnswers")
+
   @@index([userId, courseTestId])
   @@index([courseTestId])
   @@index([status])
@@ -740,7 +800,7 @@ model BugReport {
   imageUrls   String[] @default([])
   createdAt   DateTime @default(now())
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([bugType])
@@ -748,13 +808,15 @@ model BugReport {
 
 // ============= MARKETING CONTENT =============
 
-model BeforeAfterPair {
-  id        String   @id @default(cuid())
-  beforeUrl String
-  afterUrl  String
-  label     String?
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+model ResultImage {
+  id          String   @id @default(cuid())
+  url         String
+  label       String?
+  aspectRatio Float
+  width       Int
+  height      Int
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
 }
 
 model FaqItem {
@@ -769,10 +831,10 @@ model FaqItem {
 
 model BusinessHours {
   id        String  @id @default(cuid())
-  dayOfWeek Int     // 0=Sun, 1=Mon … 6=Sat
+  dayOfWeek Int // 0=Sun, 1=Mon … 6=Sat
   isOpen    Boolean @default(true)
-  openTime  String  // "HH:MM" e.g. "09:00"
-  closeTime String  // "HH:MM" e.g. "18:00"
+  openTime  String // "HH:MM" e.g. "09:00"
+  closeTime String // "HH:MM" e.g. "18:00"
 
   @@unique([dayOfWeek])
 }
@@ -784,4 +846,30 @@ model BusinessOffDay {
   createdAt DateTime @default(now())
 
   @@unique([date])
+}
+
+// ============= ANALYTICS =============
+
+model PageView {
+  id        String   @id @default(cuid())
+  path      String
+  referrer  String?
+  sessionId String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([sessionId])
+  @@index([path])
+}
+
+model ConversionEvent {
+  id        String   @id @default(cuid())
+  type      String // "BOOKING" | "COURSE_PURCHASE"
+  sessionId String
+  referrer  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([type, createdAt])
+  @@index([sessionId])
 }

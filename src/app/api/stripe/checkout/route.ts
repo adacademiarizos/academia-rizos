@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       where: { id: body.appointmentId },
       include: {
         service: true,
+        variant: true,
         staff: true,
         customer: true,
       },
@@ -44,10 +45,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // precio real según service+staff
-    const price = await db.serviceStaffPrice.findUnique({
-      where: { serviceId_staffId: { serviceId: appointment.serviceId, staffId: appointment.staffId } },
-    });
+    // precio real según service+staff (o variante+staff)
+    let price: { priceCents: number; currency: string } | null = null;
+
+    if (appointment.variantId) {
+      const vp = await db.variantStaffPrice.findUnique({
+        where: { variantId_staffId: { variantId: appointment.variantId, staffId: appointment.staffId } },
+      });
+      if (vp) price = { priceCents: vp.priceCents, currency: vp.currency };
+    } else {
+      const sp = await db.serviceStaffPrice.findUnique({
+        where: { serviceId_staffId: { serviceId: appointment.serviceId, staffId: appointment.staffId } },
+      });
+      if (sp) price = { priceCents: sp.priceCents, currency: sp.currency };
+    }
 
     if (!price) {
       return NextResponse.json(
@@ -102,7 +113,7 @@ export async function POST(req: Request) {
             currency,
             unit_amount: chargeAmount,
             product_data: {
-              name: `Cita: ${appointment.service.name}`,
+              name: `Cita: ${appointment.service.name}${appointment.variant?.name ? ` - ${appointment.variant.name}` : ""}`,
               description: `Profesional: ${appointment.staff.name ?? appointment.staff.email}`,
             },
           },

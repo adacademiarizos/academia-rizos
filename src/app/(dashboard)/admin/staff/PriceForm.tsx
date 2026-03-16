@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, Check, User, Scissors, Euro } from "lucide-react";
+import { ChevronDown, Check, User, Scissors, Euro, Layers } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type StaffOption = { id: string; name: string | null; email: string };
-type ServiceOption = { id: string; name: string };
+type VariantOption = { id: string; name: string; durationMin: number };
+type ServiceOption = { id: string; name: string; variants: VariantOption[] };
 
 // ── Generic custom select ────────────────────────────────────────────────────
 function CustomSelect<T extends { id: string }>({
@@ -107,10 +108,13 @@ export default function PriceForm({
   const router = useRouter();
   const [selectedStaff, setSelectedStaff] = useState<StaffOption | null>(null);
   const [selectedService, setSelectedService] = useState<ServiceOption | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<VariantOption | null>(null);
   const [price, setPrice] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const hasVariants = (selectedService?.variants?.length ?? 0) > 0;
 
   // Compute the total the customer pays (base + Stripe fee margin)
   const baseFloat = parseFloat(price);
@@ -128,6 +132,7 @@ export default function PriceForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedStaff || !selectedService || !price) return;
+    if (hasVariants && !selectedVariant) return;
 
     if (isNaN(baseFloat) || baseCents <= 0) {
       setError("Ingresá un precio válido.");
@@ -140,6 +145,9 @@ export default function PriceForm({
     const form = new FormData();
     form.set("staffId", selectedStaff.id);
     form.set("serviceId", selectedService.id);
+    if (selectedVariant) {
+      form.set("variantId", selectedVariant.id);
+    }
     // Save the total customer-facing price (base + fee)
     form.set("priceCents", String(totalCents));
     form.set("currency", currency);
@@ -151,6 +159,7 @@ export default function PriceForm({
       setSuccess(true);
       setSelectedStaff(null);
       setSelectedService(null);
+      setSelectedVariant(null);
       setPrice("");
       router.refresh();
       setTimeout(() => setSuccess(false), 3000);
@@ -185,12 +194,56 @@ export default function PriceForm({
       <CustomSelect<ServiceOption>
         options={services}
         value={selectedService}
-        onChange={setSelectedService}
+        onChange={(s) => {
+          setSelectedService(s);
+          setSelectedVariant(null);
+          setPrice("");
+        }}
         placeholder="Seleccionar servicio"
         icon={Scissors}
-        renderSelected={(s) => <span className="font-medium">{s.name}</span>}
-        renderOption={(s) => <span className="font-medium text-white">{s.name}</span>}
+        renderSelected={(s) => (
+          <span className="font-medium">
+            {s.name}
+            {s.variants.length > 0 && (
+              <span className="ml-2 text-[10px] text-white/40">
+                {s.variants.length} variante{s.variants.length > 1 ? "s" : ""}
+              </span>
+            )}
+          </span>
+        )}
+        renderOption={(s) => (
+          <div className="flex items-center gap-2 w-full">
+            <span className="font-medium text-white flex-1">{s.name}</span>
+            {s.variants.length > 0 && (
+              <span className="text-[10px] text-white/30 bg-white/5 rounded px-1.5 py-0.5 shrink-0">
+                {s.variants.length} var.
+              </span>
+            )}
+          </div>
+        )}
       />
+
+      {/* Variant select -- shown only when selected service has variants */}
+      {hasVariants && (
+        <CustomSelect<VariantOption>
+          options={selectedService?.variants ?? []}
+          value={selectedVariant}
+          onChange={setSelectedVariant}
+          placeholder="Seleccionar variante"
+          icon={Layers}
+          renderSelected={(v) => (
+            <span className="font-medium">
+              {v.name} <span className="text-white/40">({v.durationMin} min)</span>
+            </span>
+          )}
+          renderOption={(v) => (
+            <div className="flex items-center justify-between w-full">
+              <span className="font-medium text-white">{v.name}</span>
+              <span className="text-xs text-white/40 shrink-0">{v.durationMin} min</span>
+            </div>
+          )}
+        />
+      )}
 
       {/* Base price input */}
       <div>
@@ -246,7 +299,7 @@ export default function PriceForm({
 
       <button
         type="submit"
-        disabled={loading || !selectedStaff || !selectedService || !price}
+        disabled={loading || !selectedStaff || !selectedService || !price || (hasVariants && !selectedVariant)}
         className="mt-1 inline-flex h-11 items-center justify-center rounded-xl bg-ap-copper px-4 text-sm font-semibold text-white ring-1 ring-white/10 hover:opacity-95 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition"
       >
         {loading ? "Guardando..." : "Guardar precio"}

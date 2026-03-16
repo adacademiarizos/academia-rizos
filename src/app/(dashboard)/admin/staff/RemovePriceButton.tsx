@@ -8,22 +8,24 @@ export default function RemovePriceButton({
   staffId,
   serviceId,
   serviceName,
+  variantId,
 }: {
   staffId: string;
   serviceId: string;
   serviceName: string;
+  variantId?: string;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleRemove() {
-    if (!confirm(`¿Desvincular a este profesional del servicio "${serviceName}"?`)) return;
+    if (!confirm(`¿Desvincular a este profesional de "${serviceName}"?`)) return;
     setLoading(true);
     try {
       await fetch("/api/admin/prices", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ staffId, serviceId }),
+        body: JSON.stringify({ staffId, serviceId, ...(variantId ? { variantId } : {}) }),
       });
       router.refresh();
     } finally {

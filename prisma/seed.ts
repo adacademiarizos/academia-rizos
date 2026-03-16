@@ -1,16 +1,192 @@
 /**
- * Seed data for Elizabeth Rizos Platform - Academy
+ * Seed data for Elizabeth Rizos Platform - Academy + Services
  * Creates test courses with modules, resources, and tests
+ * Creates service categories, services, variants, and staff prices
  *
  * Run with: npx prisma db seed
  */
 
 import { PrismaClient } from '@prisma/client'
+import { readFileSync } from 'fs'
+import { join, dirname } from 'path'
+import { fileURLToPath } from 'url'
 
 const prisma = new PrismaClient()
 
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+/* ─────────────────────────────────────────────
+ *  SERVICES & CATEGORIES SEED
+ * ───────────────────────────────────────────── */
+
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+type RawVariant = {
+  name: string;
+  time: number | string;
+  typeOfPrice: string;
+  price: number;
+};
+
+type RawService = {
+  name: string;
+  typeOfService: string;
+  time: number | null;
+  typeOfPrice: string;
+  price: number | null;
+  variants: RawVariant[];
+  category: string;
+  description: string;
+  images: string[];
+};
+
+async function seedServicesAndCategories() {
+  console.log("\n🏷️  Seeding service categories & services...");
+
+  // 1. Categories
+  const categoryNames = [
+    "Peinados",
+    "Pack Cabello ondulado densidad media-baja",
+    "Pack Cabello afro alta densidad",
+    "Pack Cabello rizado densidad media/alta",
+    "Pack Infantil",
+  ];
+
+  const categoryMap = new Map<string, string>(); // name → id
+
+  for (let i = 0; i < categoryNames.length; i++) {
+    const name = categoryNames[i];
+    const cat = await prisma.serviceCategory.upsert({
+      where: { slug: slugify(name) },
+      update: { name, order: i },
+      create: { name, slug: slugify(name), order: i, isActive: true },
+    });
+    categoryMap.set(name, cat.id);
+    console.log(`  ✅ Category: ${name}`);
+  }
+
+  // 2. Load services JSON (already in prisma/data/)
+  const rawJson = readFileSync(join(__dirname, "data", "servicios.json"), "utf-8");
+  const serviciosData: { servicios: RawService[] } = JSON.parse(rawJson);
+
+  // Deduplicate by name+category
+  const seen = new Set<string>();
+  const uniqueServices: RawService[] = [];
+  for (const s of serviciosData.servicios) {
+    const key = `${s.name}::${s.category}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueServices.push(s);
+  }
+
+  // 3. Find all staff users to create prices
+  const staffUsers = await prisma.user.findMany({
+    where: { role: { in: ["STAFF", "ADMIN"] } },
+    select: { id: true, name: true },
+  });
+
+  if (staffUsers.length === 0) {
+    console.log("  ⚠️  No staff/admin users found — prices won't be created. Add staff first.");
+  }
+
+  // 4. Delete existing services and variants to avoid conflicts on re-seed
+  await prisma.variantStaffPrice.deleteMany({});
+  await prisma.serviceVariant.deleteMany({});
+  await prisma.serviceStaffPrice.deleteMany({});
+  await prisma.service.deleteMany({});
+  console.log("  🗑️  Cleared existing services data");
+
+  // 5. Create each service
+  let serviceOrder = 0;
+  for (const raw of uniqueServices) {
+    const categoryId = categoryMap.get(raw.category) ?? null;
+    const hasVariants = raw.variants && raw.variants.length > 0;
+
+    // Determine billing rule
+    let billingRule: "FULL" | "DEPOSIT" | "AUTHORIZE" = "FULL";
+    if (raw.typeOfPrice === "variable" && !hasVariants) {
+      billingRule = "AUTHORIZE"; // variable price, no defined variants → contact for price
+    }
+
+    const service = await prisma.service.create({
+      data: {
+        name: raw.name,
+        description: raw.description,
+        durationMin: raw.time != null ? Number(raw.time) : null,
+        billingRule,
+        depositPct: null,
+        isActive: true,
+        imageUrls: raw.images ?? [],
+        typeOfService: raw.typeOfService,
+        order: serviceOrder++,
+        categoryId,
+      },
+    });
+
+    // Create ServiceStaffPrice for fixed-price services without variants
+    if (raw.typeOfPrice === "fijo" && raw.price != null && !hasVariants) {
+      for (const staff of staffUsers) {
+        await prisma.serviceStaffPrice.create({
+          data: {
+            serviceId: service.id,
+            staffId: staff.id,
+            priceCents: Math.round(raw.price * 100),
+            currency: "EUR",
+          },
+        });
+      }
+    }
+
+    // Create variants
+    if (hasVariants) {
+      for (let vi = 0; vi < raw.variants.length; vi++) {
+        const rv = raw.variants[vi];
+        const variant = await prisma.serviceVariant.create({
+          data: {
+            serviceId: service.id,
+            name: rv.name,
+            durationMin: Number(rv.time),
+            order: vi,
+            isActive: true,
+          },
+        });
+
+        // Create VariantStaffPrice for each staff
+        for (const staff of staffUsers) {
+          await prisma.variantStaffPrice.create({
+            data: {
+              variantId: variant.id,
+              staffId: staff.id,
+              priceCents: Math.round(rv.price * 100),
+              currency: "EUR",
+            },
+          });
+        }
+      }
+    }
+
+    console.log(`  ✅ Service: ${raw.name}${hasVariants ? ` (${raw.variants.length} variants)` : ""}`);
+  }
+
+  console.log(`\n✨ Services seeding completed! ${uniqueServices.length} services, ${categoryNames.length} categories.`);
+}
+
+/* ─────────────────────────────────────────────
+ *  ACADEMY SEED (original)
+ * ───────────────────────────────────────────── */
+
 async function main() {
-  console.log('🌱 Seeding database with academy content...')
+  // Seed services & categories first
+  await seedServicesAndCategories();
+
+  console.log('\n🌱 Seeding database with academy content...')
 
   // Clean up existing data (optional)
   // await prisma.submission.deleteMany({})

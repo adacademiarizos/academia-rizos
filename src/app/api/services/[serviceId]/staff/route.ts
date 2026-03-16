@@ -4,11 +4,45 @@ import { db } from "@/lib/db";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   ctx: { params: Promise<{ serviceId: string }> }
 ) {
   const { serviceId } = await ctx.params;
+  const url = new URL(req.url);
+  const variantId = url.searchParams.get("variantId");
 
+  if (variantId) {
+    // Use VariantStaffPrice
+    const variantPrices = await db.variantStaffPrice.findMany({
+      where: { variantId },
+      include: {
+        staff: {
+          include: { staffProfile: { select: { photoUrl: true } } },
+        },
+      },
+    });
+
+    const map = new Map<
+      string,
+      { staffId: string; name: string; priceCents: number; currency: string; photoUrl: string | null }
+    >();
+
+    for (const p of variantPrices) {
+      if (!map.has(p.staffId)) {
+        map.set(p.staffId, {
+          staffId: p.staffId,
+          name: p.staff.name ?? p.staff.email,
+          priceCents: p.priceCents,
+          currency: p.currency,
+          photoUrl: p.staff.staffProfile?.photoUrl ?? p.staff.image ?? null,
+        });
+      }
+    }
+
+    return NextResponse.json({ ok: true, data: { staff: Array.from(map.values()) } });
+  }
+
+  // Default: use ServiceStaffPrice
   const prices = await db.serviceStaffPrice.findMany({
     where: { serviceId },
     include: {

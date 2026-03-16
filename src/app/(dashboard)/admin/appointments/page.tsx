@@ -4,14 +4,22 @@ import AppointmentsTable from "./ui/AppointmentsTable";
 export const dynamic = "force-dynamic";
 
 export default async function AdminAppointmentsPage() {
-  const raw = await db.appointment.findMany({
-    orderBy: { startAt: "asc" },
-    include: {
-      service: true,
-      staff: true,
-      payments: true,
-    },
-  });
+  const [raw, staffList] = await Promise.all([
+    db.appointment.findMany({
+      orderBy: { startAt: "asc" },
+      include: {
+        service: { select: { id: true, name: true, durationMin: true } },
+        variant: { select: { id: true, name: true } },
+        staff: { select: { id: true, name: true, email: true } },
+        payments: true,
+      },
+    }),
+    db.user.findMany({
+      where: { role: { in: ["STAFF", "ADMIN"] } },
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   // Normalize customer display data: prefer linked User, fall back to inline fields
   const appointments = raw.map((a) => ({
@@ -20,6 +28,7 @@ export default async function AdminAppointmentsPage() {
       id:    a.customerId ?? "guest",
       name:  a.customerName  ?? null,
       email: a.customerEmail ?? "—",
+      phone: a.customerPhone ?? null,
     },
   }));
 
@@ -33,7 +42,7 @@ export default async function AdminAppointmentsPage() {
           </p>
         </div>
 
-        <AppointmentsTable initial={appointments as any} />
+        <AppointmentsTable initial={appointments as any} staffList={staffList} />
       </div>
     </main>
   );

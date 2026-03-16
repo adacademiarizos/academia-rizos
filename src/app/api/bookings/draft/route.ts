@@ -6,6 +6,7 @@ import { NotificationService } from "@/server/services/notification-service";
 type Body = {
   serviceId: string;
   staffId: string;
+  variantId?: string;
   startAt: string; // ISO
   customer: { name: string; email: string; phone?: string };
   notes?: string;
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
 
     const serviceId = body.serviceId?.trim();
     const staffId = body.staffId?.trim();
+    const variantId = body.variantId?.trim() || null;
     const startAtIso = body.startAt;
     const customer = body.customer;
 
@@ -35,10 +37,29 @@ export async function POST(req: Request) {
       );
     }
 
-    // precio staff+service
-    const price = await db.serviceStaffPrice.findUnique({
-      where: { serviceId_staffId: { serviceId, staffId } },
-    });
+    // precio staff+service (o variante)
+    let price: { priceCents: number; currency: string } | null = null;
+    let resolvedDuration: number;
+
+    if (variantId) {
+      const variant = await db.serviceVariant.findUnique({
+        where: { id: variantId },
+        select: { durationMin: true },
+      });
+      resolvedDuration = variant?.durationMin ?? service.durationMin ?? 30;
+
+      const vp = await db.variantStaffPrice.findUnique({
+        where: { variantId_staffId: { variantId, staffId } },
+      });
+      if (vp) price = { priceCents: vp.priceCents, currency: vp.currency };
+    } else {
+      resolvedDuration = service.durationMin ?? 30;
+
+      const sp = await db.serviceStaffPrice.findUnique({
+        where: { serviceId_staffId: { serviceId, staffId } },
+      });
+      if (sp) price = { priceCents: sp.priceCents, currency: sp.currency };
+    }
 
     if (!price) {
       return NextResponse.json(
@@ -56,7 +77,7 @@ export async function POST(req: Request) {
     }
 
     // endAt obligatorio
-    const end = new Date(start.getTime() + service.durationMin * 60 * 1000);
+    const end = new Date(start.getTime() + resolvedDuration * 60 * 1000);
 
     // Si el email ya tiene cuenta registrada, vinculamos el customerId
     const existingUser = await db.user.findUnique({
@@ -87,6 +108,7 @@ export async function POST(req: Request) {
       data: {
         serviceId,
         staffId,
+        variantId,
         customerId: existingUser?.id ?? null,
         customerName: customer.name,
         customerEmail: customer.email.toLowerCase(),
@@ -159,9 +181,9 @@ export async function POST(req: Request) {
         appointmentId: appointment.id,
         billingRule: service.billingRule, // FULL | DEPOSIT | AUTHORIZE
         // opcional: por si te sirve en el front
-        priceCents: price.priceCents,
-        currency: price.currency,
-        durationMin: service.durationMin,
+        priceCents: price?.priceCents ?? 0,
+        currency: price?.currency ?? "EUR",
+        durationMin: resolvedDuration,
         depositPct: service.depositPct ?? null,
       },
     });

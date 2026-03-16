@@ -121,8 +121,6 @@ p {
 
 .slider-3d {
   position: relative;
-  width: 240px;
-  height: 320px;
   transform-style: preserve-3d;
   cursor: grab;
   touch-action: none;
@@ -197,4 +195,22 @@ p {
     100% { transform: translateY(-180px); }
   }
 
+}
+
+/* ── Results masonry gallery ──────────────────────────────────── */
+.masonry-results {
+  column-count: 2;
+  column-gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .masonry-results {
+    column-count: 3;
+  }
+}
+
+@media (min-width: 1024px) {
+  .masonry-results {
+    column-count: 4;
+  }
 }

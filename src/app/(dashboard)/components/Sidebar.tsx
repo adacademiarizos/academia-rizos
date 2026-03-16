@@ -38,7 +38,7 @@ const ADMIN_NAV = [
   { label: "Certificados", href: "/admin/certificates", icon: FileCheck },
   { label: "Revisar Exámenes", href: "/admin/certificates/review", icon: ClipboardCheck },
   { label: "Links de pago", href: "/admin/payment-links", icon: Link2 },
-  { label: "Antes y Después", href: "/admin/before-after", icon: Images },
+  { label: "Resultados", href: "/admin/results", icon: Images },
   { label: "FAQ", href: "/admin/faq", icon: HelpCircle },
   { label: "Usuarios", href: "/admin/users", icon: UserCog },
   { label: "Comunidad", href: "/community", icon: MessageSquare },

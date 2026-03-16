@@ -10,12 +10,14 @@ function fmt(iso: string) {
 export default function TimeSlotPicker({
   serviceId,
   staffId,
+  variantId,
   date,
   selectedSlot,
   onSelect,
 }: {
   serviceId: string;
   staffId: string;
+  variantId?: string | null;
   date: string; // YYYY-MM-DD
   selectedSlot: string | null;
   onSelect: (slot: string) => void;
@@ -28,15 +30,19 @@ export default function TimeSlotPicker({
     setLoading(true);
     setSlots([]);
 
-    fetch(
-      `/api/availability?serviceId=${encodeURIComponent(serviceId)}&staffId=${encodeURIComponent(staffId)}&date=${encodeURIComponent(date)}`,
-      { cache: "no-store" }
-    )
+    const params = new URLSearchParams({
+      serviceId,
+      staffId,
+      date,
+    });
+    if (variantId) params.set("variantId", variantId);
+
+    fetch(`/api/availability?${params.toString()}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => { if (j.ok) setSlots(j.data?.slots ?? []); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [serviceId, staffId, date]);
+  }, [serviceId, staffId, variantId, date]);
 
   if (loading) {
     return (

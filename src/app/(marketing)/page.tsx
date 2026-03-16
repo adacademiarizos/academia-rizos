@@ -5,7 +5,7 @@ import FAQ from "@/components/marketing/Faq";
 import Testimonials from "@/components/marketing/Testimonials";
 import AboutFounder from "@/components/marketing/AboutFounder";
 import AcademyTeaser from "@/components/marketing/AcademyTeaser";
-import BeforeAfter from "@/components/marketing/BeforeAfter";
+import ResultsGallery from "@/components/marketing/ResultsGallery";
 import TrustBar from "@/components/marketing/TrustBar";
 import HowItWorks from "@/components/marketing/HowItWorks";
 import StyleTokens from "@/components/marketing/StyleTokens";
@@ -16,9 +16,9 @@ import ContactSection from "@/components/marketing/ContactSection";
 import Link from "next/link";
 
 export default async function MarketingHomePage() {
-  const [pairs, faqItems] = await Promise.all([
-    (db as any).beforeAfterPair?.findMany({ orderBy: [{ order: "asc" }, { createdAt: "asc" }] }).catch(() => []) ?? [],
-    (db as any).faqItem?.findMany({ orderBy: [{ order: "asc" }, { createdAt: "asc" }] }).catch(() => []) ?? [],
+  const [resultImages, faqItems] = await Promise.all([
+    db.resultImage.findMany({ orderBy: [{ order: "asc" }, { createdAt: "asc" }] }).catch(() => []),
+    db.faqItem.findMany({ orderBy: [{ order: "asc" }, { createdAt: "asc" }] }).catch(() => []),
   ]);
 
   return (
@@ -48,7 +48,7 @@ export default async function MarketingHomePage() {
       </section>
 
       <section className="px-6 py-16">
-        <BeforeAfter pairs={pairs} />
+        <ResultsGallery images={resultImages} />
       </section>
 
       <section id="academy" className="px-6 py-16">

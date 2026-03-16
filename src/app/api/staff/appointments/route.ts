@@ -19,6 +19,7 @@ export async function GET(req: Request) {
     orderBy: { startAt: "asc" },
     include: {
       service: { select: { name: true, durationMin: true } },
+      variant: { select: { name: true, durationMin: true } },
       customer: { select: { id: true, name: true, email: true, image: true } },
       payments: { select: { id: true, status: true, amountCents: true, currency: true } },
     },

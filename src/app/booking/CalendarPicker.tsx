@@ -16,11 +16,13 @@ function toYMD(d: Date) {
 export default function CalendarPicker({
   serviceId,
   staffId,
+  variantId,
   selectedDate,
   onSelectDate,
 }: {
   serviceId: string;
   staffId: string;
+  variantId?: string | null;
   selectedDate: string | null;
   onSelectDate: (date: string) => void;
 }) {
@@ -55,7 +57,7 @@ export default function CalendarPicker({
     setAvailableDates(new Set());
 
     fetch(
-      `/api/availability/days?serviceId=${encodeURIComponent(serviceId)}&staffId=${encodeURIComponent(staffId)}&year=${year}&month=${month + 1}`,
+      `/api/availability/days?serviceId=${encodeURIComponent(serviceId)}&staffId=${encodeURIComponent(staffId)}&year=${year}&month=${month + 1}${variantId ? `&variantId=${encodeURIComponent(variantId)}` : ""}`,
       { cache: "no-store" }
     )
       .then((r) => r.json())
@@ -64,7 +66,7 @@ export default function CalendarPicker({
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [serviceId, staffId, year, month]);
+  }, [serviceId, staffId, variantId, year, month]);
 
   // Build calendar grid
   const firstDay = new Date(year, month, 1).getDay(); // 0=Sun

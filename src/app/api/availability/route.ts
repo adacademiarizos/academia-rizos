@@ -65,6 +65,7 @@ export async function GET(req: Request) {
     const serviceId = url.searchParams.get("serviceId") ?? "";
     const staffId = url.searchParams.get("staffId") ?? "";
     const dateParam = url.searchParams.get("date"); // YYYY-MM-DD (optional)
+    const variantId = url.searchParams.get("variantId");
 
     if (!serviceId || !staffId) {
       return NextResponse.json(
@@ -85,7 +86,13 @@ export async function GET(req: Request) {
       );
     }
 
-    const durationMin = service.durationMin ?? 30;
+    let durationMin: number;
+    if (variantId) {
+      const variant = await db.serviceVariant.findUnique({ where: { id: variantId }, select: { durationMin: true } });
+      durationMin = variant?.durationMin ?? service.durationMin ?? 30;
+    } else {
+      durationMin = service.durationMin ?? 30;
+    }
     // Step equals the service duration: each slot occupies the full service block
     const stepMin = durationMin;
 
