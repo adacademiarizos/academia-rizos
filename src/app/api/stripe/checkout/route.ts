@@ -7,6 +7,12 @@ export const dynamic = "force-dynamic";
 type Body = {
   type: "APPOINTMENT";
   appointmentId: string;
+  // Analytics fields (optional)
+  analyticsSessionId?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  referrer?: string;
 };
 
 function getBaseUrl(req: Request): string {
@@ -128,6 +134,11 @@ export async function POST(req: Request) {
         baseAmountCents: String(baseAmount),
         chargeAmountCents: String(chargeAmount),
         currency: price.currency,
+        analyticsSessionId: body.analyticsSessionId || '',
+        utmSource: body.utmSource || '',
+        utmMedium: body.utmMedium || '',
+        utmCampaign: body.utmCampaign || '',
+        analyticsReferrer: body.referrer || '',
       },
     });
 

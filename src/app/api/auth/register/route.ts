@@ -69,6 +69,19 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Track registration conversion
+    await db.conversionEvent.create({
+      data: {
+        type: 'REGISTRATION',
+        sessionId: body.analyticsSessionId || 'unknown',
+        userId: user.id,
+        utmSource: body.utmSource || null,
+        utmMedium: body.utmMedium || null,
+        utmCampaign: body.utmCampaign || null,
+        referrer: body.referrer || null,
+      },
+    }).catch((e) => console.error('[analytics] registration conversion error:', e))
+
     // Notify admins (fire-and-forget)
     const admins = await db.user.findMany({
       where: { role: 'ADMIN' },

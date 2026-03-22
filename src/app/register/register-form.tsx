@@ -41,6 +41,13 @@ export default function RegisterForm() {
     setIsLoading(true)
 
     try {
+      // Collect analytics data for conversion attribution
+      let analyticsData = {};
+      try {
+        const { getAnalyticsData } = await import("@/components/analytics/AnalyticsProvider");
+        analyticsData = getAnalyticsData() || {};
+      } catch {}
+
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -48,6 +55,7 @@ export default function RegisterForm() {
           name: name.trim(),
           email: email.toLowerCase().trim(),
           password,
+          ...analyticsData,
         }),
       })
 

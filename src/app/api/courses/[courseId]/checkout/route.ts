@@ -101,6 +101,14 @@ export async function POST(
       feeFixedCents,
     })
 
+    // Read analytics data from request body (optional fields)
+    const body = await request.json().catch(() => ({}))
+    const analyticsSessionId = body.analyticsSessionId || ''
+    const utmSource = body.utmSource || ''
+    const utmMedium = body.utmMedium || ''
+    const utmCampaign = body.utmCampaign || ''
+    const analyticsReferrer = body.referrer || ''
+
     // Create Stripe checkout session
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'payment',
@@ -128,6 +136,11 @@ export async function POST(
         feeCents: String(feeCents),
         totalCents: String(totalCents),
         rentalDays: course.rentalDays ? String(course.rentalDays) : 'lifetime',
+        analyticsSessionId,
+        utmSource,
+        utmMedium,
+        utmCampaign,
+        analyticsReferrer,
       },
     })
 

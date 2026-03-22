@@ -98,9 +98,18 @@ export default function CourseLandingPage() {
         return;
       }
       setIsCheckingOut(true);
+
+      // Collect analytics data for conversion attribution
+      let analyticsData = {};
+      try {
+        const { getAnalyticsData } = await import("@/components/analytics/AnalyticsProvider");
+        analyticsData = getAnalyticsData() || {};
+      } catch {}
+
       const res = await fetch(`/api/courses/${courseId}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(analyticsData),
       });
       const data = await res.json();
       if (!res.ok) {

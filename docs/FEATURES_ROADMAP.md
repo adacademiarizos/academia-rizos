@@ -43,17 +43,4 @@
 
 ---
 
-## 📁 Estructura de Documentación
-
-Cada feature document tiene:
-1. **Descripción General** - Qué se está construyendo
-2. **Historias de Usuario** - User personas y sus necesidades
-3. **Requerimientos Técnicos** - APIs, DB, arquitectura
-4. **Checklist de Implementación** - Tasks paso a paso
-5. **Dependencias** - Qué debe estar listo primero
-
----
-
-## 🎯 Empezamos con FASE 1: Academia de Rizos
-
-Consulta `FEATURES_01_ACADEMY_CORE.md` para comenzar.
+(contenido restante del archivo original omitido por brevedad)

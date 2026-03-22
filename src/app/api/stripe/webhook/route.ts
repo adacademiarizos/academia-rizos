@@ -73,6 +73,27 @@ export async function POST(req: Request) {
         },
       });
 
+      // Track conversion event for analytics
+      await db.conversionEvent.create({
+        data: {
+          type: payment.type === "APPOINTMENT" ? "BOOKING" : payment.type === "COURSE" ? "COURSE_PURCHASE" : "PAYMENT_LINK",
+          sessionId: metadata.analyticsSessionId || "unknown",
+          userId: metadata.userId || payment.payerId || null,
+          referrer: metadata.analyticsReferrer || null,
+          utmSource: metadata.utmSource || null,
+          utmMedium: metadata.utmMedium || null,
+          utmCampaign: metadata.utmCampaign || null,
+          amountCents: payment.amountCents,
+          currency: payment.currency,
+          metadata: {
+            paymentId: payment.id,
+            appointmentId: payment.appointmentId,
+            courseId: payment.courseId,
+            paymentLinkId: payment.paymentLinkId,
+          },
+        },
+      }).catch((e) => console.error("[analytics] conversion event error:", e));
+
       // Si es appointment, confirmar appointment y notificar
       if (payment.type === "APPOINTMENT" && payment.appointmentId) {
         const appointment = await db.appointment.update({

@@ -855,21 +855,55 @@ model PageView {
   path      String
   referrer  String?
   sessionId String
+  userId    String?
+
+  // UTM parameters
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  utmTerm     String?
+
+  // Device & browser info
+  deviceType String? // "mobile" | "desktop" | "tablet"
+  browser    String?
+  os         String?
+
+  // Geographic info (from Vercel headers)
+  country String?
+  city    String?
+
   createdAt DateTime @default(now())
 
   @@index([createdAt])
   @@index([sessionId])
   @@index([path])
+  @@index([utmSource])
+  @@index([utmCampaign])
+  @@index([userId])
 }
 
 model ConversionEvent {
   id        String   @id @default(cuid())
-  type      String // "BOOKING" | "COURSE_PURCHASE"
+  type      String // "BOOKING" | "COURSE_PURCHASE" | "REGISTRATION"
   sessionId String
+  userId    String?
   referrer  String?
+
+  // UTM attribution
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+
+  // Revenue data
+  amountCents Int?
+  currency    String? @default("EUR")
+
   metadata  Json?
   createdAt DateTime @default(now())
 
   @@index([type, createdAt])
   @@index([sessionId])
+  @@index([utmSource])
+  @@index([utmCampaign])
 }

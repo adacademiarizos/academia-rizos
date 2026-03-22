@@ -24,6 +24,7 @@ import {
   ClipboardCheck,
   Clock,
   BookOpen,
+  BarChart3,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { MobileDrawer } from "./mobile/MobileDrawer";
@@ -42,6 +43,7 @@ const ADMIN_NAV = [
   { label: "FAQ", href: "/admin/faq", icon: HelpCircle },
   { label: "Usuarios", href: "/admin/users", icon: UserCog },
   { label: "Comunidad", href: "/community", icon: MessageSquare },
+  { label: "Analíticas", href: "/admin/analytics", icon: BarChart3 },
   { label: "Settings", href: "/admin/settings", icon: Settings },
   { label: "Reportar Bug", href: "/bug-report", icon: Bug },
   { label: "Manuales", href: "/admin/manuales", icon: BookOpen },

@@ -262,10 +262,17 @@ function BookingContent() {
         return;
       }
 
+      // Collect analytics data for conversion attribution
+      let analyticsData = {};
+      try {
+        const { getAnalyticsData } = await import("@/components/analytics/AnalyticsProvider");
+        analyticsData = getAnalyticsData() || {};
+      } catch {}
+
       const checkoutRes = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "APPOINTMENT", appointmentId }),
+        body: JSON.stringify({ type: "APPOINTMENT", appointmentId, ...analyticsData }),
       });
 
       const checkoutJson = await readJsonSafe(checkoutRes);
