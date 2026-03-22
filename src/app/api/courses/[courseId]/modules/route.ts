@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 
 import { db } from '@/lib/db'
 import { CourseService } from '@/server/services/course-service'
@@ -37,7 +38,7 @@ export async function GET(
     }
 
     // Get user session to include progress if available
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     const userId = session?.user?.email
       ? (
           await db.user.findUnique({

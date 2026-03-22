@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -12,12 +12,13 @@ interface Notification {
   createdAt: string
 }
 
+const POLL_INTERVAL = 15_000 // 15 seconds
+
 export function NotificationBell() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-  const eventSourceRef = useRef<EventSource | null>(null)
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchNotifications = async () => {
@@ -35,55 +36,10 @@ export function NotificationBell() {
     }
   }
 
-  const startPolling = () => {
-    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
-    pollIntervalRef.current = setInterval(fetchNotifications, 5000)
-  }
-
-  const stopPolling = () => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current)
-      pollIntervalRef.current = null
-    }
-  }
-
-  const connectSSE = () => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close()
-    }
-
-    const es = new EventSource('/api/notifications/stream')
-    eventSourceRef.current = es
-
-    es.addEventListener('notifications', (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data)
-        setNotifications(data.notifications || [])
-        setUnreadCount(data.unreadCount || 0)
-        setIsLoading(false)
-      } catch {
-        // ignore parse errors
-      }
-    })
-
-    es.onerror = () => {
-      // SSE failed — fall back to polling
-      es.close()
-      eventSourceRef.current = null
-      startPolling()
-    }
-
-    // Stop polling while SSE is active
-    stopPolling()
-  }
-
   useEffect(() => {
     fetchNotifications()
+    pollIntervalRef.current = setInterval(fetchNotifications, POLL_INTERVAL)
 
-    // Try SSE first, poll as fallback
-    connectSSE()
-
-    // Refresh immediately when tab becomes visible
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         fetchNotifications()
@@ -92,11 +48,9 @@ export function NotificationBell() {
     document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
-      eventSourceRef.current?.close()
-      stopPolling()
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleMarkAsRead = async (notificationId: string) => {
@@ -151,7 +105,6 @@ export function NotificationBell() {
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-80 rounded-xl border border-white/10 bg-[#1F1C19] shadow-2xl z-50 overflow-hidden">
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
             <span className="text-sm font-semibold text-[#FAF4EA]">Notificaciones</span>
             {unreadCount > 0 && (
@@ -164,7 +117,6 @@ export function NotificationBell() {
             )}
           </div>
 
-          {/* List */}
           <div className="max-h-96 overflow-y-auto divide-y divide-white/5">
             {isLoading ? (
               <div className="p-6 text-center text-sm text-white/40">Cargando...</div>
@@ -204,7 +156,6 @@ export function NotificationBell() {
             )}
           </div>
 
-          {/* Footer */}
           <div className="px-4 py-3 border-t border-white/8">
             <Link
               href="/notifications"

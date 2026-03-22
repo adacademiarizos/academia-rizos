@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 
 /**
@@ -8,7 +9,7 @@ import { db } from '@/lib/db'
  */
 export async function checkStaffAuth() {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return {
         authorized: false as const,

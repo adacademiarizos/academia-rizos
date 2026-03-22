@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 
 import { db } from '@/lib/db'
 import { submitTestSchema } from '@/validators/academy'
@@ -13,7 +14,7 @@ import { CourseService } from '@/server/services/course-service'
 export async function POST(request: NextRequest) {
   try {
     // Verify user is authenticated
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
 
     if (!session?.user?.email) {
       return NextResponse.json(

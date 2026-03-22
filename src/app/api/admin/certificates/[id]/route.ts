@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { z } from 'zod'
 import { db } from '@/lib/db'
 import { NotificationService } from '@/server/services/notification-service'
@@ -9,7 +10,7 @@ const PatchSchema = z.object({
 })
 
 async function requireAdmin() {
-  const session = await getServerSession()
+  const session = await getServerSession(authOptions)
   if (!session?.user?.email) return null
   const user = await db.user.findUnique({
     where: { email: session.user.email },

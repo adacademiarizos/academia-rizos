@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 
 async function requireStudent(courseId: string) {
-  const session = await getServerSession()
+  const session = await getServerSession(authOptions)
   if (!session?.user?.email) return null
   const user = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true, role: true } })
   if (!user) return null

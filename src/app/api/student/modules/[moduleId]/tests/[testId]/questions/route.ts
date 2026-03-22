@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 
 export async function GET(
@@ -12,7 +13,7 @@ export async function GET(
   { params }: { params: Promise<{ moduleId: string; testId: string }> }
 ) {
   try {
-    const session = await getServerSession()
+    const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },

@@ -4,6 +4,7 @@
  */
 
 import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 
@@ -13,7 +14,7 @@ import { db } from '@/lib/db'
  * Redirects to /student if not ADMIN role
  */
 export async function protectAdminPage() {
-  const session = await getServerSession()
+  const session = await getServerSession(authOptions)
 
   if (!session?.user?.email) {
     redirect('/signin')

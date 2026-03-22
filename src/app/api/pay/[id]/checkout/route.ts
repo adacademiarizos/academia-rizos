@@ -32,14 +32,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ FORZAR localhost en dev SIEMPRE
     const baseUrl =
-      process.env.NODE_ENV === "development"
-        ? "http://localhost:3000"
-        : process.env.NEXT_PUBLIC_APP_URL ||
-          (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
-
-          console.log("Creating checkout session for payment link", { linkId: link.id, baseUrl });
+      process.env.NEXT_PUBLIC_APP_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
     const currency = (link.currency || "EUR").toLowerCase();
 

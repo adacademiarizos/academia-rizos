@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 import { StudentDashboard } from '@/app/components/StudentDashboard'
 
@@ -10,7 +11,7 @@ export const metadata = {
 
 export default async function StudentDashboardPage() {
   // Check authentication
-  const session = await getServerSession()
+  const session = await getServerSession(authOptions)
   if (!session?.user?.email) {
     redirect('/signin')
   }

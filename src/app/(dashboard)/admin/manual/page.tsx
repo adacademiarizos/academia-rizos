@@ -1,4 +1,5 @@
-import { getServerSession } from "next-auth";
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options';
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import {
@@ -9,7 +10,7 @@ import {
 } from "lucide-react";
 
 async function requireAdmin() {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect("/signin");
   const user = await db.user.findUnique({
     where: { email: session.user.email },
