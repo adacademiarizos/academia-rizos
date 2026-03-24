@@ -15,60 +15,6 @@ type Testimonial = {
 type TestimonialsScope = "home" | "salon" | "academia";
 type TestimonialsColor = "default" | "crema";
 
-const FALLBACK_SALON: Testimonial[] = [
-  {
-    id: "salon-1",
-    name: "Ana Garcia",
-    role: "Clienta desde 2022",
-    quote:
-      "Llevaba anos luchando con mi rizado. Despues de mi primera cita con Elizabeth, sali con el pelo que siempre sone.",
-    stars: 5,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=face",
-  },
-  {
-    id: "salon-2",
-    name: "Laura Fernandez",
-    role: "Clienta habitual",
-    quote:
-      "Es la primera vez que alguien realmente entiende mi tipo de rizo y me da una rutina que puedo mantener en casa.",
-    stars: 5,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&crop=face",
-  },
-];
-
-const FALLBACK_ACADEMIA: Testimonial[] = [
-  {
-    id: "academia-1",
-    name: "Maria Lopez",
-    role: "Alumna del curso CGM",
-    quote:
-      "El curso de Metodo Curly Girl cambio completamente mi rutina. Ahora entiendo mi pelo y se exactamente que productos usar.",
-    stars: 5,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=face",
-  },
-  {
-    id: "academia-2",
-    name: "Carla Ortiz",
-    role: "Alumna certificada",
-    quote:
-      "La academia tiene una metodologia clara y practica. Pude aplicar todo de inmediato en mis clientas.",
-    stars: 5,
-    avatarUrl:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop&crop=face",
-  },
-];
-
-const FALLBACK_HOME = [...FALLBACK_SALON, ...FALLBACK_ACADEMIA];
-
-function getFallback(scope: TestimonialsScope): Testimonial[] {
-  if (scope === "salon") return FALLBACK_SALON;
-  if (scope === "academia") return FALLBACK_ACADEMIA;
-  return FALLBACK_HOME;
-}
-
 function getHeading(scope: TestimonialsScope) {
   if (scope === "salon") {
     return {
@@ -175,10 +121,9 @@ function Testimonials({
     fetch(`/api/testimonials?scope=${scope}`)
       .then((r) => r.json())
       .then((j) => {
-        const data = j.data ?? [];
-        setTestimonials(data.length > 0 ? data : getFallback(scope));
+        setTestimonials(j.data ?? []);
       })
-      .catch(() => setTestimonials(getFallback(scope)));
+      .catch(() => {});
   }, [scope]);
 
   if (testimonials.length === 0) return null;
