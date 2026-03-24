@@ -18,6 +18,14 @@ function getIcon(type: string) {
     case 'COURSE_COMPLETION': return '🏆'
     case 'NEW_COURSE': return '📖'
     case 'PAYMENT': return '✅'
+    case 'CERTIFICATE': return '🎓'
+    case 'EXAM_REVIEW': return '📝'
+    case 'APPOINTMENT': return '📅'
+    case 'SUBMISSION': return '📋'
+    case 'BUG_REPORT': return '🐛'
+    case 'ROLE_CHANGE': return '🔑'
+    case 'NEW_USER': return '👤'
+    case 'CHAT_MESSAGE': return '💭'
     default: return '📌'
   }
 }

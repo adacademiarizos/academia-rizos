@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function HorariosPage() {
   return (
-    <main>
+    <main className="bg-ap-crema" >
       {/* Hero */}
       <section className="py-16 text-center px-4">
         <p
@@ -21,11 +21,11 @@ export default function HorariosPage() {
         </p>
         <h1
           style={{ fontFamily: "Georgia, serif" }}
-          className="text-4xl md:text-5xl font-normal text-[#FAF4EA] mb-4"
+          className="text-4xl md:text-5xl font-normal text-black mb-4"
         >
           Nuestros Horarios
         </h1>
-        <p className="text-[#C4B49A] max-w-md mx-auto text-sm leading-relaxed">
+        <p className="text-zinc-600 max-w-md mx-auto text-sm leading-relaxed">
           Encontranos de lunes a viernes. Reservá tu turno con anticipación para asegurarte el horario.
         </p>
       </section>

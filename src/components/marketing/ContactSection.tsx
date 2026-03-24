@@ -1,4 +1,14 @@
-import Link from "next/link";
+﻿import Link from "next/link";
+import {
+  ArrowRight,
+  Facebook,
+  Instagram,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Music2,
+  Smartphone,
+} from "lucide-react";
 
 export default function ContactSection() {
   return (
@@ -9,10 +19,10 @@ export default function ContactSection() {
             Contacto
           </p>
           <h2 className="text-3xl md:text-4xl font-bold text-ap-ivory">
-            Estamos aquí para ti
+            Estamos aqui para ti
           </h2>
           <p className="mt-3 text-white/60 text-base max-w-xl mx-auto">
-            Puedes contactarnos a través de nuestras redes sociales, por correo electrónico o visitar nuestro estudio físico.
+            Puedes contactarnos a traves de nuestras redes sociales, por correo electronico o visitar nuestro estudio fisico.
           </p>
         </div>
 
@@ -20,8 +30,8 @@ export default function ContactSection() {
           {/* Social Media */}
           <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-8 space-y-5">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-full bg-ap-copper/20 flex items-center justify-center text-ap-copper text-xl">
-                📱
+              <div className="w-10 h-10 rounded-full bg-ap-copper/20 flex items-center justify-center text-ap-copper">
+                <Smartphone className="w-5 h-5" aria-hidden="true" />
               </div>
               <h3 className="text-lg font-semibold text-ap-ivory">Redes Sociales</h3>
             </div>
@@ -33,7 +43,7 @@ export default function ContactSection() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-white/70 hover:text-ap-copper transition group"
               >
-                <span className="text-xl">📸</span>
+                <Instagram className="w-5 h-5" aria-hidden="true" />
                 <div>
                   <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">Instagram</div>
                   <div className="text-xs text-white/40">@elizabeth.rizos</div>
@@ -46,7 +56,7 @@ export default function ContactSection() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-white/70 hover:text-ap-copper transition group"
               >
-                <span className="text-xl">🎵</span>
+                <Music2 className="w-5 h-5" aria-hidden="true" />
                 <div>
                   <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">TikTok</div>
                   <div className="text-xs text-white/40">@elizabeth.rizos</div>
@@ -59,7 +69,7 @@ export default function ContactSection() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-white/70 hover:text-ap-copper transition group"
               >
-                <span className="text-xl">🌐</span>
+                <Facebook className="w-5 h-5" aria-hidden="true" />
                 <div>
                   <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">Facebook</div>
                   <div className="text-xs text-white/40">elizabeth rizos</div>
@@ -72,10 +82,10 @@ export default function ContactSection() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-white/70 hover:text-ap-copper transition group"
               >
-                <span className="text-xl">💬</span>
+                <MessageCircle className="w-5 h-5" aria-hidden="true" />
                 <div>
                   <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">WhatsApp</div>
-                  <div className="text-xs text-white/40">Escríbenos directamente</div>
+                  <div className="text-xs text-white/40">Escribenos directamente</div>
                 </div>
               </a>
             </div>
@@ -84,10 +94,10 @@ export default function ContactSection() {
           {/* Email */}
           <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-8 space-y-5">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-full bg-ap-copper/20 flex items-center justify-center text-ap-copper text-xl">
-                ✉️
+              <div className="w-10 h-10 rounded-full bg-ap-copper/20 flex items-center justify-center text-ap-copper">
+                <Mail className="w-5 h-5" aria-hidden="true" />
               </div>
-              <h3 className="text-lg font-semibold text-ap-ivory">Correo Electrónico</h3>
+              <h3 className="text-lg font-semibold text-ap-ivory">Correo Electronico</h3>
             </div>
 
             <div className="space-y-4">
@@ -115,9 +125,10 @@ export default function ContactSection() {
                 <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Citas y reservas</div>
                 <Link
                   href="/booking"
-                  className="text-sm font-medium text-ap-copper hover:text-ap-copper/80 transition"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-ap-copper hover:text-ap-copper/80 transition"
                 >
-                  Reservar cita online →
+                  Reservar cita online
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 </Link>
               </div>
             </div>
@@ -126,26 +137,26 @@ export default function ContactSection() {
           {/* Location */}
           <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-8 space-y-5">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-full bg-ap-copper/20 flex items-center justify-center text-ap-copper text-xl">
-                📍
+              <div className="w-10 h-10 rounded-full bg-ap-copper/20 flex items-center justify-center text-ap-copper">
+                <MapPin className="w-5 h-5" aria-hidden="true" />
               </div>
               <h3 className="text-lg font-semibold text-ap-ivory">Nuestro Estudio</h3>
             </div>
 
             <div className="space-y-3">
               <div>
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Dirección</div>
+                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Direccion</div>
                 <p className="text-sm text-ap-ivory font-medium">
                   Calle Ejemplo, 123<br />
-                  28001 Madrid, España
+                  28001 Madrid, Espana
                 </p>
               </div>
 
               <div>
                 <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Horario</div>
                 <div className="text-sm text-white/70 space-y-0.5">
-                  <div>Lunes – Viernes: 10:00 – 20:00</div>
-                  <div>Sábado: 10:00 – 15:00</div>
+                  <div>Lunes - Viernes: 10:00 - 20:00</div>
+                  <div>Sabado: 10:00 - 15:00</div>
                   <div>Domingo: Cerrado</div>
                 </div>
               </div>
@@ -154,9 +165,10 @@ export default function ContactSection() {
                 href="https://maps.google.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block text-xs text-ap-copper hover:text-ap-copper/80 transition mt-2"
+                className="inline-flex items-center gap-1 text-xs text-ap-copper hover:text-ap-copper/80 transition mt-2"
               >
-                Ver en Google Maps →
+                Ver en Google Maps
+                <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </a>
             </div>
           </div>

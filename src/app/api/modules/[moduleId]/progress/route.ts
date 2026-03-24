@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 
 import { db } from '@/lib/db'
+import { NotificationService } from '@/server/services/notification-service'
 
 /**
  * Creates a pending certificate record when all modules are complete and there is no final exam.
@@ -177,6 +178,9 @@ export async function POST(
     if (completed) {
       autoCreatePendingCertificate(user.id, module.courseId).catch((err) => {
         console.error('Auto-certificate check failed:', err)
+      })
+      NotificationService.triggerOnCourseCompletion(user.id, module.courseId).catch((err) => {
+        console.error('Course completion notification failed:', err)
       })
     }
 

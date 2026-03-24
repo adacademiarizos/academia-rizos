@@ -8,7 +8,8 @@
     "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "prisma db seed"
+    "seed": "prisma db seed",
+    "sync:testimonials": "tsx scripts/sync-testimonials.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

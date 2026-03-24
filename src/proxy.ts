@@ -1,19 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
-export async function middleware(req: NextRequest) {
+export default async function handler(req: NextRequest) {
   const { pathname } = req.nextUrl
 
   const isAdminRoute = pathname.startsWith('/admin')
   const isStaffRoute = pathname.startsWith('/staff')
-  const isStudentRoute = pathname === '/student' || pathname === '/notifications'
+  const isStudentRoute = pathname === '/student'
+  const isNotificationsRoute = pathname === '/notifications'
   const isBugReportRoute = pathname.startsWith('/bug-report')
 
-  if (isAdminRoute || isStaffRoute || isStudentRoute || isBugReportRoute) {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-    })
+  if (isAdminRoute || isStaffRoute || isStudentRoute || isNotificationsRoute || isBugReportRoute) {
+    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
 
     // User not authenticated
     if (!token) {
@@ -39,7 +37,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Student routes - redirect ADMIN and STAFF to their dashboards
+    // Student dashboard - redirect ADMIN and STAFF to their own dashboards
     if (isStudentRoute && role === 'ADMIN') {
       const url = req.nextUrl.clone()
       url.pathname = '/admin'
@@ -50,6 +48,8 @@ export async function middleware(req: NextRequest) {
       url.pathname = '/staff/appointments'
       return NextResponse.redirect(url)
     }
+
+    // Notifications - accessible to all authenticated users (no redirects)
   }
 
   return NextResponse.next()

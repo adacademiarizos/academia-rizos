@@ -70,6 +70,11 @@ enum BugType {
   FUNCTIONALITY
 }
 
+enum TestimonialType {
+  SALON
+  ACADEMIA
+}
+
 model User {
   id       String  @id @default(cuid())
   name     String?
@@ -556,7 +561,7 @@ model ChatMessage {
 model Notification {
   id        String   @id @default(cuid())
   userId    String
-  type      String // 'COMMENT', 'LIKE', 'COURSE_COMPLETION', 'NEW_COURSE', 'PAYMENT'
+  type      String // 'COMMENT', 'LIKE', 'COURSE_COMPLETION', 'NEW_COURSE', 'PAYMENT', 'CERTIFICATE', 'EXAM_REVIEW', 'APPOINTMENT', 'SUBMISSION', 'BUG_REPORT', 'ROLE_CHANGE', 'NEW_USER'
   title     String
   message   String
   relatedId String? // courseId, commentId, likeId, etc.
@@ -846,6 +851,24 @@ model BusinessOffDay {
   createdAt DateTime @default(now())
 
   @@unique([date])
+}
+
+// ============= TESTIMONIALS =============
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  role      String   @default("Clienta")
+  quote     String
+  type      TestimonialType @default(SALON)
+  stars     Int      @default(5)
+  avatarUrl String?
+  isActive  Boolean  @default(true)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([order])
+  @@index([type, order])
 }
 
 // ============= ANALYTICS =============

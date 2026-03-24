@@ -92,18 +92,18 @@ function Hero() {
             </motion.div>
 
             <Link
-              href="/courses"
+              href="/salon"
               className="inline-flex items-center justify-center rounded-2xl border border-white/20 bg-white/10 px-6 py-4 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/15"
             >
-              Ver Academia
+              Nuestro Salón
             </Link>
 
           </div>
 
-          <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <MiniStat label="Reservas rápidas" value="3 pasos" />
-            <MiniStat label="Equipo" value="Elegí tu profe" />
-            <MiniStat label="Academia" value="Cursos + Certificado" />
+          <div className="mt-10 grid grid-cols-2 gap-3 md:grid-cols-3">
+            <MiniStat label="Salón especializado" value="Rizos expertos" />
+            <MiniStat label="Formación online" value="Academia + Certificado" />
+            <MiniStat label="Reserva fácil" value="3 pasos" />
           </div>
         </motion.div>
       </div>

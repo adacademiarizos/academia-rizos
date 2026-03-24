@@ -17,14 +17,14 @@ export const site = {
       duration:"90-120 min" ,
       from:"$$" ,
       href:"/booking?service=definicion"  ,
-      imgUri: "/persona2.webp",
+      imgUri: "/f2.webp",
     } , {
       title:"Corte Curly" ,
       desc:"Corte adaptado a tu patrón con enfoque en forma y volumen." ,
       duration:"60-90 min" ,
       from:"$$" ,
       href:"/booking?service=corte" ,
-      imgUri: "/persona2.webp",
+      imgUri: "/f3.webp",
     }
   ],
   team: [
@@ -35,29 +35,34 @@ export const site = {
     {
       name: "Antonia",
       role: "Clienta",
+      avatar: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=100&h=100&fit=crop&crop=face",
       text:
         "Guau, me ha encantado como me dejaste ese pelo y lo hermosa que estoy. Dios te siga bendiciendo esa maravillosa mano. Me encanta cómo trabajas y la dedicación que pones.",
     },
     {
       name: "Vanesa",
       role: "Clienta",
+      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face",
       text: "Mi entrenadora de Gym quedó encantada contigo, necesito una cita para ya de ya.",
     },
     {
       name: "Beth",
       role: "Clienta",
+      avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face",
       text:
         "Ojalá venga pronto a verte. ¡No he visto en redes otra que se dedique a esto y por lo menos se asemeje a ti!! Gracias por ayudarnos",
     },
     {
       name: "Camila",
       role: "Clienta",
+      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop&crop=face",
       text:
         "Madre mía, el tratamiento que me enseñaste a hacer de romero y jengibre me fue espectacular y he conseguido más cabellos que con las pastillas que me recetó el médico.",
     },
     {
       name: "Daniela",
       role: "Clienta",
+      avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop&crop=face",
       text:
         "De verdad que mil gracias, mi hija está encantada y en el cole ni te cuento. A estas edades su cabello es muy importante. Tiene gracias, me dice que no quiere que nadie más que tú le toque el pelo.",
     },

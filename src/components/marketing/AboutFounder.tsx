@@ -20,8 +20,8 @@ function AboutFounder() {
           />
         </div>
 
-        <div className="rounded-3xl p-8 shadow-sm backdrop-blur-md">
-          <h3 className="text-6xl text-white font-main font-semibold">Tu rizo no es “difícil”, está mal entendido.</h3>
+        <div className="rounded-3xl p-8 backdrop-blur-md">
+          <h3 className="text-6xl text-white font-main font-semibold">Tu rizo no es &ldquo;dif&iacute;cil&rdquo;, est&aacute; mal entendido.</h3>
           <p className="mt-3 text-sm text-zinc-400 md:text-base">
             El objetivo no es solo que se vea bien hoy: es que tengas una rutina clara, productos adecuados y técnica para
             mantener definición, hidratación y forma.
@@ -29,16 +29,16 @@ function AboutFounder() {
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/booking"
+              href="/salon"
               className="rounded-2xl bg-(--er-copper) px-5 py-3 text-sm font-semibold text-white transition hover:opacity-95"
             >
-              Reservar cita
+              Conocer el salón
             </Link>
             <Link
-              href="/services"
+              href="/academia"
               className="rounded-2xl border border-black/10 bg-white/70 px-5 py-3 text-sm font-semibold text-zinc-900 transition hover:bg-white"
             >
-              Ver servicios
+              Ver academia
             </Link>
           </div>
         </div>

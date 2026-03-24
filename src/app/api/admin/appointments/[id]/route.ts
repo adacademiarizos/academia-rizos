@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { checkAdminAuth } from "@/lib/admin-auth";
+import { NotificationService } from "@/server/services/notification-service";
 
 export const dynamic = "force-dynamic";
 
@@ -38,8 +39,18 @@ export async function PATCH(
     const updated = await db.appointment.update({
       where: { id },
       data: { status: body.status },
-      select: { id: true, status: true },
+      select: { id: true, status: true, customerId: true, service: { select: { name: true } } },
     });
+
+    // Notify customer about status change
+    if (updated.customerId) {
+      NotificationService.triggerOnAppointmentStatus(
+        updated.customerId,
+        updated.id,
+        updated.status,
+        updated.service?.name ?? 'tu servicio'
+      ).catch((err) => console.error('Appointment status notification failed:', err))
+    }
 
     return NextResponse.json({ ok: true, data: updated });
   } catch (err: any) {

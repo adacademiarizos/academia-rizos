@@ -10,6 +10,7 @@ import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 import { submitTestSchema } from '@/validators/academy'
 import { CourseService } from '@/server/services/course-service'
+import { NotificationService } from '@/server/services/notification-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -113,7 +114,13 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // TODO: Send email to admin about new submission
+    // Notify admins about new submission for review
+    NotificationService.notifyAllAdmins({
+      type: 'SUBMISSION',
+      title: 'Nueva entrega pendiente de revisión',
+      message: `Un estudiante ha enviado una evaluación para revisión`,
+      relatedId: submission.id,
+    }).catch((err) => console.error('Submission notification failed:', err))
 
     return NextResponse.json(
       {

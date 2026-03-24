@@ -2,28 +2,100 @@
 'use client'
 import type { ReactNode } from "react";
 import Link from "next/link";
-import {Calendar, LogIn, LogOut} from "lucide-react"
+import { LogIn, LogOut} from "lucide-react"
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Rizo1 from "@/components/marketing/svgs/Rizo";
 
 const NAV_ITEMS = [
-  { label: "Servicios", href: "/#services" },
-  { label: "Academia", href: "/#academy" },
-  { label: "FAQ", href: "/#faq" },
-  { label: "Horarios", href: "/horarios" },
+  { label: "Salón", href: "/salon" },
+  { label: "Academia", href: "/academia" },
+  { label: "Cursos", href: "/courses" },
+  { label: "Contacto", href: "/#contacto" },
 ];
+
+/** Reglas de color para el botón CTA del navbar.
+ *  Cada entrada tiene:
+ *  - match: string  → prefijo exacto (ej. "/salon" cubre "/salon" y "/salon/algo")
+ *  - match: RegExp  → patrón arbitrario (ej. /^\/user\/[^/]+$/)
+ *  - accent: clase Tailwind a aplicar
+ *  Se evalúan en orden; la primera que coincide gana.
+ *  Si ninguna coincide se usa el color por defecto (bg-ap-copper). */
+const ROUTE_ACCENT: { match: string | RegExp; accent: string }[] = [
+  { match: "/salon",    accent: "bg-ap-choco" },  // naranja — cubre /salon, /salon/servicios, etc.
+  { match: "/horarios", accent: "bg-ap-choco" },
+  // { match: /^\/user\/[^/]+$/, accent: "bg-ap-choco" },  // rutas /user/:id
+  // { match: "/academia",        accent: "bg-ap-copper" },
+];
+
+/** Reglas para background del footer en rutas específicas.
+ *  `bg` debe ser un valor CSS válido para background-color; usamos rgba para soporte de opacidad.
+ */
+const ROUTE_FOOTER: { match: string | RegExp; bg: string }[] = [
+  // color --color-ap-acent-crema = #e9d6c5 → rgba(233,214,197,0.7)
+  { match: "/salon", bg: "#e9d6c5" },
+  { match: "/horarios", bg: "#e9d6c5" },
+];
+
+function getFooterBg(pathname: string): string | null {
+  for (const { match, bg } of ROUTE_FOOTER) {
+    if (typeof match === "string" ? pathname.startsWith(match) : match.test(pathname)) return bg;
+  }
+  return null;
+}
+
+/** Reglas para clase de texto del menú según ruta */
+const ROUTE_MENU_TEXT: { match: string | RegExp; className: string }[] = [
+  { match: "/salon", className: "text-zinc-800" },
+  { match: "/horarios", className: "text-zinc-800" },
+];
+
+function getMenuTextClass(pathname: string, fallback = "text-white") {
+  for (const { match, className } of ROUTE_MENU_TEXT) {
+    if (typeof match === "string" ? pathname.startsWith(match) : match.test(pathname)) return className;
+  }
+  return fallback;
+}
+
+function getAccent(pathname: string, fallback = "bg-ap-copper") {
+  for (const { match, accent } of ROUTE_ACCENT) {
+    if (typeof match === "string" ? pathname.startsWith(match) : match.test(pathname))
+      return accent;
+  }
+  return fallback;
+}
+
+function getImage(pathname: string) {
+  for (const { match } of ROUTE_ACCENT) {
+    if (typeof match === "string" ? pathname.startsWith(match) : match.test(pathname))
+    return "/logo-naranja.png";
+  }
+  return "/logo.png";
+}
 
 export default function MarketingLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const isHome = pathname === "/";
 
   return (
     <div className="min-h-screen bg-ap-bg z-10 text-ap-ivory">
+      {/* SVG filter para la textura de papel (referenciado por .textura-papel::before) */}
+      <svg aria-hidden="true" style={{ position: "absolute", width: 0, height: 0 }}>
+        <defs>
+          <filter id="paper" x="0%" y="0%" width="100%" height="100%" colorInterpolationFilters="linearRGB">
+            <feTurbulence type="fractalNoise" baseFrequency="0.77" numOctaves="8" seed="2" stitchTiles="stitch" result="noise" />
+            <feColorMatrix type="saturate" values="0" in="noise" result="gray" />
+            <feComponentTransfer in="gray" result="contrast">
+              <feFuncR type="linear" slope="2.4" intercept="-0.7" />
+              <feFuncG type="linear" slope="2.4" intercept="-0.7" />
+              <feFuncB type="linear" slope="2.4" intercept="-0.7" />
+            </feComponentTransfer>
+            <feBlend in="SourceGraphic" in2="contrast" mode="multiply" />
+          </filter>
+        </defs>
+      </svg>
       <Header />
-      {/* pt-16 clears the fixed navbar (~64px) on all pages except the homepage,
-          which intentionally overflows under the navbar with its hero section */}
-      <div className={isHome ? "" : "pt-16"}>
+      {/* pt-16 clears the fixed navbar (~64px) on all pages except those with full-bleed heroes */}
+      <div >
         {children}
       </div>
       <Footer />
@@ -33,6 +105,10 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
 
 function Header() {
   const { data: session } = useSession();
+  const pathname = usePathname();
+  const accentBg = getAccent(pathname);
+  const logoSrc = getImage(pathname);
+  const menuTextClass = getMenuTextClass(pathname);
 
   // Determine button destination based on session and role
   const getButtonConfig = () => {
@@ -63,11 +139,11 @@ function Header() {
   const ButtonIcon = buttonConfig.icon;
 
   return (
-    <header className="fixed w-full top-0 z-50   backdrop-blur-3xl bg-black/30 ">
+    <header className="fixed w-full top-0 z-50 backdrop-blur-3xl ">
       <div className="mx-auto max-w-6xl px-4 py-2 flex items-center justify-between gap-4">
         {/* Brand */}
         <Link href="/" className="group leading-none">
-          <img className="max-h-12" src="/logo.png" alt="" />
+          <img className="max-h-12" src={logoSrc} alt="" />
         </Link>
 
         {/* Desktop nav */}
@@ -76,7 +152,7 @@ function Header() {
             <a
               key={item.href}
               href={item.href}
-              className="opacity-70 hover:opacity-100 transition hover:font-bold text-white text-xs"
+              className={`opacity-70 hover:opacity-100 transition hover:font-bold ${menuTextClass} text-xs`}
             >
               {item.label}
             </a>
@@ -96,7 +172,8 @@ function Header() {
             {/* Primary CTA */}
             <Link
               href={buttonConfig.href}
-              className="inline-flex bg-ap-copper items-center justify-center gap-2 rounded-full px-4 py-2 text-ap-ivory shadow-soft2 hover:opacity-95 transition"
+              className={`inline-flex ${accentBg} items-center justify-center gap-2 rounded-full px-4 py-2 text-ap-ivory shadow-soft2 hover:opacity-95 transition`}
+              style={{ "--accent-color-main": accentBg } as React.CSSProperties}
             >
               {buttonConfig.label}
               {ButtonIcon && <ButtonIcon className="w-4 h-4" />}
@@ -106,23 +183,23 @@ function Header() {
             {session?.user && (
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
-                className="inline-flex text-white items-center justify-center gap-2 rounded-full px-4 py-2 hover:bg-white/10 transition"
+                className={`inline-flex ${menuTextClass} items-center justify-center gap-2 rounded-full px-4 py-2 hover:bg-white/10 transition`}
                 title="Cerrar sesión"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className={`w-4 h-4 ${menuTextClass}`} />
               </button>
             )}
           </div>
         </nav>
 
         {/* Mobile */}
-        <MobileMenu />
+        <MobileMenu accentBg={accentBg} menuTextClass={menuTextClass} />
       </div>
     </header>
   );
 }
 
-function MobileMenu() {
+function MobileMenu({ accentBg, menuTextClass }: { accentBg: string; menuTextClass: string }) {
   const { data: session } = useSession();
 
   // Determine button destination based on session and role
@@ -164,7 +241,7 @@ function MobileMenu() {
               <a
                 key={item.href}
                 href={item.href}
-                className="py-2 text-sm opacity-80 hover:opacity-100 transition text-white "
+                className={`py-2 text-sm opacity-80 hover:opacity-100 transition ${menuTextClass}`}
               >
                 {item.label}
               </a>
@@ -173,7 +250,7 @@ function MobileMenu() {
             <div className="pt-2 flex flex-col gap-2 w-full items-center">
               <Link
                 href={buttonConfig.href}
-                className="inline-flex bg-(--acent) text-white items-center justify-center gap-2 rounded-full px-4 py-2 bg-ap-copper text-ap-ivory shadow-soft2 hover:opacity-95 transition"
+                className={`inline-flex ${accentBg} items-center justify-center gap-2 rounded-full px-4 py-2 text-ap-ivory shadow-soft2 hover:opacity-95 transition`}
               >
                 {buttonConfig.label}
               </Link>
@@ -192,11 +269,11 @@ function MobileMenu() {
               {session?.user && (
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
-                  className="inline-flex text-white items-center justify-center gap-2 rounded-full px-4 py-2 hover:bg-white/10 transition"
+                  className={`inline-flex ${menuTextClass} items-center justify-center gap-2 rounded-full px-4 py-2 hover:bg-white/10 transition`}
                   title="Cerrar sesión"
                 >
                   Cerrar sesión
-                  <LogOut className="w-4 h-4" />
+                  <LogOut className={`w-4 h-4 ${menuTextClass}`} />
                 </button>
               )}
             </div>
@@ -217,40 +294,43 @@ function MobileMenu() {
 }
 
 function Footer() {
+  const pathname = usePathname();
+  const footerBg = getFooterBg(pathname);
+
   return (
-    <footer className="mt-16 border-t-white/25 bg-white/5 text-white">
+    <footer
+      className="pt-16 border-t-white/25 text-white"
+      style={footerBg ? ({ backgroundColor: footerBg } as React.CSSProperties) : undefined}
+    >
       <div className="mx-auto max-w-6xl px-5 py-10">
         <div className="flex flex-col md:flex-row gap-6 md:items-center md:justify-between">
           <div className="leading-tight">
-            <p className="text-sm font-medium">Apoteósicas by Elizabeth Rizos</p>
-            <p className="text-xs opacity-70 mt-1">
+            <p className={`text-sm font-medium ${footerBg ? 'text-zinc-800' : 'text-white'}`}>Apoteósicas by Elizabeth Rizos</p>
+            <p className={`text-xs mt-1 ${footerBg ? 'text-zinc-800' : 'text-white'}`}>
               Curly Hair · Técnica · Comunidad
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm">
-            <a className="opacity-70 hover:opacity-100 transition" href="/#services">
-              Servicios
-            </a>
-            <a className="opacity-70 hover:opacity-100 transition" href="/#results">
-              Resultados
-            </a>
-            <a className="opacity-70 hover:opacity-100 transition" href="/#academy">
+          <div className={`flex flex-wrap gap-x-6 gap-y-3 text-sm ${footerBg ? 'text-zinc-900' : 'text-white'}`}>
+            <Link className="hover:opacity-100 transition" href="/salon">
+              Salón
+            </Link>
+            <Link className="hover:opacity-100 transition" href="/academia">
               Academia
-            </a>
-            <a className="opacity-70 hover:opacity-100 transition" href="/#faq">
-              FAQ
-            </a>
-            <Link className="opacity-70 hover:opacity-100 transition" href="/#contacto">
+            </Link>
+            <Link className="hover:opacity-100 transition" href="/courses">
+              Cursos
+            </Link>
+            <Link className="hover:opacity-100 transition" href="/#contacto">
               Contacto
             </Link>
           </div>
         </div>
 
-        <div className="mt-8 flex flex-col md:flex-row gap-3 md:items-center md:justify-between text-xs opacity-65">
+        <div className={`mt-8 flex flex-col md:flex-row gap-3 md:items-center md:justify-between text-xs ${footerBg ? 'text-zinc-900' : 'text-white'}`}>
           <p>© {new Date().getFullYear()} Apoteósicas. Todos los derechos reservados.</p>
           <div className="flex gap-5">
-            <Link href="/privacy" className="hover:opacity-100 transition">
+            <Link href="/privacy" className="hover:opacity-100 transition ">
               Privacidad
             </Link>
             <Link href="/terms" className="hover:opacity-100 transition">

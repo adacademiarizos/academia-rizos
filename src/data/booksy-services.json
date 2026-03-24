@@ -1,0 +1,1256 @@
+{
+  "source": {
+    "provider": "Booksy",
+    "url": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+    "extractedAt": "2026-03-24T04:00:48.283Z",
+    "method": "SSR HTML parsing"
+  },
+  "business": {
+    "name": "Apoteosicas By Elizabeth Rizos Salon",
+    "title": "Apoteósicas By Elizabeth Rizos Salón - Palma - Book Online - Prices, Reviews, Photos",
+    "city": "Palma de Mallorca",
+    "coverImageUrl": "https://d375139ucebi94.cloudfront.net/region2/es/115013/biz_photo/c41c115acf074a4eb1e936a59561fc-apoteosicas-by-elizabeth-rizos-biz-photo-bea345a1284b426e9ca6008d5771ea-booksy.jpeg"
+  },
+  "categories": [
+    {
+      "id": "booksy-cat-cabello-liso",
+      "name": "Cabello Liso",
+      "slug": "cabello-liso"
+    },
+    {
+      "id": "booksy-cat-pack-cabello-afro-alta-densidad",
+      "name": "Pack Cabello afro alta densidad",
+      "slug": "pack-cabello-afro-alta-densidad"
+    },
+    {
+      "id": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+      "name": "Pack Cabello ondulado densidad media-baja",
+      "slug": "pack-cabello-ondulado-densidad-media-baja"
+    },
+    {
+      "id": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+      "name": "Pack Cabello rizado densidad media/alta",
+      "slug": "pack-cabello-rizado-densidad-media-alta"
+    },
+    {
+      "id": "booksy-cat-pack-hombres",
+      "name": "Pack hombres",
+      "slug": "pack-hombres"
+    },
+    {
+      "id": "booksy-cat-pack-infantil",
+      "name": "Pack Infantil",
+      "slug": "pack-infantil"
+    },
+    {
+      "id": "booksy-cat-peinados",
+      "name": "Peinados",
+      "slug": "peinados"
+    }
+  ],
+  "services": [
+    {
+      "id": "booksy-1195155",
+      "externalId": "1195155",
+      "name": "color completo cabello liso.",
+      "categoryName": "Cabello Liso",
+      "description": "color completo, lavado y secado liso media melena",
+      "imageUrls": [],
+      "options": [
+        {
+          "id": "1195155-opt-1",
+          "priceLabel": "80,00 €",
+          "durationLabel": "1h 30min"
+        },
+        {
+          "id": "1195155-opt-2",
+          "priceLabel": "90,00 €",
+          "durationLabel": "2h"
+        },
+        {
+          "id": "1195155-opt-3",
+          "priceLabel": "125,00 €",
+          "durationLabel": "2h 30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-cabello-liso",
+      "priceLabel": "80,00 €",
+      "durationLabel": "1h 30min"
+    },
+    {
+      "id": "booksy-1188724",
+      "externalId": "1188724",
+      "name": "corte y peinado liso corto",
+      "categoryName": "Cabello Liso",
+      "description": null,
+      "imageUrls": [],
+      "options": [
+        {
+          "id": "1188724-opt-1",
+          "priceLabel": "22,00 €",
+          "durationLabel": "40min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-cabello-liso",
+      "priceLabel": "22,00 €",
+      "durationLabel": "40min"
+    },
+    {
+      "id": "booksy-1188727",
+      "externalId": "1188727",
+      "name": "Corte y peinado liso media melena",
+      "categoryName": "Cabello Liso",
+      "description": null,
+      "imageUrls": [],
+      "options": [
+        {
+          "id": "1188727-opt-1",
+          "priceLabel": "35,00 €",
+          "durationLabel": "45min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-cabello-liso",
+      "priceLabel": "35,00 €",
+      "durationLabel": "45min"
+    },
+    {
+      "id": "booksy-1188731",
+      "externalId": "1188731",
+      "name": "corte, tratamiento proteina y peinado liso largo",
+      "categoryName": "Cabello Liso",
+      "description": null,
+      "imageUrls": [],
+      "options": [
+        {
+          "id": "1188731-opt-1",
+          "priceLabel": "85,00 €",
+          "durationLabel": "55min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-cabello-liso",
+      "priceLabel": "85,00 €",
+      "durationLabel": "55min"
+    },
+    {
+      "id": "booksy-1188713",
+      "externalId": "1188713",
+      "name": "Lavado, tratamiento basico y secado liso",
+      "categoryName": "Cabello Liso",
+      "description": null,
+      "imageUrls": [],
+      "options": [
+        {
+          "id": "1188713-opt-1",
+          "priceLabel": "40,00 €",
+          "durationLabel": "30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-cabello-liso",
+      "priceLabel": "40,00 €",
+      "durationLabel": "30min"
+    },
+    {
+      "id": "booksy-1188716",
+      "externalId": "1188716",
+      "name": "lavado, tratamiento proteina y secado liso",
+      "categoryName": "Cabello Liso",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/9adba48c14e04268ad5d9d5761f4735f.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1188716-opt-1",
+          "priceLabel": "65,00 €",
+          "durationLabel": "45min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-cabello-liso",
+      "priceLabel": "65,00 €",
+      "durationLabel": "45min"
+    },
+    {
+      "id": "booksy-1188703",
+      "externalId": "1188703",
+      "name": "lavar y peinar liso media melena",
+      "categoryName": "Cabello Liso",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/2f76abc312d449d9b5d80f069c92975a.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1188703-opt-1",
+          "priceLabel": "25,00 €",
+          "durationLabel": "30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-cabello-liso",
+      "priceLabel": "25,00 €",
+      "durationLabel": "30min"
+    },
+    {
+      "id": "booksy-1188686",
+      "externalId": "1188686",
+      "name": "Servicio Liso cabello corto",
+      "categoryName": "Cabello Liso",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/86eef3d274204c0980553e085b942a86.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1188686-opt-1",
+          "priceLabel": "18,00 €",
+          "durationLabel": "30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-cabello-liso",
+      "priceLabel": "18,00 €",
+      "durationLabel": "30min"
+    },
+    {
+      "id": "booksy-1046634",
+      "externalId": "1046634",
+      "name": "Corona apoteósica (pack afro)",
+      "categoryName": "Pack Cabello afro alta densidad",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/7fe609d7cce947a781d595d50b375252.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/89ed02ef8c484870b29002e5a69e0bd4.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/8f1d2159a89f4aa6a672bef5512f6be9.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/dc336a0b19ab4ac4ad3f2c57046053be.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1046634-opt-1",
+          "priceLabel": "150,00 €",
+          "durationLabel": "2h 30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-afro-alta-densidad",
+      "priceLabel": "150,00 €",
+      "durationLabel": "2h 30min"
+    },
+    {
+      "id": "booksy-1340199",
+      "externalId": "1340199",
+      "name": "Mechas cabello afro",
+      "categoryName": "Pack Cabello afro alta densidad",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/9ea97ef3855f48b18609d94c3f99b03b.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1340199-opt-1",
+          "priceLabel": "305,00 €",
+          "durationLabel": "4h"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-afro-alta-densidad",
+      "priceLabel": "305,00 €",
+      "durationLabel": "4h"
+    },
+    {
+      "id": "booksy-1046610",
+      "externalId": "1046610",
+      "name": "Esencia apoteósica (Corte y definición)",
+      "categoryName": "Pack Cabello ondulado densidad media-baja",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/75273327d4bf49619cde44f8ac5434b7.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/9855da6475b6469f897962e1241ca126.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1046610-opt-1",
+          "priceLabel": "65,00 €",
+          "durationLabel": "1h 30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+      "priceLabel": "65,00 €",
+      "durationLabel": "1h 30min"
+    },
+    {
+      "id": "booksy-1046615",
+      "externalId": "1046615",
+      "name": "Experiencia Apoteósica (pack premium)",
+      "categoryName": "Pack Cabello ondulado densidad media-baja",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/33be3de00dcd43e1b6f51d58b3356a91.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/8aa0808ef793444481ae35a0bee826b9.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/2e25b9b2a1f8493b93084719acc2ae47.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/2d1467b3b2b744fda46e98eca680f381.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/c5ff252635ee4ff29a0db51bbe0f8e4a.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/0d372667882b45969c3a2bea70dc6e80.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1046615-opt-1",
+          "priceLabel": "125,00 €",
+          "durationLabel": "2h"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+      "priceLabel": "125,00 €",
+      "durationLabel": "2h"
+    },
+    {
+      "id": "booksy-1340158",
+      "externalId": "1340158",
+      "name": "Glow apoteósico (mechas densidad media baja)",
+      "categoryName": "Pack Cabello ondulado densidad media-baja",
+      "description": "Mechas y matiz + tratamiento proteína y definición",
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/56456567a34d42efb189c196dfa51d56.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/a20b24fc94a348efa612ffd29caeee80.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/596ace52f5a24202835b1f1328ad01f9.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/d532fa6fed6a420d8b528bd7297d5868.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1340158-opt-1",
+          "priceLabel": "220,00 €",
+          "durationLabel": "2h 30min"
+        },
+        {
+          "id": "1340158-opt-2",
+          "priceLabel": "270,00 €",
+          "durationLabel": "3h"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+      "priceLabel": "220,00 €",
+      "durationLabel": "2h 30min"
+    },
+    {
+      "id": "booksy-1046613",
+      "externalId": "1046613",
+      "name": "Ritual de Identidad (Pack completo básico)",
+      "categoryName": "Pack Cabello ondulado densidad media-baja",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/3ffe54ef1bea43e4a5412f8311123058.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/b273257560964f1998eb1d55b4cdd5fe.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1046613-opt-1",
+          "priceLabel": "85,00 €",
+          "durationLabel": "2h"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+      "priceLabel": "85,00 €",
+      "durationLabel": "2h"
+    },
+    {
+      "id": "booksy-1046612",
+      "externalId": "1046612",
+      "name": "Rizo vital (hidratación y definición)",
+      "categoryName": "Pack Cabello ondulado densidad media-baja",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/c8eb2ac9a90f4bf48115b2885acc1dd9.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/e35ee30bfbd84c16913eefc9071ea049.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1046612-opt-1",
+          "priceLabel": "65,00 €",
+          "durationLabel": "1h 30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+      "priceLabel": "65,00 €",
+      "durationLabel": "1h 30min"
+    },
+    {
+      "id": "booksy-1260691",
+      "externalId": "1260691",
+      "name": "Rizo vivo (tratamiento proteína y definición)",
+      "categoryName": "Pack Cabello ondulado densidad media-baja",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/42b8aceb902b4f19b750e0e95c9726f7.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/3026cab9c9d2475290ea91df79d3e3d9.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1260691-opt-1",
+          "priceLabel": "75,00 €",
+          "durationLabel": "1h 30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+      "priceLabel": "75,00 €",
+      "durationLabel": "1h 30min"
+    },
+    {
+      "id": "booksy-1046618",
+      "externalId": "1046618",
+      "name": "Esencia apoteósica (corte y definición)",
+      "categoryName": "Pack Cabello rizado densidad media/alta",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/7ec984e0a3e74ebcbd5a63179bfd9806.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/76b4ffee067e4de18982d507b081d01f.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1046618-opt-1",
+          "priceLabel": "85,00 €",
+          "durationLabel": "1h 30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+      "priceLabel": "85,00 €",
+      "durationLabel": "1h 30min"
+    },
+    {
+      "id": "booksy-1046629",
+      "externalId": "1046629",
+      "name": "Experiencia apoteósica (pack premium)",
+      "categoryName": "Pack Cabello rizado densidad media/alta",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/07f0da4650224921883896284d41064a.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/d2b065a8c31744a6aad1525ebbd007e7.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/68623740b6964cc08408bb68b5e483a7.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/f0b7535cefc24bdbb47f03e77922cb43.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/63339beaa8e245448a9c42dfde5d40d7.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/4cf4509886b54939a7cdfcb165f98506.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1046629-opt-1",
+          "priceLabel": "135,00 €",
+          "durationLabel": "2h"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+      "priceLabel": "135,00 €",
+      "durationLabel": "2h"
+    },
+    {
+      "id": "booksy-1340181",
+      "externalId": "1340181",
+      "name": "Glow apoteósico (mechas densidad media-alta)",
+      "categoryName": "Pack Cabello rizado densidad media/alta",
+      "description": "Mechas y matiz + tratamiento proteina y definición",
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/d156bf0e5e5c44db8452a507ada6bd60.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1340181-opt-1",
+          "priceLabel": "245,00 €",
+          "durationLabel": "3h 15min"
+        },
+        {
+          "id": "1340181-opt-2",
+          "priceLabel": "280,00 €",
+          "durationLabel": "3h 30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+      "priceLabel": "245,00 €",
+      "durationLabel": "3h 15min"
+    },
+    {
+      "id": "booksy-1046622",
+      "externalId": "1046622",
+      "name": "Ritual de identidad (pack básico hidratante)",
+      "categoryName": "Pack Cabello rizado densidad media/alta",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/249c1338aa604c71a0451a950309fdde.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/528b2955fafd46d9a3fdb0504ca97e6c.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1046622-opt-1",
+          "priceLabel": "115,00 €",
+          "durationLabel": "1h 30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+      "priceLabel": "115,00 €",
+      "durationLabel": "1h 30min"
+    },
+    {
+      "id": "booksy-1046619",
+      "externalId": "1046619",
+      "name": "Rizo vital (hidratación y definición)",
+      "categoryName": "Pack Cabello rizado densidad media/alta",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/89cf3d1ad06441f890c444dac9086713.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/b252a5b1472c4be6b9ca4605baf662be.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1046619-opt-1",
+          "priceLabel": "85,00 €",
+          "durationLabel": "2h"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+      "priceLabel": "85,00 €",
+      "durationLabel": "2h"
+    },
+    {
+      "id": "booksy-1340124",
+      "externalId": "1340124",
+      "name": "Rizo vivo (tratamiento proteina y definición)",
+      "categoryName": "Pack Cabello rizado densidad media/alta",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/a5472ae1a2ed4f3180464f2873fa4c6e.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/8f53ad534a89482993fd4d8f6c9d1aed.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/ad8e6625ff224c9d8d4e21d44290594d.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1340124-opt-1",
+          "priceLabel": "100,00 €",
+          "durationLabel": "2h"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+      "priceLabel": "100,00 €",
+      "durationLabel": "2h"
+    },
+    {
+      "id": "booksy-1199707",
+      "externalId": "1199707",
+      "name": "Curly Boy",
+      "categoryName": "Pack hombres",
+      "description": null,
+      "imageUrls": [],
+      "options": [
+        {
+          "id": "1199707-opt-1",
+          "priceLabel": "65,00 €",
+          "durationLabel": "1h 30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-hombres",
+      "priceLabel": "65,00 €",
+      "durationLabel": "1h 30min"
+    },
+    {
+      "id": "booksy-1046636",
+      "externalId": "1046636",
+      "name": "Mini curly",
+      "categoryName": "Pack Infantil",
+      "description": "Densidad baja y medio corto",
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/e6795be497294acf9d5ce5c70baeb783.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1046636-opt-1",
+          "priceLabel": "50,00 €",
+          "durationLabel": "1h 30min"
+        },
+        {
+          "id": "1046636-opt-2",
+          "priceLabel": "85,00 €",
+          "durationLabel": "1h 30min"
+        },
+        {
+          "id": "1046636-opt-3",
+          "priceLabel": "65,00 €",
+          "durationLabel": "1h 30min"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-pack-infantil",
+      "priceLabel": "50,00 €",
+      "durationLabel": "1h 30min"
+    },
+    {
+      "id": "booksy-1052843",
+      "externalId": "1052843",
+      "name": "Monarquia Apoteósica (Peinados)",
+      "categoryName": "Peinados",
+      "description": null,
+      "imageUrls": [
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/0573d015d51d46e5bf022a54f77bdf97.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/1bb53986d96845a988c8f0be3af53c6b.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/02e4e963a48b4eaa835432fa292fc101.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/c8225331a421450f97567c9f0503ff98.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/ae1811925f414d10be0ee69846765d53.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/c2b2d8c79ddf400bbc10a66be8bf3b69.jpeg",
+        "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/8340f792d3114403849e5ac55cd88890.jpeg"
+      ],
+      "options": [
+        {
+          "id": "1052843-opt-1",
+          "priceLabel": "Variable",
+          "durationLabel": "2h"
+        }
+      ],
+      "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+      "categoryId": "booksy-cat-peinados",
+      "priceLabel": "Variable",
+      "durationLabel": "2h"
+    }
+  ],
+  "groupedByCategory": [
+    {
+      "id": "booksy-cat-cabello-liso",
+      "name": "Cabello Liso",
+      "slug": "cabello-liso",
+      "services": [
+        {
+          "id": "booksy-1195155",
+          "externalId": "1195155",
+          "name": "color completo cabello liso.",
+          "categoryName": "Cabello Liso",
+          "description": "color completo, lavado y secado liso media melena",
+          "imageUrls": [],
+          "options": [
+            {
+              "id": "1195155-opt-1",
+              "priceLabel": "80,00 €",
+              "durationLabel": "1h 30min"
+            },
+            {
+              "id": "1195155-opt-2",
+              "priceLabel": "90,00 €",
+              "durationLabel": "2h"
+            },
+            {
+              "id": "1195155-opt-3",
+              "priceLabel": "125,00 €",
+              "durationLabel": "2h 30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-cabello-liso",
+          "priceLabel": "80,00 €",
+          "durationLabel": "1h 30min"
+        },
+        {
+          "id": "booksy-1188724",
+          "externalId": "1188724",
+          "name": "corte y peinado liso corto",
+          "categoryName": "Cabello Liso",
+          "description": null,
+          "imageUrls": [],
+          "options": [
+            {
+              "id": "1188724-opt-1",
+              "priceLabel": "22,00 €",
+              "durationLabel": "40min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-cabello-liso",
+          "priceLabel": "22,00 €",
+          "durationLabel": "40min"
+        },
+        {
+          "id": "booksy-1188727",
+          "externalId": "1188727",
+          "name": "Corte y peinado liso media melena",
+          "categoryName": "Cabello Liso",
+          "description": null,
+          "imageUrls": [],
+          "options": [
+            {
+              "id": "1188727-opt-1",
+              "priceLabel": "35,00 €",
+              "durationLabel": "45min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-cabello-liso",
+          "priceLabel": "35,00 €",
+          "durationLabel": "45min"
+        },
+        {
+          "id": "booksy-1188731",
+          "externalId": "1188731",
+          "name": "corte, tratamiento proteina y peinado liso largo",
+          "categoryName": "Cabello Liso",
+          "description": null,
+          "imageUrls": [],
+          "options": [
+            {
+              "id": "1188731-opt-1",
+              "priceLabel": "85,00 €",
+              "durationLabel": "55min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-cabello-liso",
+          "priceLabel": "85,00 €",
+          "durationLabel": "55min"
+        },
+        {
+          "id": "booksy-1188713",
+          "externalId": "1188713",
+          "name": "Lavado, tratamiento basico y secado liso",
+          "categoryName": "Cabello Liso",
+          "description": null,
+          "imageUrls": [],
+          "options": [
+            {
+              "id": "1188713-opt-1",
+              "priceLabel": "40,00 €",
+              "durationLabel": "30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-cabello-liso",
+          "priceLabel": "40,00 €",
+          "durationLabel": "30min"
+        },
+        {
+          "id": "booksy-1188716",
+          "externalId": "1188716",
+          "name": "lavado, tratamiento proteina y secado liso",
+          "categoryName": "Cabello Liso",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/9adba48c14e04268ad5d9d5761f4735f.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1188716-opt-1",
+              "priceLabel": "65,00 €",
+              "durationLabel": "45min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-cabello-liso",
+          "priceLabel": "65,00 €",
+          "durationLabel": "45min"
+        },
+        {
+          "id": "booksy-1188703",
+          "externalId": "1188703",
+          "name": "lavar y peinar liso media melena",
+          "categoryName": "Cabello Liso",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/2f76abc312d449d9b5d80f069c92975a.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1188703-opt-1",
+              "priceLabel": "25,00 €",
+              "durationLabel": "30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-cabello-liso",
+          "priceLabel": "25,00 €",
+          "durationLabel": "30min"
+        },
+        {
+          "id": "booksy-1188686",
+          "externalId": "1188686",
+          "name": "Servicio Liso cabello corto",
+          "categoryName": "Cabello Liso",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/86eef3d274204c0980553e085b942a86.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1188686-opt-1",
+              "priceLabel": "18,00 €",
+              "durationLabel": "30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-cabello-liso",
+          "priceLabel": "18,00 €",
+          "durationLabel": "30min"
+        }
+      ]
+    },
+    {
+      "id": "booksy-cat-pack-cabello-afro-alta-densidad",
+      "name": "Pack Cabello afro alta densidad",
+      "slug": "pack-cabello-afro-alta-densidad",
+      "services": [
+        {
+          "id": "booksy-1046634",
+          "externalId": "1046634",
+          "name": "Corona apoteósica (pack afro)",
+          "categoryName": "Pack Cabello afro alta densidad",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/7fe609d7cce947a781d595d50b375252.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/89ed02ef8c484870b29002e5a69e0bd4.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/8f1d2159a89f4aa6a672bef5512f6be9.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/dc336a0b19ab4ac4ad3f2c57046053be.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1046634-opt-1",
+              "priceLabel": "150,00 €",
+              "durationLabel": "2h 30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-afro-alta-densidad",
+          "priceLabel": "150,00 €",
+          "durationLabel": "2h 30min"
+        },
+        {
+          "id": "booksy-1340199",
+          "externalId": "1340199",
+          "name": "Mechas cabello afro",
+          "categoryName": "Pack Cabello afro alta densidad",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/9ea97ef3855f48b18609d94c3f99b03b.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1340199-opt-1",
+              "priceLabel": "305,00 €",
+              "durationLabel": "4h"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-afro-alta-densidad",
+          "priceLabel": "305,00 €",
+          "durationLabel": "4h"
+        }
+      ]
+    },
+    {
+      "id": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+      "name": "Pack Cabello ondulado densidad media-baja",
+      "slug": "pack-cabello-ondulado-densidad-media-baja",
+      "services": [
+        {
+          "id": "booksy-1046610",
+          "externalId": "1046610",
+          "name": "Esencia apoteósica (Corte y definición)",
+          "categoryName": "Pack Cabello ondulado densidad media-baja",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/75273327d4bf49619cde44f8ac5434b7.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/9855da6475b6469f897962e1241ca126.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1046610-opt-1",
+              "priceLabel": "65,00 €",
+              "durationLabel": "1h 30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+          "priceLabel": "65,00 €",
+          "durationLabel": "1h 30min"
+        },
+        {
+          "id": "booksy-1046615",
+          "externalId": "1046615",
+          "name": "Experiencia Apoteósica (pack premium)",
+          "categoryName": "Pack Cabello ondulado densidad media-baja",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/33be3de00dcd43e1b6f51d58b3356a91.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/8aa0808ef793444481ae35a0bee826b9.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/2e25b9b2a1f8493b93084719acc2ae47.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/2d1467b3b2b744fda46e98eca680f381.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/c5ff252635ee4ff29a0db51bbe0f8e4a.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/0d372667882b45969c3a2bea70dc6e80.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1046615-opt-1",
+              "priceLabel": "125,00 €",
+              "durationLabel": "2h"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+          "priceLabel": "125,00 €",
+          "durationLabel": "2h"
+        },
+        {
+          "id": "booksy-1340158",
+          "externalId": "1340158",
+          "name": "Glow apoteósico (mechas densidad media baja)",
+          "categoryName": "Pack Cabello ondulado densidad media-baja",
+          "description": "Mechas y matiz + tratamiento proteína y definición",
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/56456567a34d42efb189c196dfa51d56.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/a20b24fc94a348efa612ffd29caeee80.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/596ace52f5a24202835b1f1328ad01f9.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/d532fa6fed6a420d8b528bd7297d5868.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1340158-opt-1",
+              "priceLabel": "220,00 €",
+              "durationLabel": "2h 30min"
+            },
+            {
+              "id": "1340158-opt-2",
+              "priceLabel": "270,00 €",
+              "durationLabel": "3h"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+          "priceLabel": "220,00 €",
+          "durationLabel": "2h 30min"
+        },
+        {
+          "id": "booksy-1046613",
+          "externalId": "1046613",
+          "name": "Ritual de Identidad (Pack completo básico)",
+          "categoryName": "Pack Cabello ondulado densidad media-baja",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/3ffe54ef1bea43e4a5412f8311123058.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/b273257560964f1998eb1d55b4cdd5fe.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1046613-opt-1",
+              "priceLabel": "85,00 €",
+              "durationLabel": "2h"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+          "priceLabel": "85,00 €",
+          "durationLabel": "2h"
+        },
+        {
+          "id": "booksy-1046612",
+          "externalId": "1046612",
+          "name": "Rizo vital (hidratación y definición)",
+          "categoryName": "Pack Cabello ondulado densidad media-baja",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/c8eb2ac9a90f4bf48115b2885acc1dd9.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/e35ee30bfbd84c16913eefc9071ea049.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1046612-opt-1",
+              "priceLabel": "65,00 €",
+              "durationLabel": "1h 30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+          "priceLabel": "65,00 €",
+          "durationLabel": "1h 30min"
+        },
+        {
+          "id": "booksy-1260691",
+          "externalId": "1260691",
+          "name": "Rizo vivo (tratamiento proteína y definición)",
+          "categoryName": "Pack Cabello ondulado densidad media-baja",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/42b8aceb902b4f19b750e0e95c9726f7.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/3026cab9c9d2475290ea91df79d3e3d9.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1260691-opt-1",
+              "priceLabel": "75,00 €",
+              "durationLabel": "1h 30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-ondulado-densidad-media-baja",
+          "priceLabel": "75,00 €",
+          "durationLabel": "1h 30min"
+        }
+      ]
+    },
+    {
+      "id": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+      "name": "Pack Cabello rizado densidad media/alta",
+      "slug": "pack-cabello-rizado-densidad-media-alta",
+      "services": [
+        {
+          "id": "booksy-1046618",
+          "externalId": "1046618",
+          "name": "Esencia apoteósica (corte y definición)",
+          "categoryName": "Pack Cabello rizado densidad media/alta",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/7ec984e0a3e74ebcbd5a63179bfd9806.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/76b4ffee067e4de18982d507b081d01f.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1046618-opt-1",
+              "priceLabel": "85,00 €",
+              "durationLabel": "1h 30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+          "priceLabel": "85,00 €",
+          "durationLabel": "1h 30min"
+        },
+        {
+          "id": "booksy-1046629",
+          "externalId": "1046629",
+          "name": "Experiencia apoteósica (pack premium)",
+          "categoryName": "Pack Cabello rizado densidad media/alta",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/07f0da4650224921883896284d41064a.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/d2b065a8c31744a6aad1525ebbd007e7.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/68623740b6964cc08408bb68b5e483a7.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/f0b7535cefc24bdbb47f03e77922cb43.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/63339beaa8e245448a9c42dfde5d40d7.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/4cf4509886b54939a7cdfcb165f98506.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1046629-opt-1",
+              "priceLabel": "135,00 €",
+              "durationLabel": "2h"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+          "priceLabel": "135,00 €",
+          "durationLabel": "2h"
+        },
+        {
+          "id": "booksy-1340181",
+          "externalId": "1340181",
+          "name": "Glow apoteósico (mechas densidad media-alta)",
+          "categoryName": "Pack Cabello rizado densidad media/alta",
+          "description": "Mechas y matiz + tratamiento proteina y definición",
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/d156bf0e5e5c44db8452a507ada6bd60.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1340181-opt-1",
+              "priceLabel": "245,00 €",
+              "durationLabel": "3h 15min"
+            },
+            {
+              "id": "1340181-opt-2",
+              "priceLabel": "280,00 €",
+              "durationLabel": "3h 30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+          "priceLabel": "245,00 €",
+          "durationLabel": "3h 15min"
+        },
+        {
+          "id": "booksy-1046622",
+          "externalId": "1046622",
+          "name": "Ritual de identidad (pack básico hidratante)",
+          "categoryName": "Pack Cabello rizado densidad media/alta",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/249c1338aa604c71a0451a950309fdde.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/528b2955fafd46d9a3fdb0504ca97e6c.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1046622-opt-1",
+              "priceLabel": "115,00 €",
+              "durationLabel": "1h 30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+          "priceLabel": "115,00 €",
+          "durationLabel": "1h 30min"
+        },
+        {
+          "id": "booksy-1046619",
+          "externalId": "1046619",
+          "name": "Rizo vital (hidratación y definición)",
+          "categoryName": "Pack Cabello rizado densidad media/alta",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/89cf3d1ad06441f890c444dac9086713.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/b252a5b1472c4be6b9ca4605baf662be.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1046619-opt-1",
+              "priceLabel": "85,00 €",
+              "durationLabel": "2h"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+          "priceLabel": "85,00 €",
+          "durationLabel": "2h"
+        },
+        {
+          "id": "booksy-1340124",
+          "externalId": "1340124",
+          "name": "Rizo vivo (tratamiento proteina y definición)",
+          "categoryName": "Pack Cabello rizado densidad media/alta",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/a5472ae1a2ed4f3180464f2873fa4c6e.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/8f53ad534a89482993fd4d8f6c9d1aed.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/ad8e6625ff224c9d8d4e21d44290594d.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1340124-opt-1",
+              "priceLabel": "100,00 €",
+              "durationLabel": "2h"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-cabello-rizado-densidad-media-alta",
+          "priceLabel": "100,00 €",
+          "durationLabel": "2h"
+        }
+      ]
+    },
+    {
+      "id": "booksy-cat-pack-hombres",
+      "name": "Pack hombres",
+      "slug": "pack-hombres",
+      "services": [
+        {
+          "id": "booksy-1199707",
+          "externalId": "1199707",
+          "name": "Curly Boy",
+          "categoryName": "Pack hombres",
+          "description": null,
+          "imageUrls": [],
+          "options": [
+            {
+              "id": "1199707-opt-1",
+              "priceLabel": "65,00 €",
+              "durationLabel": "1h 30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-hombres",
+          "priceLabel": "65,00 €",
+          "durationLabel": "1h 30min"
+        }
+      ]
+    },
+    {
+      "id": "booksy-cat-pack-infantil",
+      "name": "Pack Infantil",
+      "slug": "pack-infantil",
+      "services": [
+        {
+          "id": "booksy-1046636",
+          "externalId": "1046636",
+          "name": "Mini curly",
+          "categoryName": "Pack Infantil",
+          "description": "Densidad baja y medio corto",
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/e6795be497294acf9d5ce5c70baeb783.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1046636-opt-1",
+              "priceLabel": "50,00 €",
+              "durationLabel": "1h 30min"
+            },
+            {
+              "id": "1046636-opt-2",
+              "priceLabel": "85,00 €",
+              "durationLabel": "1h 30min"
+            },
+            {
+              "id": "1046636-opt-3",
+              "priceLabel": "65,00 €",
+              "durationLabel": "1h 30min"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-pack-infantil",
+          "priceLabel": "50,00 €",
+          "durationLabel": "1h 30min"
+        }
+      ]
+    },
+    {
+      "id": "booksy-cat-peinados",
+      "name": "Peinados",
+      "slug": "peinados",
+      "services": [
+        {
+          "id": "booksy-1052843",
+          "externalId": "1052843",
+          "name": "Monarquia Apoteósica (Peinados)",
+          "categoryName": "Peinados",
+          "description": null,
+          "imageUrls": [
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/0573d015d51d46e5bf022a54f77bdf97.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/1bb53986d96845a988c8f0be3af53c6b.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/02e4e963a48b4eaa835432fa292fc101.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/c8225331a421450f97567c9f0503ff98.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/ae1811925f414d10be0ee69846765d53.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/c2b2d8c79ddf400bbc10a66be8bf3b69.jpeg",
+            "https://d375139ucebi94.cloudfront.net/region2/es/115013/service_photos/8340f792d3114403849e5ac55cd88890.jpeg"
+          ],
+          "options": [
+            {
+              "id": "1052843-opt-1",
+              "priceLabel": "Variable",
+              "durationLabel": "2h"
+            }
+          ],
+          "bookingUrl": "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
+          "categoryId": "booksy-cat-peinados",
+          "priceLabel": "Variable",
+          "durationLabel": "2h"
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalCategories": 7,
+    "totalServices": 25
+  }
+}

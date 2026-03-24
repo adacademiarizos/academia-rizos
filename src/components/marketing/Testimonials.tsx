@@ -1,44 +1,111 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import SectionHead from "./SectionHead";
 
-// ─── Data ────────────────────────────────────────────────
-// Reemplazá avatar con la ruta real cuando tengas las fotos,
-// por ejemplo: avatar: "/testimonials/ana.jpg"
-const TESTIMONIALS = [
+type Testimonial = {
+  id: string;
+  name: string;
+  role: string;
+  quote: string;
+  stars: number;
+  avatarUrl: string | null;
+};
+
+type TestimonialsScope = "home" | "salon" | "academia";
+type TestimonialsColor = "default" | "crema";
+
+const FALLBACK_SALON: Testimonial[] = [
   {
-    name: "Ana García",
+    id: "salon-1",
+    name: "Ana Garcia",
     role: "Clienta desde 2022",
     quote:
-      "Llevaba años luchando con mi rizado. Después de mi primera cita con Elizabeth, salí con el pelo que siempre soñé. La técnica y el asesoramiento personalizado hacen toda la diferencia.",
+      "Llevaba anos luchando con mi rizado. Despues de mi primera cita con Elizabeth, sali con el pelo que siempre sone.",
     stars: 5,
-    avatar: null as string | null,
+    avatarUrl:
+      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop&crop=face",
   },
   {
-    name: "Valentina López",
-    role: "Clienta desde 2023",
-    quote:
-      "La definición me duró días y por fin entendí mi rutina real. Dejé de gastar en productos que no me funcionaban y ahora cuido mis rizos con confianza.",
-    stars: 5,
-    avatar: null as string | null,
-  },
-  {
-    name: "Mariana Torres",
+    id: "salon-2",
+    name: "Laura Fernandez",
     role: "Clienta habitual",
     quote:
-      "El corte quedó perfecto: forma, volumen y sin perder largo. Elizabeth explica todo con paciencia y el resultado supera siempre lo que esperaba.",
+      "Es la primera vez que alguien realmente entiende mi tipo de rizo y me da una rutina que puedo mantener en casa.",
     stars: 5,
-    avatar: null as string | null,
+    avatarUrl:
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop&crop=face",
   },
 ];
 
-// ─── Sub-components ───────────────────────────────────────
+const FALLBACK_ACADEMIA: Testimonial[] = [
+  {
+    id: "academia-1",
+    name: "Maria Lopez",
+    role: "Alumna del curso CGM",
+    quote:
+      "El curso de Metodo Curly Girl cambio completamente mi rutina. Ahora entiendo mi pelo y se exactamente que productos usar.",
+    stars: 5,
+    avatarUrl:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop&crop=face",
+  },
+  {
+    id: "academia-2",
+    name: "Carla Ortiz",
+    role: "Alumna certificada",
+    quote:
+      "La academia tiene una metodologia clara y practica. Pude aplicar todo de inmediato en mis clientas.",
+    stars: 5,
+    avatarUrl:
+      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop&crop=face",
+  },
+];
 
-function Stars({ count }: { count: number }) {
+const FALLBACK_HOME = [...FALLBACK_SALON, ...FALLBACK_ACADEMIA];
+
+function getFallback(scope: TestimonialsScope): Testimonial[] {
+  if (scope === "salon") return FALLBACK_SALON;
+  if (scope === "academia") return FALLBACK_ACADEMIA;
+  return FALLBACK_HOME;
+}
+
+function getHeading(scope: TestimonialsScope) {
+  if (scope === "salon") {
+    return {
+      title: "Lo que dicen nuestras clientas",
+      subtitle:
+        "Experiencias reales de personas que confiaron en el trabajo del salon.",
+    };
+  }
+
+  if (scope === "academia") {
+    return {
+      title: "Lo que dicen nuestras alumnas",
+      subtitle:
+        "Testimonios de profesionales que se formaron en nuestra academia.",
+    };
+  }
+
+  return {
+    title: "Lo que dicen nuestras clientas y alumnas",
+    subtitle:
+      "Historias reales del salon y la academia para que conozcas resultados y formacion.",
+  };
+}
+
+function Stars({ count, color }: { count: number; color: TestimonialsColor }) {
   return (
-    <div className="flex gap-0.5 mb-4">
+    <div className="mb-4 flex gap-0.5">
       {Array.from({ length: 5 }).map((_, i) => (
         <svg
           key={i}
-          className={i < count ? "fill-[#B16E34]" : "fill-zinc-700"}
+          className={
+            i < count
+              ? "fill-[#B16E34]"
+              : color === "crema"
+                ? "fill-zinc-300"
+                : "fill-zinc-700"
+          }
           width="16"
           height="16"
           viewBox="0 0 20 20"
@@ -51,7 +118,15 @@ function Stars({ count }: { count: number }) {
   );
 }
 
-function Avatar({ name, src }: { name: string; src: string | null }) {
+function Avatar({
+  name,
+  src,
+  color,
+}: {
+  name: string;
+  src: string | null;
+  color: TestimonialsColor;
+}) {
   const initials = name
     .split(" ")
     .slice(0, 2)
@@ -65,13 +140,19 @@ function Avatar({ name, src }: { name: string; src: string | null }) {
       <img
         src={src}
         alt={name}
-        className="h-11 w-11 flex-shrink-0 rounded-full object-cover border-2 border-[#B16E34]/30"
+        className="h-11 w-11 shrink-0 rounded-full border-2 border-[#B16E34]/30 object-cover"
       />
     );
   }
 
   return (
-    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border border-[#B16E34]/40 bg-[#B16E34]/10">
+    <div
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${
+        color === "crema"
+          ? "border-[#B16E34]/30 bg-[#B16E34]/10"
+          : "border-[#B16E34]/40 bg-[#B16E34]/10"
+      }`}
+    >
       <span className="text-sm font-bold leading-none text-[#B16E34]">
         {initials}
       </span>
@@ -79,36 +160,64 @@ function Avatar({ name, src }: { name: string; src: string | null }) {
   );
 }
 
-// ─── Component ────────────────────────────────────────────
+function Testimonials({
+  scope = "home",
+  color = "default",
+}: {
+  scope?: TestimonialsScope;
+  color?: TestimonialsColor;
+}) {
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const heading = getHeading(scope);
+  const isCrema = color === "crema";
 
-function Testimonials() {
+  useEffect(() => {
+    fetch(`/api/testimonials?scope=${scope}`)
+      .then((r) => r.json())
+      .then((j) => {
+        const data = j.data ?? [];
+        setTestimonials(data.length > 0 ? data : getFallback(scope));
+      })
+      .catch(() => setTestimonials(getFallback(scope)));
+  }, [scope]);
+
+  if (testimonials.length === 0) return null;
+
   return (
     <div className="mx-auto max-w-6xl">
       <SectionHead
         kicker="Testimonios"
-        title="Lo que dicen nuestras clientas"
-        subtitle="Experiencias reales de personas que transformaron su relación con su rizado."
+        title={heading.title}
+        subtitle={heading.subtitle}
+        color={isCrema ? "crema" : undefined}
       />
 
       <div className="mt-10 grid grid-cols-1 gap-4 md:grid-cols-3">
-        {TESTIMONIALS.map((t, i) => (
+        {testimonials.map((t) => (
           <div
-            key={i}
-            className="flex flex-col rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
+            key={t.id}
+            className={`flex flex-col rounded-2xl border p-6 backdrop-blur-sm ${
+              isCrema ? "border-zinc-200 bg-white/70" : "border-white/10 bg-white/5"
+            }`}
           >
-            {/* Stars */}
-            <Stars count={t.stars} />
-
-            {/* Quote */}
-            <blockquote className="mb-6 flex-1 text-sm leading-relaxed text-zinc-300">
+            <Stars count={t.stars} color={color} />
+            <blockquote
+              className={`mb-6 flex-1 text-sm leading-relaxed ${
+                isCrema ? "text-zinc-600" : "text-zinc-300"
+              }`}
+            >
               &ldquo;{t.quote}&rdquo;
             </blockquote>
-
-            {/* Author */}
-            <div className="flex items-center gap-3 border-t border-white/10 pt-4">
-              <Avatar name={t.name} src={t.avatar} />
+            <div
+              className={`flex items-center gap-3 border-t pt-4 ${
+                isCrema ? "border-zinc-200" : "border-white/10"
+              }`}
+            >
+              <Avatar name={t.name} src={t.avatarUrl} color={color} />
               <div>
-                <p className="text-sm font-semibold text-white">{t.name}</p>
+                <p className={`text-sm font-semibold ${isCrema ? "text-zinc-800" : "text-white"}`}>
+                  {t.name}
+                </p>
                 <p className="text-xs text-[#B16E34]">{t.role}</p>
               </div>
             </div>

@@ -34,7 +34,7 @@ export default async function Schedule() {
   return (
     <div className="space-y-10">
       {/* Weekly hours */}
-      <div className="bg-[#181716] border border-[#2E2A25] rounded-2xl overflow-hidden">
+      <div className="bg-ap-acent-crema/70 rounded-2xl overflow-hidden">
         <div className="px-6 py-5 border-b border-[#2E2A25]">
           <h2
             style={{ fontFamily: "Georgia, serif", letterSpacing: "3px" }}
@@ -44,15 +44,15 @@ export default async function Schedule() {
           </h2>
         </div>
         <table className="w-full">
-          <tbody className="divide-y divide-[#2E2A25]">
+          <tbody className="divide-y divide-ap-choco/30">
             {orderedHours.map((h) => (
               <tr key={h.dayOfWeek}>
-                <td className="px-6 py-4 text-sm font-medium text-[#FAF4EA] w-36">
+                <td className="px-6 py-4 text-sm font-medium text-zinc-600 w-36">
                   {DAY_NAMES_ES[h.dayOfWeek]}
                 </td>
                 <td className="px-6 py-4 text-sm text-right">
                   {h.isOpen ? (
-                    <span className="text-[#C4B49A]">
+                    <span className="text-zinc-800">
                       {h.openTime} – {h.closeTime}
                     </span>
                   ) : (
@@ -66,8 +66,8 @@ export default async function Schedule() {
       </div>
 
       {/* Off-days */}
-      <div className="bg-[#181716] border border-[#2E2A25] rounded-2xl overflow-hidden">
-        <div className="px-6 py-5 border-b border-[#2E2A25]">
+      <div className="bg-ap-acent-crema/70 border rounded-2xl overflow-hidden">
+        <div className="px-6 py-5 border-b border-ap-choco/30 ">
           <h2
             style={{ fontFamily: "Georgia, serif", letterSpacing: "3px" }}
             className="text-xs uppercase tracking-widest text-[#B16E34]"

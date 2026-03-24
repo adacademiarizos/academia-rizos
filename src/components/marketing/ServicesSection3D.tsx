@@ -1,52 +1,49 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import booksyData from "@/data/booksy-services.json";
 
-const MIN_ITEMS  = 7;
+const MIN_ITEMS = 7;
 const AUTO_SPEED = 0.12;
 
 type Mode = "auto" | "inertia" | "idle";
 
 type CardDim = {
-  w: number; h: number; gap: number;
-  titleSize: string; descSize: string;
-  badgeSize: string; minSize: string;
+  w: number;
+  h: number;
+  gap: number;
+  titleSize: string;
+  descSize: string;
+  badgeSize: string;
+  minSize: string;
   padding: string;
 };
 
-function useCardDim(): CardDim {
-  const [dim, setDim] = useState<CardDim>({
-    w: 240, h: 320, gap: 40,
-    titleSize: "1.25rem", descSize: "0.75rem",
-    badgeSize: "0.625rem", minSize: "0.6875rem", padding: "1.25rem",
-  });
-  useEffect(() => {
-    function update() {
-      const vw = window.innerWidth;
-      if (vw < 640) {
-        setDim({ w: 155, h: 207, gap: 24, titleSize: "0.95rem", descSize: "0.6rem", badgeSize: "0.5rem", minSize: "0.55rem", padding: "0.75rem" });
-      } else if (vw < 1024) {
-        setDim({ w: 200, h: 267, gap: 32, titleSize: "1.1rem", descSize: "0.7rem", badgeSize: "0.575rem", minSize: "0.625rem", padding: "1rem" });
-      } else {
-        setDim({ w: 240, h: 320, gap: 40, titleSize: "1.25rem", descSize: "0.75rem", badgeSize: "0.625rem", minSize: "0.6875rem", padding: "1.25rem" });
-      }
-    }
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
-  return dim;
-}
+type BooksyService = {
+  id: string;
+  externalId: string;
+  name: string;
+  description: string | null;
+  imageUrls: string[];
+  categoryId: string | null;
+  categoryName: string;
+  bookingUrl: string;
+  durationLabel: string | null;
+  priceLabel: string | null;
+};
 
 type Service = {
   id: string;
+  externalId: string;
   name: string;
   description: string | null;
   durationMin: number;
+  durationLabel: string | null;
+  priceLabel: string | null;
   imageUrls: string[];
   categoryId: string | null;
   categoryName: string | null;
+  bookingUrl: string;
 };
 
 type CategoryGroup = {
@@ -54,31 +51,102 @@ type CategoryGroup = {
   categoryName: string;
 };
 
-export default function ServicesSection3D() {
-  const [services, setServices]     = useState<Service[]>([]);
-  const [categories, setCategories] = useState<CategoryGroup[]>([]);
-  const [filterCategory, setFilterCategory] = useState<string | null>(null);
-  const autoSelectedRef = useRef(false);
+function parseDurationToMin(label: string | null): number {
+  if (!label) return 0;
+  const text = label.toLowerCase();
+  const hours = Number((text.match(/(\d+)\s*h/) || [])[1] || 0);
+  const mins = Number((text.match(/(\d+)\s*min/) || [])[1] || 0);
+  return hours * 60 + mins;
+}
 
-  const cardDim = useCardDim();
+const SERVICES_SOURCE: Service[] = ((booksyData.services ?? []) as BooksyService[]).map((s) => ({
+  id: s.id,
+  externalId: s.externalId,
+  name: s.name,
+  description: s.description,
+  durationMin: parseDurationToMin(s.durationLabel),
+  durationLabel: s.durationLabel,
+  priceLabel: s.priceLabel,
+  imageUrls: s.imageUrls ?? [],
+  categoryId: s.categoryId,
+  categoryName: s.categoryName,
+  bookingUrl: s.bookingUrl,
+}));
+
+function getDirectServiceUrl(service: Pick<Service, "bookingUrl" | "externalId">) {
+  return `${service.bookingUrl}#service-${service.externalId}`;
+}
+
+const CATEGORY_SOURCE: CategoryGroup[] = ((booksyData.categories ?? []) as Array<{ id: string; name: string }>).map((c) => ({
+  categoryId: c.id,
+  categoryName: c.name,
+}));
+
+function useCardDim(): CardDim {
+  const [dim, setDim] = useState<CardDim>({
+    w: 240,
+    h: 320,
+    gap: 40,
+    titleSize: "1.25rem",
+    descSize: "0.75rem",
+    badgeSize: "0.625rem",
+    minSize: "0.6875rem",
+    padding: "1.25rem",
+  });
 
   useEffect(() => {
-    fetch("/api/services", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => {
-        setServices(j.data?.services ?? []);
-        setCategories(j.data?.groupedByCategory ?? []);
-      })
-      .catch(() => {});
+    function update() {
+      const vw = window.innerWidth;
+      if (vw < 640) {
+        setDim({
+          w: 155,
+          h: 207,
+          gap: 24,
+          titleSize: "0.95rem",
+          descSize: "0.6rem",
+          badgeSize: "0.5rem",
+          minSize: "0.55rem",
+          padding: "0.75rem",
+        });
+      } else if (vw < 1024) {
+        setDim({
+          w: 200,
+          h: 267,
+          gap: 32,
+          titleSize: "1.1rem",
+          descSize: "0.7rem",
+          badgeSize: "0.575rem",
+          minSize: "0.625rem",
+          padding: "1rem",
+        });
+      } else {
+        setDim({
+          w: 240,
+          h: 320,
+          gap: 40,
+          titleSize: "1.25rem",
+          descSize: "0.75rem",
+          badgeSize: "0.625rem",
+          minSize: "0.6875rem",
+          padding: "1.25rem",
+        });
+      }
+    }
+
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
   }, []);
 
-  // Auto-select first category on first load
-  useEffect(() => {
-    if (!autoSelectedRef.current && categories.length > 0) {
-      autoSelectedRef.current = true;
-      setFilterCategory(categories[0].categoryId);
-    }
-  }, [categories]);
+  return dim;
+}
+
+export default function ServicesSection3D() {
+  const categories = CATEGORY_SOURCE;
+  const services = SERVICES_SOURCE;
+  const [filterCategory, setFilterCategory] = useState<string | null>(categories[0]?.categoryId ?? null);
+
+  const cardDim = useCardDim();
 
   const filteredServices = useMemo(() => {
     if (!filterCategory) return services;
@@ -96,19 +164,18 @@ export default function ServicesSection3D() {
     [cards]
   );
 
-  // ── Animation state (all refs — zero re-renders) ─────────────────
   const carouselRef = useRef<HTMLDivElement>(null);
-  const angleRef    = useRef(0);
-  const lastXRef    = useRef(0);
+  const angleRef = useRef(0);
+  const lastXRef = useRef(0);
   const velocityRef = useRef(0);
   const draggingRef = useRef(false);
-  const hoveredRef  = useRef(false);
+  const hoveredRef = useRef(false);
   const dragDistRef = useRef(0);
-  const modeRef     = useRef<Mode>("idle");
-  const rafRef      = useRef<number | null>(null);
+  const modeRef = useRef<Mode>("idle");
+  const rafRef = useRef<number | null>(null);
 
   const SENSITIVITY = 0.35;
-  const FRICTION    = 0.93;
+  const FRICTION = 0.93;
 
   function applyTransform() {
     if (carouselRef.current) {
@@ -152,11 +219,11 @@ export default function ServicesSection3D() {
     if (cards.length === 0) return;
     angleRef.current = 0;
     startAuto();
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, [cards.length, filterCategory, cardDim.w]);
 
-  // ── Hover ─────────────────────────────────────────────────────────
   function onMouseEnter() {
     hoveredRef.current = true;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -168,7 +235,6 @@ export default function ServicesSection3D() {
     if (!draggingRef.current) startAuto();
   }
 
-  // ── Drag ──────────────────────────────────────────────────────────
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     modeRef.current = "idle";
@@ -195,36 +261,27 @@ export default function ServicesSection3D() {
   }
 
   const quantity = cards.length;
-  const radius = quantity > 1
-    ? Math.round((cardDim.w + cardDim.gap) / (2 * Math.tan(Math.PI / quantity)))
-    : 0;
+  const radius = quantity > 1 ? Math.round((cardDim.w + cardDim.gap) / (2 * Math.tan(Math.PI / quantity))) : 0;
 
   if (quantity === 0) {
     return (
       <div className="flex w-full flex-col items-center gap-6 px-3 py-6">
         {categories.length > 1 && (
-          <CategoryTags
-            categories={categories}
-            active={filterCategory}
-            onChange={setFilterCategory}
-          />
+          <CategoryTags categories={categories} active={filterCategory} onChange={setFilterCategory} />
         )}
         <div className="slider-3d-banner flex items-center justify-center">
           <div
             className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-sm px-10 py-12 text-center"
             style={{ width: cardDim.w, minHeight: cardDim.h }}
           >
-            <div style={{ fontFamily: "georgia, serif", color: "#B16E34", opacity: 0.6, fontSize: "2.25rem" }}>
-              ✦
-            </div>
             <p className="text-xs uppercase tracking-widest text-[#c8cf94]" style={{ fontFamily: "jost" }}>
-              Próximamente
+              Servicios externos
             </p>
             <h3 className="leading-snug text-white/80" style={{ fontFamily: "migthy", fontSize: cardDim.titleSize }}>
-              Servicios en camino
+              Reserva via Booksy
             </h3>
             <p className="text-white/40 max-w-[180px]" style={{ fontSize: cardDim.descSize }}>
-              Pronto vas a poder reservar tu cita directamente desde acá.
+              No hay servicios para esta categoria en la carga local.
             </p>
           </div>
         </div>
@@ -235,17 +292,9 @@ export default function ServicesSection3D() {
   return (
     <div className="flex w-full flex-col items-center gap-6 px-3 py-6">
       {categories.length > 1 && (
-        <CategoryTags
-          categories={categories}
-          active={filterCategory}
-          onChange={setFilterCategory}
-        />
+        <CategoryTags categories={categories} active={filterCategory} onChange={setFilterCategory} />
       )}
-      <div
-        className="slider-3d-banner"
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-      >
+      <div className="slider-3d-banner" onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
         <div
           ref={carouselRef}
           className="slider-3d"
@@ -260,42 +309,51 @@ export default function ServicesSection3D() {
             const itemAngle = (i / quantity) * 360;
 
             return (
-              <Link
+              <a
                 key={`${service.id}-${i}`}
-                href={`/booking?serviceId=${service.id}`}
+                href={getDirectServiceUrl(service)}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="slider-3d-item"
                 style={{ transform: `rotateY(${itemAngle}deg) translateZ(${quantity === 1 ? 0 : radius}px)` }}
-                onClick={(e) => { if (dragDistRef.current > 8) e.preventDefault(); }}
+                onClick={(e) => {
+                  if (dragDistRef.current > 8) e.preventDefault();
+                }}
                 draggable={false}
               >
                 {imgUrl ? (
                   <img src={imgUrl} alt={service.name} className="h-full w-full object-cover" />
                 ) : (
-                  <div className="h-full w-full bg-gradient-to-br from-[#646a40]/60 to-[#1b1a17]" />
+                  <div className="h-full w-full bg-linear-to-br from-ap-choco/50 to-ap-crema/20" />
                 )}
 
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent" />
 
                 <div className="absolute bottom-0 left-0 right-0" style={{ fontFamily: "jost", padding: cardDim.padding }}>
                   <p className="font-semibold uppercase tracking-widest text-[#c8cf94] mb-1" style={{ fontSize: cardDim.minSize }}>
-                    {service.durationMin} min
+                    {service.durationLabel || `${service.durationMin} min`}
                   </p>
-                  <h3 className="leading-tight text-white" style={{ fontFamily: "migthy", fontSize: cardDim.titleSize }}>
-                    {service.name}
-                  </h3>
+                  <h3 className="leading-tight text-white font-main">{service.name}</h3>
                   {service.description && (
                     <p className="mt-1 text-white/65 line-clamp-2" style={{ fontSize: cardDim.descSize }}>
                       {service.description}
                     </p>
                   )}
-                  <span
-                    className="mt-2 inline-block rounded-full bg-[#646a40] px-3 py-1 font-semibold uppercase tracking-wide text-white"
-                    style={{ fontSize: cardDim.badgeSize, marginTop: "0.5rem" }}
-                  >
-                    Reservar
-                  </span>
+                  <div className="mt-2 flex items-center gap-2">
+                    {service.priceLabel && (
+                      <span className="inline-block rounded-full bg-white/15 px-2.5 py-1 text-white" style={{ fontSize: cardDim.badgeSize }}>
+                        {service.priceLabel}
+                      </span>
+                    )}
+                    <span
+                      className="inline-block rounded-full bg-ap-choco px-3 py-1 font-semibold uppercase tracking-wide text-white"
+                      style={{ fontSize: cardDim.badgeSize }}
+                    >
+                      Ver en Booksy
+                    </span>
+                  </div>
                 </div>
-              </Link>
+              </a>
             );
           })}
         </div>
@@ -315,19 +373,19 @@ function CategoryTags({
 }) {
   return (
     <div
-      className="flex w-full gap-2 overflow-x-auto py-1 px-0.5"
-      style={{ scrollbarWidth: "none", msOverflowStyle: "none" } as React.CSSProperties}
+      className="flex w-full gap-2 overflow-x-auto py-1 px-0.5 xl:w-6xl"
+      style={{ msOverflowStyle: "none", scrollbarColor: "var(--color-ap-choco) transparent" } as React.CSSProperties}
     >
       {categories.map((cat) => (
         <button
           key={cat.categoryId}
           type="button"
           onClick={() => onChange(active === cat.categoryId ? null : cat.categoryId)}
-          className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200
-            ${active === cat.categoryId
-              ? "bg-[#646a40] text-white shadow-lg shadow-[#646a40]/30"
-              : "bg-white/5 text-white/50 ring-1 ring-white/10 hover:bg-white/10 hover:text-white/70"
-            }`}
+          className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all duration-200 ${
+            active === cat.categoryId
+              ? "bg-ap-choco text-white shadow-lg"
+              : "bg-ap-acent-crema/70 text-zinc-800 hover:bg-black/40 hover:text-white/70"
+          }`}
         >
           {cat.categoryName}
         </button>

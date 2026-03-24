@@ -72,6 +72,15 @@ Todas las rutas están protegidas server-side. Solo usuarios con `role = ADMIN` 
 | `/admin/manuales` | Hub de manuales (admin + staff) |
 | `/admin/manual` | Manual del administrador |
 
+### Rutas compartidas (todos los roles)
+`src/app/(dashboard)/`
+
+| Ruta | Descripción |
+|------|-------------|
+| `/notifications` | Notificaciones in-app (todos los roles) |
+| `/community` | Chat de comunidad |
+| `/bug-report` | Reportar bugs |
+
 ### 3. Dashboard staff
 `src/app/(dashboard)/staff/`
 
@@ -227,6 +236,34 @@ Settings        — feePercent, feeFixedCents, defaultCurrency
 
 ---
 
-## Variables de entorno requeridas
+## Sistema de Notificaciones
 
-Ver [`DEPLOY.md`](../DEPLOY.md) para la lista completa y cómo configurarlas.
+Servicio centralizado en `src/server/services/notification-service.ts` que genera notificaciones in-app para eventos clave:
+
+| Evento | Tipo | Destinatario |
+|--------|------|-------------|
+| Nuevo comentario | `COMMENT` | Usuarios inscritos en el curso |
+| Like en comentario | `LIKE` | Autor del comentario |
+| Curso completado | `COURSE_COMPLETION` | Estudiante |
+| Inscripción a curso | `PAYMENT` | Estudiante |
+| Certificado emitido | `CERTIFICATE` | Estudiante |
+| Certificado revocado | `CERTIFICATE` | Estudiante |
+| Examen revisado | `EXAM_REVIEW` | Estudiante |
+| Estado de cita | `APPOINTMENT` | Cliente |
+| Nueva entrega | `SUBMISSION` | Todos los admins |
+| Bug report | `BUG_REPORT` | Todos los admins |
+| Cambio de rol | `ROLE_CHANGE` | Usuario afectado |
+| Nuevo registro | `NEW_USER` | Todos los admins |
+| Pago recibido | `PAYMENT` | Todos los admins |
+
+La ruta `/notifications` es accesible para todos los roles autenticados (ADMIN, STAFF, STUDENT).
+
+---
+
+## Variables de entorno
+
+- `.env` — Desarrollo local (PostgreSQL local: `postgres:dark@localhost:5432/elizabeth`)
+- `.env.production` — Producción (Neon, Stripe live, etc.)
+
+Ver [`DEPLOY.md`](DEPLOY.md) para la lista completa y cómo configurarlas.
+Ver [`DEMO_DATA.md`](DEMO_DATA.md) para datos demo y credenciales de desarrollo.

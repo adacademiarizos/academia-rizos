@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
+import { NotificationService } from "@/server/services/notification-service";
 
 export async function PATCH(
   req: Request,
@@ -30,6 +31,15 @@ export async function PATCH(
     data: { role },
     select: { id: true, name: true, email: true, role: true },
   });
+
+  // Notify user about role change
+  const roleNames: Record<string, string> = { ADMIN: 'Administrador', STAFF: 'Staff', STUDENT: 'Estudiante' }
+  NotificationService.createNotification({
+    userId: user.id,
+    type: 'ROLE_CHANGE',
+    title: 'Tu rol ha cambiado',
+    message: `Tu rol ha sido actualizado a ${roleNames[role] ?? role}`,
+  }).catch((err) => console.error('Role change notification failed:', err))
 
   return NextResponse.json({ ok: true, data: user });
 }

@@ -12,7 +12,7 @@ type ResultImage = {
   height: number;
 };
 
-export default function ResultsGallery({ images }: { images: ResultImage[] }) {
+export default function ResultsGallery({ images, color }: { images: ResultImage[]; color?: string }) {
   const [lightbox, setLightbox] = useState<ResultImage | null>(null);
 
   if (images.length === 0) {
@@ -22,6 +22,7 @@ export default function ResultsGallery({ images }: { images: ResultImage[] }) {
           kicker="Resultados"
           title="Galería de transformaciones"
           subtitle="Resultados reales de nuestras clientas"
+          color={color}
         />
         <div className="mt-10 flex items-center justify-center h-40 rounded-xl border border-white/10 bg-white/5 text-sm text-white/40">
           Próximamente — resultados reales de nuestras clientas
@@ -36,11 +37,13 @@ export default function ResultsGallery({ images }: { images: ResultImage[] }) {
         kicker="Resultados"
         title="Galería de transformaciones"
         subtitle="Resultados reales de nuestras clientas"
+        color={color}
       />
 
-      <div className="mt-10 masonry-results">
-        {images.map((img) => (
-          <button
+      <div className="mt-10 flex justify-center">
+        <div className="masonry-results w-full md:w-auto max-w-5xl">
+          {images.map((img) => (
+            <button
             key={img.id}
             type="button"
             onClick={() => setLightbox(img)}
@@ -55,12 +58,13 @@ export default function ResultsGallery({ images }: { images: ResultImage[] }) {
               style={{ aspectRatio: `${img.aspectRatio}` }}
             />
             {img.label && (
-              <div className="px-3 py-2 bg-black/40">
-                <p className="text-xs text-white/70">{img.label}</p>
+              <div className={`px-3 py-2 ${color === "crema" ? "bg-ap-acent-crema/70" : "bg-white/5"} text-center`}>
+                <p className={`text-xs ${color === "crema" ? "text-ap-choco" : "text-white/70"}`}>{img.label}</p>
               </div>
             )}
           </button>
-        ))}
+          ))}
+        </div>
       </div>
 
       {/* Lightbox */}
