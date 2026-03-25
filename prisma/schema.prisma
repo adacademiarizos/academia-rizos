@@ -813,6 +813,23 @@ model BugReport {
 
 // ============= MARKETING CONTENT =============
 
+model AboutFounderContent {
+  id                String   @id @default("global")
+  kicker            String   @default("Sobre Elizabeth")
+  title             String   @default("Experiencia, tecnica y una comunidad que se siente")
+  subtitle          String   @default("Un enfoque calido pero profesional. Aca va una bio corta y un CTA fuerte a reservas.")
+  imageUrl          String   @default("/Elizabeth.webp")
+  imageAlt          String   @default("Elizabeth Rizos")
+  quoteTitle        String   @default("Tu rizo no es \"dificil\", esta mal entendido.")
+  quoteBody         String   @default("El objetivo no es solo que se vea bien hoy: es que tengas una rutina clara, productos adecuados y tecnica para mantener definicion, hidratacion y forma.")
+  primaryCtaLabel   String   @default("Conocer el salon")
+  primaryCtaHref    String   @default("/salon")
+  secondaryCtaLabel String   @default("Ver academia")
+  secondaryCtaHref  String   @default("/academia")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
 model ResultImage {
   id          String   @id @default(cuid())
   url         String

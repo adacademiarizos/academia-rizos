@@ -4,25 +4,28 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const TABS = [
-  { label: 'Servicios (Booksy)', href: '/admin/landing' },
-  { label: 'Sobre Fundadora', href: '/admin/landing/about-founder' },
-  { label: 'Resultados', href: '/admin/landing/results' },
-  { label: 'Testimonios Salón', href: '/admin/landing/testimonials/salon' },
-  { label: 'Testimonios Academia', href: '/admin/landing/testimonials/academia' },
-  { label: 'FAQ', href: '/admin/landing/faq' },
-  { label: 'Horarios', href: '/admin/landing/schedule' },
+  { label: 'Cursos', href: '/admin/courses' },
+  { label: 'Certificados', href: '/admin/courses/certificates' },
+  { label: 'Revision de examenes', href: '/admin/courses/review' },
 ]
 
-export function LandingTabs() {
+function isCoursesRootActive(pathname: string) {
+  if (pathname === '/admin/courses') return true
+  if (!pathname.startsWith('/admin/courses/')) return false
+  return !pathname.startsWith('/admin/courses/certificates') && !pathname.startsWith('/admin/courses/review')
+}
+
+export function CoursesTabs() {
   const pathname = usePathname()
 
   return (
     <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
       {TABS.map((tab) => {
         const active =
-          tab.href === '/admin/landing'
-            ? pathname === '/admin/landing'
+          tab.href === '/admin/courses'
+            ? isCoursesRootActive(pathname)
             : pathname.startsWith(tab.href)
+
         return (
           <Link
             key={tab.href}

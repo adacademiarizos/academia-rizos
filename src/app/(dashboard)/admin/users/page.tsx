@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Users, Search, Shield, UserCheck, GraduationCap } from "lucide-react";
+import { Users, Search, Shield, UserCheck, GraduationCap, ChevronLeft, ChevronRight } from "lucide-react";
+import { UserCommunityTabs } from "./components/UserCommunityTabs";
 
 type User = {
   id: string;
@@ -12,6 +13,26 @@ type User = {
   createdAt: string;
   _count: { appointments: number; courseAccess: number };
 };
+
+type RoleCounts = {
+  ADMIN: number;
+  STAFF: number;
+  STUDENT: number;
+};
+
+type UsersResponse = {
+  ok: boolean;
+  data: User[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  roleCounts?: RoleCounts;
+};
+
+const PAGE_SIZE_OPTIONS = [5, 10, 25, 50, 100];
 
 const ROLE_CONFIG = {
   ADMIN: { label: "Admin", color: "bg-purple-500/20 text-purple-400 border-purple-500/30", icon: Shield },
@@ -25,30 +46,65 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [updating, setUpdating] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [roleCounts, setRoleCounts] = useState<RoleCounts>({
+    ADMIN: 0,
+    STAFF: 0,
+    STUDENT: 0,
+  });
 
-  const fetchUsers = (s = search, r = roleFilter) => {
+  const fetchUsers = async (opts?: {
+    search?: string;
+    role?: string;
+    page?: number;
+    pageSize?: number;
+  }) => {
+    const nextSearch = opts?.search ?? search;
+    const nextRole = opts?.role ?? roleFilter;
+    const nextPage = opts?.page ?? page;
+    const nextPageSize = opts?.pageSize ?? pageSize;
+
     const params = new URLSearchParams();
-    if (s) params.set("search", s);
-    if (r !== "all") params.set("role", r);
+    if (nextSearch) params.set("search", nextSearch);
+    if (nextRole !== "all") params.set("role", nextRole);
+    params.set("page", String(nextPage));
+    params.set("limit", String(nextPageSize));
+
     setLoading(true);
-    fetch(`/api/admin/users?${params}`)
-      .then((res) => res.json())
-      .then((d) => setUsers(d.data ?? []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    try {
+      const res = await fetch(`/api/admin/users?${params.toString()}`);
+      const data = (await res.json()) as UsersResponse;
+
+      setUsers(data.data ?? []);
+      setTotal(data.pagination?.total ?? 0);
+      setTotalPages(data.pagination?.totalPages ?? 1);
+      setPage(data.pagination?.page ?? nextPage);
+      setPageSize(data.pagination?.limit ?? nextPageSize);
+      setRoleCounts(data.roleCounts ?? { ADMIN: 0, STAFF: 0, STUDENT: 0 });
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => {
+    fetchUsers({ page: 1, pageSize });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchUsers(search, roleFilter);
+    fetchUsers({ page: 1, search, role: roleFilter, pageSize });
   };
 
   const handleRoleChange = async (userId: string, newRole: "ADMIN" | "STAFF" | "STUDENT") => {
     const user = users.find((u) => u.id === userId);
     if (!user) return;
-    if (!confirm(`¿Cambiar el rol de ${user.name ?? user.email} a ${ROLE_CONFIG[newRole].label}?`)) return;
+    if (!confirm(`Cambiar el rol de ${user.name ?? user.email} a ${ROLE_CONFIG[newRole].label}?`)) return;
 
     setUpdating(userId);
     try {
@@ -59,9 +115,7 @@ export default function AdminUsersPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        setUsers((prev) =>
-          prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
-        );
+        fetchUsers({ search, role: roleFilter, page: 1, pageSize });
       } else {
         alert(data.error ?? "Error al actualizar rol");
       }
@@ -72,26 +126,29 @@ export default function AdminUsersPage() {
     }
   };
 
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+
   return (
     <div className="space-y-6">
-      {/* Header */}
+      <UserCommunityTabs />
+
       <div>
         <h1 className="text-2xl font-semibold text-white flex items-center gap-2">
-          <Users className="h-6 w-6 text-ap-copper" /> Gestión de Usuarios
+          <Users className="h-6 w-6 text-ap-copper" /> Gestion de Usuarios
         </h1>
         <p className="text-white/60 mt-1 text-sm">
           Ve y gestiona todos los usuarios registrados en la plataforma.
         </p>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {(["ADMIN", "STAFF", "STUDENT"] as const).map((role) => {
-          const count = users.filter((u) => u.role === role).length;
+          const count = roleCounts[role];
           const cfg = ROLE_CONFIG[role];
           const Icon = cfg.icon;
           return (
-            <div key={role} className={`bg-white/5 border border-white/10 rounded-[20px] p-4 flex items-center gap-3`}>
+            <div key={role} className="bg-white/5 border border-white/10 rounded-[20px] p-4 flex items-center gap-3">
               <div className={`h-9 w-9 rounded-xl flex items-center justify-center border ${cfg.color}`}>
                 <Icon className="h-4 w-4" />
               </div>
@@ -104,7 +161,6 @@ export default function AdminUsersPage() {
         })}
       </div>
 
-      {/* Search + filter */}
       <form onSubmit={handleSearch} className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-56">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/30" />
@@ -117,7 +173,12 @@ export default function AdminUsersPage() {
         </div>
         <select
           value={roleFilter}
-          onChange={(e) => { setRoleFilter(e.target.value); fetchUsers(search, e.target.value); }}
+          onChange={(e) => {
+            const nextRole = e.target.value;
+            setRoleFilter(nextRole);
+            setPage(1);
+            fetchUsers({ search, role: nextRole, page: 1, pageSize });
+          }}
           className="bg-white/10 border border-white/20 text-white rounded-xl px-4 py-2.5 text-sm outline-none"
         >
           <option value="all" className="bg-[#1a1a2e]">Todos los roles</option>
@@ -133,7 +194,6 @@ export default function AdminUsersPage() {
         </button>
       </form>
 
-      {/* Table */}
       <div className="bg-white/5 border border-white/10 rounded-[28px] overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-white/60">Cargando usuarios...</div>
@@ -159,7 +219,6 @@ export default function AdminUsersPage() {
 
                 return (
                   <tr key={user.id} className="hover:bg-white/5 transition">
-                    {/* User info */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         {user.image ? (
@@ -182,7 +241,6 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
 
-                    {/* Counts */}
                     <td className="px-6 py-4 text-sm text-white/60 hidden md:table-cell">
                       {user._count.appointments}
                     </td>
@@ -190,14 +248,12 @@ export default function AdminUsersPage() {
                       {user._count.courseAccess}
                     </td>
 
-                    {/* Registration date */}
                     <td className="px-6 py-4 text-sm text-white/50 hidden lg:table-cell">
                       {new Date(user.createdAt).toLocaleDateString("es-ES", {
                         day: "numeric", month: "short", year: "numeric",
                       })}
                     </td>
 
-                    {/* Current role badge */}
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.color}`}>
                         <Icon className="h-3 w-3" />
@@ -205,7 +261,6 @@ export default function AdminUsersPage() {
                       </span>
                     </td>
 
-                    {/* Role change actions */}
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 flex-wrap">
                         {user.role !== "STUDENT" && (
@@ -214,7 +269,7 @@ export default function AdminUsersPage() {
                             onClick={() => handleRoleChange(user.id, "STUDENT")}
                             className="px-3 py-1.5 text-xs rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white transition disabled:opacity-40"
                           >
-                            → Estudiante
+                            -&gt; Estudiante
                           </button>
                         )}
                         {user.role !== "STAFF" && (
@@ -223,7 +278,7 @@ export default function AdminUsersPage() {
                             onClick={() => handleRoleChange(user.id, "STAFF")}
                             className="px-3 py-1.5 text-xs rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition disabled:opacity-40"
                           >
-                            → Staff
+                            -&gt; Staff
                           </button>
                         )}
                         {user.role !== "ADMIN" && (
@@ -232,7 +287,7 @@ export default function AdminUsersPage() {
                             onClick={() => handleRoleChange(user.id, "ADMIN")}
                             className="px-3 py-1.5 text-xs rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 transition disabled:opacity-40"
                           >
-                            → Admin
+                            -&gt; Admin
                           </button>
                         )}
                         {isUpdating && (
@@ -246,6 +301,65 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
         )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+        <div className="text-sm text-white/60">
+          Mostrando {from}-{to} de {total} usuarios
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-white/60">
+            Ver
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                const nextSize = Number(e.target.value);
+                setPageSize(nextSize);
+                setPage(1);
+                fetchUsers({ search, role: roleFilter, page: 1, pageSize: nextSize });
+              }}
+              className="rounded-xl border border-white/20 bg-white/10 px-2.5 py-1.5 text-white outline-none"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size} className="bg-[#1a1a2e]">
+                  {size}
+                </option>
+              ))}
+            </select>
+            por pagina
+          </label>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const nextPage = Math.max(1, page - 1);
+                setPage(nextPage);
+                fetchUsers({ search, role: roleFilter, page: nextPage, pageSize });
+              }}
+              disabled={page <= 1 || loading}
+              className="inline-flex items-center gap-1 rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white/80 transition hover:bg-white/15 disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" /> Anterior
+            </button>
+
+            <span className="text-sm text-white/65">
+              Pagina {page} de {totalPages}
+            </span>
+
+            <button
+              onClick={() => {
+                const nextPage = Math.min(totalPages, page + 1);
+                setPage(nextPage);
+                fetchUsers({ search, role: roleFilter, page: nextPage, pageSize });
+              }}
+              disabled={page >= totalPages || loading}
+              className="inline-flex items-center gap-1 rounded-xl border border-white/20 bg-white/10 px-3 py-1.5 text-sm text-white/80 transition hover:bg-white/15 disabled:opacity-40"
+            >
+              Siguiente <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1,120 +1,127 @@
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options';
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth-options";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import {
-  CalendarDays, Link2, Users, MessageSquare, Bug,
-  BookOpen, ChevronRight, Lightbulb, AlertCircle, CheckCircle2,
+  CalendarDays,
+  Link2,
+  Users,
+  MessageSquare,
+  Bug,
+  BookOpen,
+  Lightbulb,
+  AlertCircle,
 } from "lucide-react";
+import { ManualPrintButton } from "@/app/(dashboard)/components/manuals/ManualPrintButton";
 
 async function requireStaff() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) redirect("/signin");
+
   const user = await db.user.findUnique({
     where: { email: session.user.email },
     select: { role: true },
   });
+
   if (!user || (user.role !== "STAFF" && user.role !== "ADMIN")) redirect("/");
 }
 
-// ── Shared UI components ───────────────────────────────────────────
-
-function SectionHeader({ id, icon: Icon, title, subtitle }: {
-  id: string; icon: React.ElementType; title: string; subtitle: string;
+function SectionHeader({
+  id,
+  icon: Icon,
+  title,
+  subtitle,
+}: {
+  id: string;
+  icon: React.ElementType;
+  title: string;
+  subtitle: string;
 }) {
   return (
-    <div id={id} className="flex items-start gap-4 mb-6 scroll-mt-6">
-      <div className="w-10 h-10 rounded-xl bg-ap-copper/20 flex items-center justify-center shrink-0 mt-0.5">
-        <Icon className="w-5 h-5 text-ap-copper" />
+    <div id={id} className="scroll-mt-6 mb-5 flex items-start gap-3">
+      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ap-copper/20">
+        <Icon className="h-4 w-4 text-ap-copper" />
       </div>
       <div>
         <h2 className="text-xl font-semibold text-white">{title}</h2>
-        <p className="text-sm text-white/50 mt-0.5">{subtitle}</p>
+        <p className="mt-0.5 text-sm text-white/50">{subtitle}</p>
       </div>
+    </div>
+  );
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return <div className="manual-print-card rounded-2xl border border-white/10 bg-white/5 p-5">{children}</div>;
+}
+
+function Field({ label, desc }: { label: string; desc: string }) {
+  return (
+    <div className="flex gap-3 border-b border-white/5 py-2 last:border-b-0">
+      <span className="w-40 shrink-0 text-sm font-semibold text-ap-copper">{label}</span>
+      <span className="text-sm text-white/70">{desc}</span>
     </div>
   );
 }
 
 function Tip({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-3 rounded-xl bg-ap-copper/8 border border-ap-copper/20 px-4 py-3 my-4">
-      <Lightbulb className="w-4 h-4 text-ap-copper shrink-0 mt-0.5" />
-      <p className="text-sm text-white/70">{children}</p>
+    <div className="my-4 flex gap-3 rounded-xl border border-ap-copper/25 bg-ap-copper/10 px-4 py-3">
+      <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-ap-copper" />
+      <p className="text-sm text-white/75">{children}</p>
     </div>
   );
 }
 
 function Warning({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex gap-3 rounded-xl bg-red-500/8 border border-red-500/20 px-4 py-3 my-4">
-      <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-      <p className="text-sm text-white/70">{children}</p>
+    <div className="my-4 flex gap-3 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3">
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+      <p className="text-sm text-white/75">{children}</p>
     </div>
   );
 }
 
 function Steps({ items }: { items: string[] }) {
   return (
-    <ol className="space-y-2 my-4">
+    <ol className="my-4 space-y-2">
       {items.map((item, i) => (
-        <li key={i} className="flex gap-3 items-start">
-          <span className="w-5 h-5 rounded-full bg-ap-copper/20 text-ap-copper text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+        <li key={i} className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ap-copper/20 text-xs font-bold text-ap-copper">
             {i + 1}
           </span>
-          <span className="text-sm text-white/70">{item}</span>
+          <span className="text-sm text-white/75">{item}</span>
         </li>
       ))}
     </ol>
   );
 }
 
-function Field({ label, desc }: { label: string; desc: string }) {
-  return (
-    <div className="flex gap-3 py-2 border-b border-white/5 last:border-0">
-      <span className="text-sm font-medium text-ap-copper w-36 shrink-0">{label}</span>
-      <span className="text-sm text-white/60">{desc}</span>
-    </div>
-  );
-}
-
-function Card({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl border border-white/8 bg-white/3 p-5 mb-6 space-y-1">
-      {children}
-    </div>
-  );
-}
-
 const TOC = [
-  { id: "overview",       label: "Introducción",     icon: BookOpen },
-  { id: "appointments",   label: "Mis Citas",        icon: CalendarDays },
-  { id: "paylinks",       label: "Links de Pago",    icon: Link2 },
-  { id: "clients",        label: "Mis Clientes",     icon: Users },
-  { id: "community",      label: "Comunidad",        icon: MessageSquare },
-  { id: "bugreport",      label: "Reportar Bug",     icon: Bug },
+  { id: "quickstart", label: "Inicio rapido", icon: BookOpen },
+  { id: "appointments", label: "Mis citas", icon: CalendarDays },
+  { id: "paylinks", label: "Links de pago", icon: Link2 },
+  { id: "clients", label: "Mis clientes", icon: Users },
+  { id: "community", label: "Comunidad", icon: MessageSquare },
+  { id: "bugreport", label: "Reportar bug", icon: Bug },
 ];
 
 export default async function StaffManualPage() {
   await requireStaff();
 
   return (
-    <main className="min-h-screen bg-[#181716] text-white">
-      <div className="max-w-7xl mx-auto px-6 py-10 flex gap-8">
-
-        {/* ── Sticky TOC ───────────────────────────────────────── */}
-        <aside className="hidden xl:block w-56 shrink-0">
-          <div className="sticky top-6 rounded-2xl border border-white/8 bg-white/3 p-4">
-            <p className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
-              Contenido
-            </p>
-            <nav className="space-y-0.5">
+    <main className="manual-page min-h-screen bg-[#181716] text-white">
+      <div className="manual-shell mx-auto flex max-w-7xl gap-8 px-6 py-10">
+        <aside className="manual-print-hide hidden w-56 shrink-0 xl:block">
+          <div className="sticky top-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-white/40">Contenido</p>
+            <nav className="space-y-1">
               {TOC.map(({ id, label, icon: Icon }) => (
                 <a
                   key={id}
                   href={`#${id}`}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-white/50 hover:text-white hover:bg-white/5 transition group"
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-white/55 transition hover:bg-white/8 hover:text-white"
                 >
-                  <Icon className="w-3.5 h-3.5 shrink-0 text-ap-copper/60 group-hover:text-ap-copper transition" />
+                  <Icon className="h-3.5 w-3.5 shrink-0 text-ap-copper/70" />
                   {label}
                 </a>
               ))}
@@ -122,232 +129,146 @@ export default async function StaffManualPage() {
           </div>
         </aside>
 
-        {/* ── Content ──────────────────────────────────────────── */}
-        <div className="flex-1 min-w-0 space-y-12">
-
-          {/* Header */}
-          <div className="pb-6 border-b border-white/10">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-ap-copper/20 flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-ap-copper" />
-              </div>
+        <div className="manual-content min-w-0 flex-1 space-y-10">
+          <header className="manual-print-card rounded-2xl border border-white/10 bg-white/5 p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-semibold text-white">Manual del Staff</h1>
-                <p className="text-sm text-white/40">Guía de las herramientas disponibles para el equipo</p>
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-5 w-5 text-ap-copper" />
+                  <h1 className="text-2xl font-semibold text-white">Manual del Staff</h1>
+                </div>
+                <p className="mt-2 text-sm text-white/60">
+                  Guia practica para trabajar con citas, cobros, clientes y soporte desde tu panel.
+                </p>
+                <p className="mt-1 text-xs text-white/35">Actualizado: Marzo 2026</p>
+              </div>
+              <div className="manual-print-hide">
+                <ManualPrintButton />
               </div>
             </div>
-            <p className="text-sm text-white/60 leading-relaxed">
-              Este manual cubre todas las funciones disponibles para el rol de <strong className="text-ap-copper">Staff</strong>.
-              Usá el índice de la izquierda para navegar entre secciones.
-            </p>
-          </div>
+          </header>
 
-          {/* ══ 1. OVERVIEW ══════════════════════════════════════ */}
-          <section>
+          <section className="manual-print-section">
             <SectionHeader
-              id="overview"
+              id="quickstart"
               icon={BookOpen}
-              title="Introducción al Panel de Staff"
-              subtitle="Qué puedes hacer desde tu panel"
+              title="Inicio rapido"
+              subtitle="Que herramientas tienes en rol staff"
             />
-            <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              Como miembro del equipo, tienes acceso a las herramientas que necesitas para atender
-              a tus clientes: gestionar tus citas asignadas, crear links de pago personalizados
-              y revisar el historial de tus clientes.
-            </p>
             <Card>
-              <Field label="Mis Citas"      desc="Ver todas las citas que te fueron asignadas, filtrar por estado y fecha." />
-              <Field label="Links de Pago"  desc="Crear links de pago para cobrar montos específicos a clientes." />
-              <Field label="Mis Clientes"   desc="Historial de todos los clientes que han reservado contigo." />
-              <Field label="Comunidad"      desc="Acceso al espacio de comunidad de la plataforma." />
-              <Field label="Reportar Bug"   desc="Reportar problemas o errores en la plataforma." />
+              <Field label="Mis citas" desc="Ver citas asignadas, filtrar por estado y revisar datos del cliente." />
+              <Field label="Links de pago" desc="Crear links para cobros puntuales con total calculado." />
+              <Field label="Mis clientes" desc="Historial de clientes atendidos y resumen de ingresos." />
+              <Field label="Comunidad" desc="Acceso al chat general para colaborar con equipo y comunidad." />
+              <Field label="Reportar bug" desc="Formulario para reportar incidencias con capturas." />
             </Card>
             <Tip>
-              Solo puedes ver las citas y clientes asignados a tu perfil. No tienes acceso
-              a la información de otros profesionales del equipo.
+              El panel staff solo muestra datos relacionados a tu cuenta. No ves ni editas informacion interna de otros
+              profesionales.
             </Tip>
           </section>
 
-          {/* ══ 2. MIS CITAS ══════════════════════════════════════ */}
-          <section>
+          <section className="manual-print-section">
             <SectionHeader
               id="appointments"
               icon={CalendarDays}
-              title="Mis Citas"
-              subtitle="Seguimiento de todas las reservas asignadas a tu perfil"
+              title="Mis citas"
+              subtitle="Gestion y seguimiento de reservas asignadas"
             />
-            <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              En esta sección encuentras todas las citas que los clientes reservaron contigo.
-              Puedes filtrar para ver solo las próximas o explorar el historial completo.
-            </p>
-
-            <h3 className="text-sm font-semibold text-white/80 mb-2">Filtros disponibles</h3>
+            <Steps
+              items={[
+                "Entrar a Mis citas.",
+                "Usar filtro de vista: Proximas o Todas.",
+                "Filtrar por estado cuando necesites una lista puntual.",
+                "Abrir cada tarjeta para revisar servicio, cliente, pago y notas.",
+              ]}
+            />
             <Card>
-              <Field label="Próximas / Todas" desc="Alterna entre ver solo citas futuras (por defecto) o todo el historial." />
-              <Field label="Estado"           desc="Filtra por: Pendiente, Confirmada, Completada, Cancelada o No-show." />
+              <Field label="Filtros" desc="Estado + toggle de proximas/todas." />
+              <Field label="Datos de cita" desc="Fecha/hora, duracion, servicio, cliente, monto y estado de pago." />
+              <Field label="Notas" desc="Si el cliente dejo notas, se muestran dentro de la tarjeta." />
             </Card>
-
-            <h3 className="text-sm font-semibold text-white/80 mb-2">Información de cada cita</h3>
-            <Card>
-              <Field label="Fecha y hora"    desc="Día y horario exacto de la cita, formateado en español." />
-              <Field label="Servicio"        desc="Nombre del tratamiento reservado y su duración en minutos." />
-              <Field label="Cliente"         desc="Nombre y email del cliente que realizó la reserva." />
-              <Field label="Pago"            desc="Monto abonado (en EUR) y estado del pago." />
-              <Field label="Estado"          desc="Estado actual de la cita con badge de color." />
-              <Field label="Notas"           desc="Observaciones adicionales que el cliente dejó al reservar (si las hay)." />
-            </Card>
-
-            <h3 className="text-sm font-semibold text-white/80 mb-2">Estados de una cita</h3>
-            <Card>
-              <Field label="Pendiente"   desc="La cita fue reservada pero aún no fue confirmada." />
-              <Field label="Confirmada"  desc="La cita está confirmada y agendada." />
-              <Field label="Completada"  desc="El servicio fue realizado exitosamente." />
-              <Field label="Cancelada"   desc="La cita fue cancelada por el cliente o el equipo." />
-              <Field label="No-show"     desc="El cliente no se presentó a la cita." />
-            </Card>
-
-            <Tip>
-              Si necesitas cambiar el estado de una cita (confirmar, completar, cancelar),
-              contacta al administrador ya que los cambios de estado son gestionados desde
-              el panel de administración.
-            </Tip>
           </section>
 
-          {/* ══ 3. LINKS DE PAGO ══════════════════════════════════ */}
-          <section>
+          <section className="manual-print-section">
             <SectionHeader
               id="paylinks"
               icon={Link2}
-              title="Links de Pago"
-              subtitle="Creá links de pago personalizados para tus clientes"
+              title="Links de pago"
+              subtitle="Cobros directos por enlace"
             />
-            <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              Los links de pago te permiten cobrar montos específicos a clientes sin necesidad de
-              crear una cita. Ideal para cobrar depósitos, servicios adicionales o presupuestos especiales.
-            </p>
-
-            <h3 className="text-sm font-semibold text-white/80 mb-2">Crear un link de pago</h3>
-            <Steps items={[
-              "Ir a 'Links de pago' en el menú lateral.",
-              "Completar el formulario: título descriptivo, email del cliente (opcional), descripción y monto base en EUR.",
-              "El sistema calcula automáticamente el total incluyendo las comisiones de Stripe.",
-              "Hacer clic en Crear. El link aparecerá en tu lista.",
-              "Copiar el link con el ícono de copiado y enviárselo al cliente por el medio que prefieras.",
-            ]} />
-
-            <h3 className="text-sm font-semibold text-white/80 mb-2 mt-4">Estados del pago</h3>
+            <Steps
+              items={[
+                "Entrar a Links de pago y hacer clic en Nuevo link.",
+                "Completar titulo, email (opcional), descripcion y monto base.",
+                "Confirmar vista previa del total que paga el cliente.",
+                "Crear el link, copiarlo y enviarlo por tu canal habitual.",
+              ]}
+            />
             <Card>
-              <Field label="REQUIRES_PAYMENT" desc="El link está activo y esperando que el cliente realice el pago." />
-              <Field label="PROCESSING"       desc="El pago está siendo procesado por Stripe." />
-              <Field label="PAID"             desc="El pago fue completado exitosamente." />
-              <Field label="FAILED"           desc="El intento de pago falló. El cliente puede intentarlo de nuevo." />
-              <Field label="CANCELED"         desc="El link fue cancelado manualmente." />
-              <Field label="EXPIRED"          desc="El link expiró sin que se realizara el pago." />
+              <Field label="Estados" desc="Pending/Processing/Paid/Failed/Canceled segun el avance del cobro." />
+              <Field label="Copiar enlace" desc="Boton rapido para copiar URL al portapapeles." />
+              <Field label="Ver pagina" desc="Abre la URL publica para validar antes de enviar." />
             </Card>
-
-            <Tip>
-              Puedes ver el historial completo de todos tus links con su estado actual.
-              Los links pagados quedan como registro y no pueden eliminarse.
-            </Tip>
-
             <Warning>
-              Los links que creas son de tu autoría. Si necesitas transferir o cancelar
-              un link de otro miembro del equipo, contacta al administrador.
+              Verifica siempre monto y descripcion antes de compartir el enlace. El cliente usara exactamente esos
+              datos para pagar.
             </Warning>
           </section>
 
-          {/* ══ 4. MIS CLIENTES ═══════════════════════════════════ */}
-          <section>
+          <section className="manual-print-section">
             <SectionHeader
               id="clients"
               icon={Users}
-              title="Mis Clientes"
-              subtitle="Historial y estadísticas de los clientes que atendiste"
+              title="Mis clientes"
+              subtitle="Historial y contexto de personas atendidas"
             />
-            <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              Esta sección centraliza toda la información de los clientes que han reservado
-              contigo al menos una vez. Puedes ver estadísticas generales y el historial
-              detallado de cada cliente.
-            </p>
-
-            <h3 className="text-sm font-semibold text-white/80 mb-2">Resumen de tu actividad</h3>
             <Card>
-              <Field label="Total de clientes"   desc="Cantidad total de clientes únicos que han reservado contigo." />
-              <Field label="Total de citas"      desc="Número total de citas (en todos los estados) asignadas a tu perfil." />
-              <Field label="Total de ingresos"   desc="Suma total de pagos completados de todas tus citas (en EUR)." />
+              <Field label="KPIs visibles" desc="Total clientes, total citas e ingresos totales." />
+              <Field label="Busqueda" desc="Filtro por nombre o email para encontrar rapido." />
+              <Field label="Detalle expandible" desc="Cada cliente muestra historial de citas, estados y montos pagados." />
             </Card>
-
-            <h3 className="text-sm font-semibold text-white/80 mb-2">Buscar y explorar clientes</h3>
-            <Steps items={[
-              "Usar el campo de búsqueda para filtrar por nombre o email del cliente.",
-              "Hacer clic en un cliente para expandir su historial completo.",
-              "Ver todas las citas pasadas con fechas, servicios y montos pagados.",
-            ]} />
-
-            <h3 className="text-sm font-semibold text-white/80 mb-2 mt-4">Información por cliente</h3>
-            <Card>
-              <Field label="Nombre y email"  desc="Datos de contacto del cliente." />
-              <Field label="Total de citas"  desc="Cuántas veces ha reservado contigo." />
-              <Field label="Total pagado"    desc="Suma de todos los pagos completados de ese cliente." />
-              <Field label="Última cita"     desc="Fecha de la cita más reciente." />
-              <Field label="Historial"       desc="Al expandir: lista de todas las citas con fecha, servicio y estado." />
-            </Card>
-
             <Tip>
-              El historial de clientes se actualiza automáticamente cuando se registran
-              nuevas citas o pagos. No necesitas hacer nada manualmente.
+              Usa esta vista antes de una cita para recordar frecuencia de visita y servicios previos del cliente.
             </Tip>
           </section>
 
-          {/* ══ 5. COMUNIDAD ══════════════════════════════════════ */}
-          <section>
+          <section className="manual-print-section">
             <SectionHeader
               id="community"
               icon={MessageSquare}
               title="Comunidad"
-              subtitle="Espacio de interacción con estudiantes y el equipo"
+              subtitle="Chat colaborativo"
             />
-            <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              La sección de Comunidad es un espacio compartido donde puedes interactuar con
-              los estudiantes de la academia y otros miembros del equipo.
+            <p className="text-sm leading-relaxed text-white/70">
+              Comunidad es un espacio compartido para comunicacion interna y soporte general. Mantener contexto ahi
+              ayuda a resolver dudas rapido y centralizar informacion.
             </p>
-            <Tip>
-              La Comunidad es accesible para todos los roles: Admin, Staff y Student.
-              Puedes ver publicaciones, responder preguntas y participar activamente.
-            </Tip>
           </section>
 
-          {/* ══ 6. REPORTAR BUG ══════════════════════════════════ */}
-          <section>
+          <section className="manual-print-section">
             <SectionHeader
               id="bugreport"
               icon={Bug}
-              title="Reportar Bug"
-              subtitle="Cómo informar errores o problemas en la plataforma"
+              title="Reportar bug"
+              subtitle="Canal oficial de incidencias"
             />
-            <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              Si encuentras algún error, comportamiento inesperado o problema en la plataforma,
-              puedes reportarlo directamente desde el panel.
-            </p>
-            <Steps items={[
-              "Ir a 'Reportar Bug' en el menú lateral.",
-              "Seleccionar el tipo de problema: 'Contenido' (texto incorrecto, imágenes rotas) o 'Funcionalidad' (algo no funciona como debería).",
-              "Describir el problema con el mayor detalle posible: qué estabas haciendo, qué esperabas que pasara, qué pasó en realidad.",
-              "Enviar el reporte. El equipo de administración lo recibirá y analizará.",
-            ]} />
+            <Steps
+              items={[
+                "Entrar a Reportar bug.",
+                "Seleccionar tipo: Contenido o Funcionalidad.",
+                "Escribir titulo y descripcion con pasos para reproducir.",
+                "Adjuntar capturas si aplica y enviar.",
+              ]}
+            />
             <Tip>
-              Cuanto más detallada sea la descripción, más fácil es reproducir y corregir el error.
-              Incluir los pasos exactos para reproducirlo es muy útil.
+              Un reporte con pasos claros y evidencia visual se resuelve mucho mas rapido.
             </Tip>
           </section>
 
-          {/* Footer */}
-          <div className="pt-8 border-t border-white/10 text-center">
-            <p className="text-xs text-white/30">
-              Manual del Staff · Apoteósicas by Elizabeth Rizos
-            </p>
-          </div>
-
+          <footer className="border-t border-white/10 pt-6 text-center text-xs text-white/35">
+            Manual del Staff - Apoteosicas by Elizabeth Rizos
+          </footer>
         </div>
       </div>
     </main>

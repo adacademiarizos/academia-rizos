@@ -4,25 +4,21 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const TABS = [
-  { label: 'Servicios (Booksy)', href: '/admin/landing' },
-  { label: 'Sobre Fundadora', href: '/admin/landing/about-founder' },
-  { label: 'Resultados', href: '/admin/landing/results' },
-  { label: 'Testimonios Salón', href: '/admin/landing/testimonials/salon' },
-  { label: 'Testimonios Academia', href: '/admin/landing/testimonials/academia' },
-  { label: 'FAQ', href: '/admin/landing/faq' },
-  { label: 'Horarios', href: '/admin/landing/schedule' },
+  { label: 'Usuarios', href: '/admin/users' },
+  { label: 'Comunidad', href: '/admin/users/community' },
 ]
 
-export function LandingTabs() {
+export function UserCommunityTabs() {
   const pathname = usePathname()
 
   return (
     <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-none">
       {TABS.map((tab) => {
         const active =
-          tab.href === '/admin/landing'
-            ? pathname === '/admin/landing'
+          tab.href === '/admin/users'
+            ? pathname === '/admin/users'
             : pathname.startsWith(tab.href)
+
         return (
           <Link
             key={tab.href}

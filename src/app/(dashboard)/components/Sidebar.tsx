@@ -9,7 +9,6 @@ import {
   Users,
   LayoutTemplate,
   GraduationCap,
-  FileCheck,
   Link2,
   Settings,
   TrendingUp,
@@ -19,7 +18,6 @@ import {
   MessageSquare,
   Bug,
   UserCog,
-  ClipboardCheck,
   BookOpen,
   BarChart3,
 } from "lucide-react";
@@ -32,15 +30,10 @@ const ADMIN_NAV = [
   // { label: "Staff", href: "/admin/staff", icon: Users },
   // { label: "Citas", href: "/admin/appointments", icon: CalendarDays },
   { label: "Cursos", href: "/admin/courses", icon: GraduationCap },
-  { label: "Certificados", href: "/admin/certificates", icon: FileCheck },
-  { label: "Revisar Exámenes", href: "/admin/certificates/review", icon: ClipboardCheck },
   // { label: "Links de pago", href: "/admin/payment-links", icon: Link2 },
   { label: "Usuarios", href: "/admin/users", icon: UserCog },
-  { label: "Comunidad", href: "/community", icon: MessageSquare },
   { label: "Analíticas", href: "/admin/analytics", icon: BarChart3 },
   { label: "Settings", href: "/admin/settings", icon: Settings },
-  { label: "Reportar Bug", href: "/bug-report", icon: Bug },
-  { label: "Manuales", href: "/admin/manuales", icon: BookOpen },
 ];
 
 const STAFF_NAV = [
@@ -212,7 +205,6 @@ function NavLinks({ navItems }: { navItems: typeof ADMIN_NAV }) {
           pathname === item.href ||
           (item.href !== "/admin" &&
             item.href !== "/student" &&
-            item.href !== "/admin/certificates" &&
             pathname.startsWith(item.href));
         const Icon = item.icon;
 

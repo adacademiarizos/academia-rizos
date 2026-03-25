@@ -1,12 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { checkAdminAuth } from '@/lib/admin-auth'
 import { db } from '@/lib/db'
 
 type TestimonialType = 'SALON' | 'ACADEMIA'
+const MISSING_TYPE_MIGRATION_MESSAGE =
+  'La base de datos no tiene el campo "type" de testimonios. Ejecuta "npx prisma migrate deploy".'
 
 function parseTestimonialType(raw: unknown): TestimonialType | null {
   if (raw === 'SALON' || raw === 'ACADEMIA') return raw
   return null
+}
+
+function getTestimonialsErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2022') {
+    const missingColumn = String(error.meta?.column ?? '').toLowerCase()
+    if (missingColumn.includes('testimonial') && missingColumn.includes('type')) {
+      return MISSING_TYPE_MIGRATION_MESSAGE
+    }
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase()
+    if (message.includes('testimonial') && message.includes('type') && message.includes('column')) {
+      return MISSING_TYPE_MIGRATION_MESSAGE
+    }
+  }
+
+  return fallback
 }
 
 export async function PUT(
@@ -24,7 +45,7 @@ export async function PUT(
 
     if (type !== undefined && !parsedType) {
       return NextResponse.json(
-        { ok: false, error: 'Tipo de testimonio inválido' },
+        { ok: false, error: 'Tipo de testimonio invalido' },
         { status: 400 }
       )
     }
@@ -47,7 +68,7 @@ export async function PUT(
   } catch (error) {
     console.error('Error updating testimonial:', error)
     return NextResponse.json(
-      { ok: false, error: 'Error al actualizar testimonio' },
+      { ok: false, error: getTestimonialsErrorMessage(error, 'Error al actualizar testimonio') },
       { status: 500 }
     )
   }
@@ -67,7 +88,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error deleting testimonial:', error)
     return NextResponse.json(
-      { ok: false, error: 'Error al eliminar testimonio' },
+      { ok: false, error: getTestimonialsErrorMessage(error, 'Error al eliminar testimonio') },
       { status: 500 }
     )
   }

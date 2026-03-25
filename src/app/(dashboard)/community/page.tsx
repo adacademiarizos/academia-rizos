@@ -1,16 +1,22 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { ChatPanel } from '@/app/components/ChatPanel'
 
 export default function CommunityPage() {
-  const { status } = useSession()
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [roomId, setRoomId] = useState<string | null>(null)
   const [loadingRoom, setLoadingRoom] = useState(true)
 
   useEffect(() => {
     if (status === 'loading') return
+    if ((session?.user as any)?.role === 'ADMIN') {
+      router.replace('/admin/users/community')
+      return
+    }
 
     const init = async () => {
       try {
@@ -25,7 +31,7 @@ export default function CommunityPage() {
     }
 
     init()
-  }, [status])
+  }, [router, session, status])
 
   return (
     // Escape DashboardShell's horizontal and bottom padding so the chat runs edge-to-edge.

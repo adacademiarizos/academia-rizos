@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
+import { CoursesTabs } from './components/CoursesTabs'
 
 interface Course {
   id: string
@@ -224,6 +225,8 @@ export default function AdminCoursesPage() {
 
   return (
     <div className="space-y-6">
+      <CoursesTabs />
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

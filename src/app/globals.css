@@ -217,3 +217,45 @@ p {
     column-count: 4;
   }
 }
+
+@media print {
+  .manual-page,
+  .manual-shell,
+  .manual-content,
+  .manual-print-section,
+  .manual-print-card {
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  .manual-shell {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .manual-print-hide {
+    display: none !important;
+  }
+
+  .manual-content {
+    width: 100% !important;
+  }
+
+  .manual-print-card,
+  .manual-print-section {
+    border-color: #d1d5db !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .manual-page h1,
+  .manual-page h2,
+  .manual-page h3,
+  .manual-page h4,
+  .manual-page p,
+  .manual-page span,
+  .manual-page li,
+  .manual-page a {
+    color: #111111 !important;
+  }
+}

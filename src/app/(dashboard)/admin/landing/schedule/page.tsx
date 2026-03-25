@@ -11,6 +11,20 @@ const DEFAULT_HOURS = [
   { dayOfWeek: 6, isOpen: false, openTime: "09:00", closeTime: "18:00" },
 ];
 
+function normalizeHoursWithIds(
+  hours: Array<{ id: string; dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string }>
+) {
+  const byDay = new Map(hours.map((h) => [h.dayOfWeek, h]));
+  return DEFAULT_HOURS.map((base) => {
+    const existing = byDay.get(base.dayOfWeek);
+    if (existing) return existing;
+    return {
+      id: `missing-${base.dayOfWeek}`,
+      ...base,
+    };
+  });
+}
+
 export default async function LandingSchedulePage() {
   const count = await db.businessHours.count();
   if (count === 0) {
@@ -25,7 +39,8 @@ export default async function LandingSchedulePage() {
     }),
   ]);
 
+  const normalizedHours = normalizeHoursWithIds(hours);
   const offDays = offDaysRaw.map((d) => ({ ...d, date: d.date.toISOString() }));
 
-  return <ScheduleEditor initialHours={hours} initialOffDays={offDays} />;
+  return <ScheduleEditor initialHours={normalizedHours} initialOffDays={offDays} />;
 }

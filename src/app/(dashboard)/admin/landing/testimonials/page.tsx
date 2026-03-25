@@ -198,14 +198,18 @@ export function LandingTestimonialsManager({
   }, [testimonialType]);
 
   async function fetchTestimonials() {
+    setError(null);
     setLoading(true);
     try {
       const params = new URLSearchParams({ type: testimonialType });
       const res = await fetch(`/api/admin/testimonials?${params.toString()}`);
       const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json?.error ?? "Error al cargar testimonios");
+      }
       setTestimonials(json.data ?? []);
-    } catch {
-      setError("Error al cargar testimonios");
+    } catch (e: any) {
+      setError(e?.message ?? "Error al cargar testimonios");
     } finally {
       setLoading(false);
     }
