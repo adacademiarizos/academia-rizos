@@ -8,6 +8,7 @@ import SalonAbout from "@/components/marketing/SalonAbout";
 import FAQ from "@/components/marketing/Faq";
 import Schedule from "@/components/marketing/Schedule";
 import Testimonials from "@/components/marketing/Testimonials";
+import ContactSection from "@/components/marketing/ContactSection";
 import Link from "next/link";
 
 const BOOKSY_URL =
@@ -79,6 +80,10 @@ export default async function SalonPage() {
             Ver página completa de horarios →
           </Link>
         </div>
+      </section>
+
+      <section className="bg-[#171614]">
+        <ContactSection scope="SALON" />
       </section>
 
       {/* CTA Final */}

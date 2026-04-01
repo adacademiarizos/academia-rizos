@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import {
   ArrowRight,
   Facebook,
@@ -9,25 +9,37 @@ import {
   Music2,
   Smartphone,
 } from "lucide-react";
+import { getContactContent, type ContactScope } from "@/lib/contact-content";
 
-export default function ContactSection() {
+function isExternalHref(href: string) {
+  return /^https?:\/\//i.test(href);
+}
+
+export default async function ContactSection({
+  scope = "ACADEMIA",
+}: {
+  scope?: ContactScope;
+}) {
+  const content = await getContactContent(scope);
+  const addressLines = content.address.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const scheduleLines = [content.scheduleLine1, content.scheduleLine2, content.scheduleLine3]
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const showAction = Boolean(content.actionLabel.trim() && content.actionHref.trim());
+  const actionIsExternal = isExternalHref(content.actionHref);
+
   return (
     <section id="contacto" className="py-20 px-6 border-t border-white/10">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
           <p className="text-xs font-semibold tracking-wider text-ap-copper uppercase mb-2">
-            Contacto
+            {content.sectionKicker}
           </p>
-          <h2 className="text-3xl md:text-4xl font-bold text-ap-ivory">
-            Estamos aqui para ti
-          </h2>
-          <p className="mt-3 text-white/60 text-base max-w-xl mx-auto">
-            Puedes contactarnos a traves de nuestras redes sociales, por correo electronico o visitar nuestro estudio fisico.
-          </p>
+          <h2 className="text-3xl md:text-4xl font-bold text-ap-ivory">{content.sectionTitle}</h2>
+          <p className="mt-3 text-white/60 text-base max-w-xl mx-auto">{content.sectionDescription}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Social Media */}
           <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-8 space-y-5">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-ap-copper/20 flex items-center justify-center text-ap-copper">
@@ -38,60 +50,67 @@ export default function ContactSection() {
 
             <div className="space-y-3">
               <a
-                href="https://www.instagram.com/elizabeth.rizos"
+                href={content.instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-white/70 hover:text-ap-copper transition group"
               >
                 <Instagram className="w-5 h-5" aria-hidden="true" />
                 <div>
-                  <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">Instagram</div>
-                  <div className="text-xs text-white/40">@elizabeth.rizos</div>
+                  <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">
+                    Instagram
+                  </div>
+                  <div className="text-xs text-white/40">{content.instagramHandle}</div>
                 </div>
               </a>
 
               <a
-                href="https://www.tiktok.com/@elizabeth.rizos"
+                href={content.tiktokUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-white/70 hover:text-ap-copper transition group"
               >
                 <Music2 className="w-5 h-5" aria-hidden="true" />
                 <div>
-                  <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">TikTok</div>
-                  <div className="text-xs text-white/40">@elizabeth.rizos</div>
+                  <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">
+                    TikTok
+                  </div>
+                  <div className="text-xs text-white/40">{content.tiktokHandle}</div>
                 </div>
               </a>
 
               <a
-                href="https://www.facebook.com/elizabethrizos"
+                href={content.facebookUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-white/70 hover:text-ap-copper transition group"
               >
                 <Facebook className="w-5 h-5" aria-hidden="true" />
                 <div>
-                  <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">Facebook</div>
-                  <div className="text-xs text-white/40">elizabeth rizos</div>
+                  <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">
+                    Facebook
+                  </div>
+                  <div className="text-xs text-white/40">{content.facebookHandle}</div>
                 </div>
               </a>
 
               <a
-                href="https://wa.me/34600000000"
+                href={content.whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-white/70 hover:text-ap-copper transition group"
               >
                 <MessageCircle className="w-5 h-5" aria-hidden="true" />
                 <div>
-                  <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">WhatsApp</div>
-                  <div className="text-xs text-white/40">Escribenos directamente</div>
+                  <div className="text-sm font-medium text-ap-ivory group-hover:text-ap-copper transition">
+                    WhatsApp
+                  </div>
+                  <div className="text-xs text-white/40">{content.whatsappLabel}</div>
                 </div>
               </a>
             </div>
           </div>
 
-          {/* Email */}
           <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-8 space-y-5">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-ap-copper/20 flex items-center justify-center text-ap-copper">
@@ -102,74 +121,94 @@ export default function ContactSection() {
 
             <div className="space-y-4">
               <div>
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Consultas generales</div>
+                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">{content.emailPrimaryLabel}</div>
                 <a
-                  href="mailto:hola@apoteosicas.com"
+                  href={`mailto:${content.emailPrimary}`}
                   className="text-sm font-medium text-ap-ivory hover:text-ap-copper transition"
                 >
-                  hola@apoteosicas.com
+                  {content.emailPrimary}
                 </a>
               </div>
 
               <div>
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Academia y cursos</div>
+                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">{content.emailSecondaryLabel}</div>
                 <a
-                  href="mailto:academia@apoteosicas.com"
+                  href={`mailto:${content.emailSecondary}`}
                   className="text-sm font-medium text-ap-ivory hover:text-ap-copper transition"
                 >
-                  academia@apoteosicas.com
+                  {content.emailSecondary}
                 </a>
               </div>
 
-              <div>
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Citas y reservas</div>
-                <Link
-                  href="/booking"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-ap-copper hover:text-ap-copper/80 transition"
-                >
-                  Reservar cita online
-                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
-                </Link>
-              </div>
+              {showAction ? (
+                <div>
+                  {actionIsExternal ? (
+                    <a
+                      href={content.actionHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm font-medium text-ap-copper hover:text-ap-copper/80 transition"
+                    >
+                      {content.actionLabel}
+                      <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                    </a>
+                  ) : (
+                    <Link
+                      href={content.actionHref}
+                      className="inline-flex items-center gap-1 text-sm font-medium text-ap-copper hover:text-ap-copper/80 transition"
+                    >
+                      {content.actionLabel}
+                      <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                    </Link>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
 
-          {/* Location */}
           <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-8 space-y-5">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-ap-copper/20 flex items-center justify-center text-ap-copper">
                 <MapPin className="w-5 h-5" aria-hidden="true" />
               </div>
-              <h3 className="text-lg font-semibold text-ap-ivory">Nuestro Estudio</h3>
+              <h3 className="text-lg font-semibold text-ap-ivory">{content.locationTitle}</h3>
             </div>
 
             <div className="space-y-3">
               <div>
                 <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Direccion</div>
                 <p className="text-sm text-ap-ivory font-medium">
-                  Calle Ejemplo, 123<br />
-                  28001 Madrid, Espana
+                  {addressLines.map((line, idx) => (
+                    <span key={`${line}-${idx}`}>
+                      {line}
+                      <br />
+                    </span>
+                  ))}
                 </p>
               </div>
 
-              <div>
-                <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Horario</div>
-                <div className="text-sm text-white/70 space-y-0.5">
-                  <div>Lunes - Viernes: 10:00 - 20:00</div>
-                  <div>Sabado: 10:00 - 15:00</div>
-                  <div>Domingo: Cerrado</div>
+              {scheduleLines.length > 0 ? (
+                <div>
+                  <div className="text-xs text-white/40 uppercase tracking-wider mb-1">Horario</div>
+                  <div className="text-sm text-white/70 space-y-0.5">
+                    {scheduleLines.map((line, idx) => (
+                      <div key={`${line}-${idx}`}>{line}</div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
-              <a
-                href="https://maps.google.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-ap-copper hover:text-ap-copper/80 transition mt-2"
-              >
-                Ver en Google Maps
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
-              </a>
+              {content.mapsUrl.trim() ? (
+                <a
+                  href={content.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-ap-copper hover:text-ap-copper/80 transition mt-2"
+                >
+                  Ver en Google Maps
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </a>
+              ) : null}
             </div>
           </div>
         </div>

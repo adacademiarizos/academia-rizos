@@ -41,6 +41,12 @@ type Segment = {
   color: string;
 };
 
+type TrafficPoint = {
+  date: string;
+  views: number;
+  sessions: number;
+};
+
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: "#f59e0b",
   STAFF: "#3b82f6",
@@ -121,6 +127,28 @@ function normalizeMonthlySeries(
     cursor.setMonth(cursor.getMonth() + 1);
   }
 
+  return out;
+}
+
+function normalizeDailyTrafficSeries(rows: TrafficPoint[], days: number, anchorDate: Date): TrafficPoint[] {
+  const byDate = new Map(
+    rows.map((row) => [row.date, { views: Number(row.views) || 0, sessions: Number(row.sessions) || 0 }])
+  );
+  const start = startOfDay(anchorDate);
+  start.setDate(start.getDate() - (days - 1));
+
+  const out: TrafficPoint[] = [];
+  for (let i = 0; i < days; i++) {
+    const cursor = new Date(start);
+    cursor.setDate(start.getDate() + i);
+    const key = cursor.toISOString().slice(0, 10);
+    const data = byDate.get(key);
+    out.push({
+      date: key,
+      views: data?.views ?? 0,
+      sessions: data?.sessions ?? 0,
+    });
+  }
   return out;
 }
 
@@ -446,7 +474,8 @@ export default async function AdminOverviewPage() {
     day: "numeric",
   });
 
-  const trafficLast14 = marketingTraffic.slice(-14);
+  const trafficLast14 = normalizeDailyTrafficSeries(marketingTraffic, 14, now);
+  const hasTrafficData = trafficLast14.some((point) => point.views > 0 || point.sessions > 0);
   const maxTrafficViews = Math.max(...trafficLast14.map((t) => t.views), 1);
   const marketingSources = marketingSourcesRaw.slice(0, 6);
   const maxSourceViews = Math.max(...marketingSources.map((s) => s.views), 1);
@@ -504,20 +533,26 @@ export default async function AdminOverviewPage() {
       <section className="grid gap-8 xl:grid-cols-2">
         <Panel title="Trafico web" subtitle="Comportamiento de visitas y canales de adquisicion (30 dias).">
           <h4 className="text-xs uppercase tracking-widest text-white/40">Visitas diarias (ultimos 14 dias)</h4>
-          <div className="mt-4 flex h-44 items-end gap-1.5">
-            {trafficLast14.map((item) => {
-              const h = Math.max(8, Math.round((item.views / maxTrafficViews) * 100));
-              return (
-                <div key={item.date} className="group relative flex-1">
-                  <div className="w-full rounded-t-md bg-gradient-to-t from-[#646a40]/35 to-[#646a40]" style={{ height: `${h}%` }} />
-                  <div className="pointer-events-none absolute -top-14 left-1/2 z-10 hidden w-24 -translate-x-1/2 rounded-md border border-white/10 bg-black/90 px-2 py-1 text-[10px] text-white/80 group-hover:block">
-                    <p>{item.date.slice(5)}</p>
-                    <p>{number(item.views)} views</p>
+          {!hasTrafficData ? (
+            <div className="mt-4">
+              <EmptyState text="Aun no hay visitas publicas registradas para graficar. Este bloque solo considera trafico del website (no /admin)." />
+            </div>
+          ) : (
+            <div className="mt-4 flex h-44 items-end gap-1.5">
+              {trafficLast14.map((item) => {
+                const h = Math.max(8, Math.round((item.views / maxTrafficViews) * 100));
+                return (
+                  <div key={item.date} className="group relative flex-1">
+                    <div className="w-full rounded-t-md bg-gradient-to-t from-[#646a40]/35 to-[#646a40]" style={{ height: `${h}%` }} />
+                    <div className="pointer-events-none absolute -top-14 left-1/2 z-10 hidden w-24 -translate-x-1/2 rounded-md border border-white/10 bg-black/90 px-2 py-1 text-[10px] text-white/80 group-hover:block">
+                      <p>{item.date.slice(5)}</p>
+                      <p>{number(item.views)} views</p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           <div className="mt-7 space-y-3">
             <h4 className="text-xs uppercase tracking-widest text-white/40">Top fuentes</h4>

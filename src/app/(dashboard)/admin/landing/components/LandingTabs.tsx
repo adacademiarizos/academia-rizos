@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 const TABS = [
   { label: 'Servicios (Booksy)', href: '/admin/landing' },
   { label: 'Sobre Fundadora', href: '/admin/landing/about-founder' },
+  { label: 'Contacto', href: '/admin/landing/contact' },
   { label: 'Resultados', href: '/admin/landing/results' },
   { label: 'Testimonios Salón', href: '/admin/landing/testimonials/salon' },
   { label: 'Testimonios Academia', href: '/admin/landing/testimonials/academia' },

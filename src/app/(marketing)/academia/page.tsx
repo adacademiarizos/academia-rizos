@@ -3,6 +3,7 @@ import AcademyFeatures from "@/components/marketing/AcademyFeatures";
 import AcademyMethod from "@/components/marketing/AcademyMethod";
 import LatestCourses from "@/components/marketing/LatestCourses";
 import Testimonials from "@/components/marketing/Testimonials";
+import ContactSection from "@/components/marketing/ContactSection";
 import Link from "next/link";
 
 export default function AcademiaPage() {
@@ -23,6 +24,8 @@ export default function AcademiaPage() {
       <section className="px-6 py-16">
         <Testimonials scope="academia" />
       </section>
+
+      <ContactSection scope="ACADEMIA" />
 
       {/* CTA Final */}
       <section className="px-6 py-16">

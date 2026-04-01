@@ -7,13 +7,21 @@ import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Rizo1 from "@/components/marketing/svgs/Rizo";
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { label: "Salón", href: "/salon" },
   { label: "Academia", href: "/academia" },
   { label: "Cursos", href: "/courses" },
-  { label: "Contacto", href: "/#contacto" },
 ];
 
+function getContactHref(pathname: string) {
+  if (pathname.startsWith("/salon")) return "/salon#contacto";
+  if (pathname.startsWith("/academia")) return "/academia#contacto";
+  return "/#contacto";
+}
+
+function getNavItems(pathname: string) {
+  return [...BASE_NAV_ITEMS, { label: "Contacto", href: getContactHref(pathname) }];
+}
 /** Reglas de color para el botón CTA del navbar.
  *  Cada entrada tiene:
  *  - match: string  → prefijo exacto (ej. "/salon" cubre "/salon" y "/salon/algo")
@@ -109,6 +117,7 @@ function Header() {
   const accentBg = getAccent(pathname);
   const logoSrc = getImage(pathname);
   const menuTextClass = getMenuTextClass(pathname);
+  const navItems = getNavItems(pathname);
 
   // Determine button destination based on session and role
   const getButtonConfig = () => {
@@ -148,7 +157,7 @@ function Header() {
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-8 text-sm">
-          {NAV_ITEMS.map((item) => (
+          {navItems.map((item) => (
             <a
               key={item.href}
               href={item.href}
@@ -201,6 +210,8 @@ function Header() {
 
 function MobileMenu({ accentBg, menuTextClass }: { accentBg: string; menuTextClass: string }) {
   const { data: session } = useSession();
+  const pathname = usePathname();
+  const navItems = getNavItems(pathname);
 
   // Determine button destination based on session and role
   const getButtonConfig = () => {
@@ -237,7 +248,7 @@ function MobileMenu({ accentBg, menuTextClass }: { accentBg: string; menuTextCla
 
         <div className="flex h-dvh align-middle fixed inset-0 top-16 -z-40 border-ap-ink/10 bg-ap-bg/95 backdrop-blur supports-backdrop-filter:bg-(--background-transparent) overflow-auto">
           <div className="mx-auto max-w-6xl px-5 py-5 flex flex-col gap-4 min-h-[100vh-64px] justify-center items-center">
-            {NAV_ITEMS.map((item) => (
+            {navItems.map((item) => (
               <a
                 key={item.href}
                 href={item.href}

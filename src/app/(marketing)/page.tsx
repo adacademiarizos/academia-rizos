@@ -44,7 +44,7 @@ export default async function MarketingHomePage() {
         <Testimonials scope="home" />
       </section>
 
-      <ContactSection />
+      <ContactSection scope="ACADEMIA" />
 
       <StyleTokens />
     </main>

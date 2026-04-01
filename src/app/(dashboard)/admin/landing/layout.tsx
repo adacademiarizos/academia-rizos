@@ -16,7 +16,7 @@ export default async function LandingLayout({
       <div>
         <h1 className="text-2xl font-semibold text-white">Landing Page</h1>
         <p className="mt-1 text-sm text-white/50">
-          Administra el contenido de la pagina principal: servicios, sobre fundadora, resultados, testimonios, FAQ y horarios.
+          Administra el contenido de la pagina principal: servicios, sobre fundadora, contacto, resultados, testimonios, FAQ y horarios.
         </p>
       </div>
 
