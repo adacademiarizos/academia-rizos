@@ -8,6 +8,8 @@ import PageTeasers from "@/components/marketing/PageTeasers";
 import { db } from "@/lib/db";
 import ResultsGallery from "@/components/marketing/ResultsGallery";
 
+export const dynamic = "force-dynamic";
+
 export default async function MarketingHomePage() {
   const [resultImages, faqItems] = await Promise.all([
       db.resultImage
