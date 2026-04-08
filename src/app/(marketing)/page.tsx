@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 import Hero from "@/components/marketing/Hero";
+
+export const dynamic = "force-dynamic";
 import SectionHead from "@/components/marketing/SectionHead";
 import FAQ from "@/components/marketing/Faq";
 import Testimonials from "@/components/marketing/Testimonials";
