@@ -76,13 +76,14 @@ enum TestimonialType {
 }
 
 model User {
-  id       String  @id @default(cuid())
-  name     String?
-  email    String  @unique
-  image    String?
-  role     Role    @default(STUDENT)
+  id             String  @id @default(cuid())
+  name           String?
+  email          String  @unique
+  image          String?
+  role           Role    @default(STUDENT)
   // Para arrancar con credenciales simples (MVP):
-  password String?
+  password       String?
+  sessionVersion Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -115,7 +116,34 @@ model User {
 
   // Relations - New features
   bugReports          BugReport[]
-  paymentLinksCreated PaymentLink[] @relation("PaymentLinkCreator")
+  paymentLinksCreated PaymentLink[]        @relation("PaymentLinkCreator")
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  requestIp String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetRequest {
+  id        String   @id @default(cuid())
+  email     String
+  requestIp String?
+  createdAt DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([requestIp, createdAt])
+  @@index([createdAt])
 }
 
 model StaffProfile {
@@ -831,32 +859,32 @@ model AboutFounderContent {
 }
 
 model ContactContent {
-  id                 String   @id // "ACADEMIA" | "SALON"
-  sectionKicker      String   @default("Contacto")
-  sectionTitle       String   @default("Estamos aqui para ti")
-  sectionDescription String   @default("Puedes contactarnos a traves de nuestras redes sociales, por correo electronico o visitar nuestro estudio fisico.")
-  instagramUrl       String   @default("https://www.instagram.com/elizabeth.rizos")
-  instagramHandle    String   @default("@elizabeth.rizos")
-  tiktokUrl          String   @default("https://www.tiktok.com/@elizabeth.rizos")
-  tiktokHandle       String   @default("@elizabeth.rizos")
-  facebookUrl        String   @default("https://www.facebook.com/elizabethrizos")
-  facebookHandle     String   @default("elizabeth rizos")
-  whatsappUrl        String   @default("https://wa.me/34600000000")
-  whatsappLabel      String   @default("Escribenos directamente")
-  emailPrimaryLabel  String   @default("Consultas generales")
-  emailPrimary       String   @default("hola@apoteosicas.com")
-  emailSecondaryLabel String  @default("Academia y cursos")
-  emailSecondary     String   @default("academia@apoteosicas.com")
-  actionLabel        String   @default("Reservar cita online")
-  actionHref         String   @default("/booking")
-  locationTitle      String   @default("Nuestro Estudio")
-  address            String   @default("Calle Ejemplo, 123\\n28001 Madrid, Espana")
-  scheduleLine1      String   @default("Lunes - Viernes: 10:00 - 20:00")
-  scheduleLine2      String   @default("Sabado: 10:00 - 15:00")
-  scheduleLine3      String   @default("Domingo: Cerrado")
-  mapsUrl            String   @default("https://maps.google.com")
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                  String   @id // "ACADEMIA" | "SALON"
+  sectionKicker       String   @default("Contacto")
+  sectionTitle        String   @default("Estamos aqui para ti")
+  sectionDescription  String   @default("Puedes contactarnos a traves de nuestras redes sociales, por correo electronico o visitar nuestro estudio fisico.")
+  instagramUrl        String   @default("https://www.instagram.com/elizabeth.rizos")
+  instagramHandle     String   @default("@elizabeth.rizos")
+  tiktokUrl           String   @default("https://www.tiktok.com/@elizabeth.rizos")
+  tiktokHandle        String   @default("@elizabeth.rizos")
+  facebookUrl         String   @default("https://www.facebook.com/elizabethrizos")
+  facebookHandle      String   @default("elizabeth rizos")
+  whatsappUrl         String   @default("https://wa.me/34600000000")
+  whatsappLabel       String   @default("Escribenos directamente")
+  emailPrimaryLabel   String   @default("Consultas generales")
+  emailPrimary        String   @default("hola@apoteosicas.com")
+  emailSecondaryLabel String   @default("Academia y cursos")
+  emailSecondary      String   @default("academia@apoteosicas.com")
+  actionLabel         String   @default("Reservar cita online")
+  actionHref          String   @default("/booking")
+  locationTitle       String   @default("Nuestro Estudio")
+  address             String   @default("Calle Ejemplo, 123\\n28001 Madrid, Espana")
+  scheduleLine1       String   @default("Lunes - Viernes: 10:00 - 20:00")
+  scheduleLine2       String   @default("Sabado: 10:00 - 15:00")
+  scheduleLine3       String   @default("Domingo: Cerrado")
+  mapsUrl             String   @default("https://maps.google.com")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model ResultImage {
@@ -902,16 +930,16 @@ model BusinessOffDay {
 // ============= TESTIMONIALS =============
 
 model Testimonial {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   name      String
-  role      String   @default("Clienta")
+  role      String          @default("Clienta")
   quote     String
   type      TestimonialType @default(SALON)
-  stars     Int      @default(5)
+  stars     Int             @default(5)
   avatarUrl String?
-  isActive  Boolean  @default(true)
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+  isActive  Boolean         @default(true)
+  order     Int             @default(0)
+  createdAt DateTime        @default(now())
 
   @@index([order])
   @@index([type, order])
@@ -920,7 +948,7 @@ model Testimonial {
 // ============= ANALYTICS =============
 
 model PageView {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   path      String
   referrer  String?
   sessionId String
@@ -953,7 +981,7 @@ model PageView {
 }
 
 model ConversionEvent {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   type      String // "BOOKING" | "COURSE_PURCHASE" | "REGISTRATION"
   sessionId String
   userId    String?

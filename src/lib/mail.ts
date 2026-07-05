@@ -220,6 +220,43 @@ export async function sendAppointmentConfirmationEmail(params: AppointmentConfir
 // ──────────────────────────────────────────────────────────
 // 2b. Notificación de nueva cita (para staff y admins)
 // ──────────────────────────────────────────────────────────
+type PasswordResetEmailParams = {
+  to: string;
+  resetUrl: string;
+};
+
+export async function sendPasswordResetEmail(params: PasswordResetEmailParams) {
+  if (!isGmailConfigured()) { warn("sendPasswordResetEmail", params); return; }
+
+  const body = `
+    ${emailTitle("Restablece tu contrasena")}
+    ${para("Recibimos una solicitud para actualizar la contrasena de tu cuenta.")}
+    ${para("Si fuiste tu, usa este enlace para crear una nueva contrasena. Vence en 1 hora y solo puede usarse una vez.")}
+    <table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px">
+      <tr>
+        <td>${ctaButton("Restablecer contrasena", params.resetUrl)}</td>
+      </tr>
+    </table>
+    ${para("Si el boton no funciona, copia y pega este enlace en tu navegador:", true)}
+    ${insetBlock(`
+      <p style="font-family:Arial,sans-serif;font-size:13px;line-height:1.6;color:${C.ivoryMid};margin:0;word-break:break-all">
+        ${params.resetUrl}
+      </p>
+    `)}
+    ${divider()}
+    ${para("Si no solicitaste este cambio, puedes ignorar este correo con seguridad.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: "Restablece tu contrasena",
+    html: shell("Restablece tu contrasena", body),
+  });
+}
+
 type AppointmentNotificationParams = {
   to: string | string[];
   customerName: string;

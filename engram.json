@@ -4,5 +4,11 @@
     "why": "Establecer la arquitectura AI-First para escalar a largo plazo",
     "where": "Todo el repositorio",
     "learned": "El sistema usará Skills Registry, Context.md y Ramas Aisladas (feature) para evitar el colapso del contexto y la rotura de producción."
+  },
+  {
+    "what": "Recuperacion de contrasena con invalidacion de sesiones JWT",
+    "why": "Permitir que cuentas con credenciales recuperen acceso sin exponer enumeracion de usuarios ni dejar sesiones antiguas activas",
+    "where": "Auth, Prisma, mail transaccional y pantallas publicas",
+    "learned": "Con NextAuth en estrategia JWT, invalidar sesiones previas requiere persistir un sessionVersion en User y contrastarlo en callbacks.jwt/session. Para rate limiting consistente en forgot-password conviene registrar intentos por email e IP en base de datos, porque PasswordResetToken por si solo no cubre emails inexistentes ni cuentas OAuth sin password."
   }
 ]

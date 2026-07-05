@@ -110,6 +110,15 @@ export default function SignInForm() {
               </button>
             </div>
 
+            <div className="flex justify-end">
+              <Link
+                href="/forgot-password"
+                className="text-xs text-[#c8cf94] hover:text-white transition"
+              >
+                Olvide mi contrasena
+              </Link>
+            </div>
+
             <button
               type="submit"
               disabled={isLoading || !email || !password}
