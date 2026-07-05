@@ -1,0 +1,8 @@
+[
+  {
+    "what": "Inicialización del proyecto",
+    "why": "Establecer la arquitectura AI-First para escalar a largo plazo",
+    "where": "Todo el repositorio",
+    "learned": "El sistema usará Skills Registry, Context.md y Ramas Aisladas (feature) para evitar el colapso del contexto y la rotura de producción."
+  }
+]
