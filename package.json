@@ -8,8 +8,12 @@
     "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
     "seed": "prisma db seed",
-    "sync:testimonials": "tsx scripts/sync-testimonials.ts"
+    "sync:testimonials": "tsx scripts/sync-testimonials.ts",
+    "cron:fixtures": "tsx scripts/prepare-cron-fixtures.ts",
+    "cron:test": "tsx scripts/test-cron.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

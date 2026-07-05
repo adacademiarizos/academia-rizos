@@ -11,6 +11,8 @@
 
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
+import { mkdir, rm, stat, writeFile } from "node:fs/promises"
+import path from "node:path"
 
 interface StorageConfig {
   endpoint: string
@@ -21,6 +23,25 @@ interface StorageConfig {
 }
 
 let s3Client: S3Client | null = null
+
+function shouldUseLocalStorageFallback() {
+  return process.env.NODE_ENV !== "production" && (
+    !process.env.R2_ENDPOINT ||
+    !process.env.R2_ACCESS_KEY_ID ||
+    !process.env.R2_SECRET_ACCESS_KEY ||
+    !process.env.R2_BUCKET_NAME
+  )
+}
+
+function getLocalUploadAbsolutePath(key: string) {
+  const normalizedKey = key.split("/").join(path.sep)
+  return path.join(process.cwd(), "public", "local-uploads", normalizedKey)
+}
+
+function getLocalUploadPublicUrl(key: string) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+  return `${baseUrl.replace(/\/$/, "")}/local-uploads/${key}`
+}
 
 /**
  * Initialize S3/R2 client
@@ -61,6 +82,13 @@ export async function uploadFile(
   contentType: string
 ): Promise<string> {
   try {
+    if (shouldUseLocalStorageFallback()) {
+      const destination = getLocalUploadAbsolutePath(key)
+      await mkdir(path.dirname(destination), { recursive: true })
+      await writeFile(destination, body)
+      return getLocalUploadPublicUrl(key)
+    }
+
     const client = getStorageClient()
     const bucketName = process.env.R2_BUCKET_NAME
 
@@ -141,6 +169,12 @@ export async function getSignedDownloadUrl(
   expirationSeconds: number = 3600
 ): Promise<string> {
   try {
+    if (shouldUseLocalStorageFallback()) {
+      const destination = getLocalUploadAbsolutePath(key)
+      await stat(destination)
+      return getLocalUploadPublicUrl(key)
+    }
+
     const client = getStorageClient()
     const bucketName = process.env.R2_BUCKET_NAME
 
@@ -170,6 +204,11 @@ export async function getSignedDownloadUrl(
  */
 export async function deleteFile(key: string): Promise<void> {
   try {
+    if (shouldUseLocalStorageFallback()) {
+      await rm(getLocalUploadAbsolutePath(key), { force: true })
+      return
+    }
+
     const client = getStorageClient()
     const bucketName = process.env.R2_BUCKET_NAME
 
