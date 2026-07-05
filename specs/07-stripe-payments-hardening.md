@@ -25,7 +25,7 @@ Análisis de: `src/lib/stripe.ts`, `src/lib/fees.ts`, `src/app/api/stripe/checko
 | H3 | **Reembolsos fuera de la app.** No hay acción de "reembolsar" en el panel admin; y el webhook no escucha `charge.refunded`. Un reembolso hecho en el Dashboard de Stripe no revierte cita/acceso ni actualiza `Payment.status`. | 🔴 Crítica | Ausencia de endpoint; webhook solo escucha `checkout.session.completed` |
 | H4 | **`stripeChargeId` nunca se persiste.** El campo existe en el modelo pero el webhook solo guarda `stripePaymentIntentId`. Sin el charge no se puede reembolsar ni reconciliar de forma fiable. | 🟠 Alta | `Payment.stripeChargeId` sin asignación en todo el código |
 | H5 | **Sin claves de idempotencia** en `checkout.sessions.create`. Doble submit genera sesiones y `Payment` duplicados (mitigado parcialmente por el `upsert` por sessionId, pero no en la creación). | 🟠 Alta | Ninguna llamada pasa `{ idempotencyKey }` |
-| H6 | **Comisión inconsistente.** Curso y link de pago **añaden** fee al cliente; la cita **no** aplica fee. Además, repercutir la comisión de tarjeta al consumidor (surcharging) está restringido en la UE para tarjetas de consumo (Reg. UE 2015/751 / PSD2). | 🟠 Alta | `courses/checkout` y `payment-links` usan `addStripeFees`; `stripe/checkout` (cita) no |
+| H6 | **Comisión inconsistente entre flujos.** Curso y link de pago **añaden** fee al cliente; la cita **no** aplica fee. **Decisión de negocio (aprobada): modelo SURCHARGE** — el cliente paga la comisión en los tres flujos. Falta homogeneizar la cita. ⚠️ Advertencia asumida: repercutir la comisión de tarjeta al consumidor está restringido en la UE para tarjetas de consumo (Reg. UE 2015/751 / PSD2); revisar con asesoría legal antes de producción. | 🟠 Alta | `courses/checkout` y `payment-links` usan `addStripeFees`; `stripe/checkout` (cita) no |
 | H7 | **Pagos asíncronos no contemplados.** Solo se maneja `checkout.session.completed` (síncrono, tarjeta). Métodos comunes en la UE (SEPA, transferencias) completan de forma diferida vía `async_payment_succeeded/failed`. | 🟠 Alta | Webhook sin esos eventos |
 | H8 | **Cliente de Stripe sin `apiVersion` fijada** y clave secreta única (no restringida). Riesgo de rupturas por cambios de versión y mayor blast radius ante fuga. | 🟡 Media | `new Stripe(env.STRIPE_SECRET_KEY)` sin opciones |
 | H9 | **Mínimos y moneda solo validados en la cita.** `courses/checkout` y `pay/[id]/checkout` no validan el mínimo de Stripe (~50 cts) ni normalizan la moneda de forma centralizada. | 🟡 Media | Validación `< 50` solo en `stripe/checkout` |
@@ -116,10 +116,11 @@ model WebhookEvent {
 ```
 model Settings {
   ...
-  feeMode  String @default("ABSORB")  // "ABSORB" (negocio asume) | "SURCHARGE" (cliente paga)
+  feeMode  String @default("SURCHARGE")  // DECISIÓN APROBADA: "SURCHARGE" (cliente paga). "ABSORB" queda como opción conmutable a futuro.
   // feePercent / feeFixedCents ya existen
 }
 ```
+> **Decisión de negocio confirmada:** `feeMode = SURCHARGE`. La comisión (`addStripeFees`) se aplica de forma idéntica en cita, curso y link de pago. El helper `feeMode` se deja parametrizable por si en el futuro se cambia a `ABSORB` sin migración de código.
 
 > Nota `PaymentStatus`: el enum ya contempla `PARTIAL`, `AUTHORIZED`, `FAILED`, `REFUNDED`, `CANCELED`. Este spec **activa** su uso real; no se requieren nuevos valores salvo, opcionalmente, `PARTIALLY_REFUNDED` (puede modelarse con `REFUNDED` + `refundedAmountCents < amountCents`).
 
@@ -131,6 +132,8 @@ Se documenta la ambigüedad y se elige explícitamente una de dos vías (requier
 - **Opción B — "Retención real de tarjeta" (implementar hold):** usar PaymentIntent con `capture_method: "manual"` para autorizar (retener) el importe y capturarlo o cancelarlo tras la cita (útil contra no-shows; conecta con `specs/05-no-show-policy.md`). Mayor complejidad; el hold expira a los ~7 días.
 
 Recomendación del Spec Writer: **Opción A para el MVP** (menos riesgo, ya funciona), dejando la Opción B como spec futuro ligado a la política de no-show.
+
+> **✅ Decisión de negocio confirmada: Opción A — "Pago en persona".** `AUTHORIZE` significa que la cita se agenda sin cobro online y se paga en el salón. Se mantiene el comportamiento actual del código; solo se documenta explícitamente en `context.md`. La retención real de tarjeta (Opción B) queda como backlog ligado a `specs/05-no-show-policy.md`. En consecuencia, se elimina de este spec cualquier tarea de captura manual de PaymentIntent.
 
 ### 2.4 Flujos objetivo
 
@@ -173,7 +176,7 @@ Recomendación del Spec Writer: **Opción A para el MVP** (menos riesgo, ya func
 **Bloque B — Idempotencia y consistencia de creación:**
 - [ ] T5: Añadir `idempotencyKey` determinista a los tres `checkout.sessions.create` (p. ej. derivado de `appointmentId`/`courseId+userId`/`linkId`).
 - [ ] T6: Unificar validación de mínimo de Stripe y normalización de moneda en un helper compartido; aplicarla en los tres flujos (resuelve H9).
-- [ ] T7: Definir e implementar la política de comisión única vía `Settings.feeMode`; aplicar el mismo cálculo en cita, curso y link (resuelve H6). Incluir nota de cumplimiento UE sobre surcharging.
+- [ ] T7: Implementar la política de comisión **SURCHARGE** (decisión aprobada) vía `Settings.feeMode`; aplicar el mismo `addStripeFees` en cita, curso y link — hoy la **cita no lo aplica** y debe pasar a hacerlo. Incluir nota de cumplimiento UE sobre surcharging pendiente de revisión legal.
 
 **Bloque C — Depósitos con saldo (H1):**
 - [ ] T8: Al crear checkout de depósito, guardar `isDeposit`, `totalDueCents` y `Appointment.totalPriceCents`.
@@ -198,4 +201,11 @@ Recomendación del Spec Writer: **Opción A para el MVP** (menos riesgo, ya func
 
 ---
 
-*(Nota para la IA: Ejecuta las tareas mediante sub-agentes en la rama `feature/stripe-payments-hardening`. Antes de tocar cualquier archivo de pagos, lee `.agents/skills/stripe-best-practices/SKILL.md` y sus referencias `payments.md`, `security.md` y `billing.md`. Al finalizar, verifica contra la suite de `/tests` antes de solicitar Merge a `dev`. Detente aquí — Human Gate — hasta recibir aprobación y, en particular, la decisión sobre §2.3 (AUTHORIZE Opción A vs B) y §2.5/T7 (política de comisión ABSORB vs SURCHARGE).)*
+### Decisiones de negocio resueltas (Human Gate parcial)
+
+- **§2.3 AUTHORIZE → Opción A "Pago en persona"** (confirmado). Sin captura manual de tarjeta en este spec.
+- **§2.5 / T7 Comisión → `feeMode = SURCHARGE`** (confirmado). El cliente paga la comisión en los tres flujos; homogeneizar la cita. ⚠️ Sujeto a revisión legal por la restricción de surcharging en la UE.
+
+**Estado del spec:** en revisión del usuario. La implementación NO ha sido aprobada todavía.
+
+*(Nota para la IA: Ejecuta las tareas mediante sub-agentes en la rama `feature/stripe-payments-hardening` SOLO tras la aprobación explícita de implementación. Antes de tocar cualquier archivo de pagos, lee `.agents/skills/stripe-best-practices/SKILL.md` y sus referencias `payments.md`, `security.md` y `billing.md`. Al finalizar, verifica contra la suite de `/tests` antes de solicitar Merge a `dev`.)*
