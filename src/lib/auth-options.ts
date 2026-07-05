@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { isSessionVersionStale } from "@/lib/password-reset";
 
 export const authOptions: NextAuthOptions = {
   secret: env.NEXTAUTH_SECRET,
@@ -42,6 +43,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           image: user.image,
+          sessionVersion: user.sessionVersion,
         };
       },
     }),
@@ -65,26 +67,45 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token }) {
+    async jwt({ token, user }) {
       if (!token.email) return token;
 
       const dbUser = await db.user.findUnique({
         where: { email: token.email.toLowerCase() },
-        select: { id: true, role: true },
+        select: { id: true, role: true, sessionVersion: true },
       });
 
-      if (dbUser) {
-        token.userId = dbUser.id;
-        token.role = dbUser.role;
+      if (!dbUser) {
+        return { sessionInvalidated: true };
       }
+
+      if (!user && isSessionVersionStale(token.sessionVersion, dbUser.sessionVersion)) {
+        return { sessionInvalidated: true };
+      }
+
+      token.userId = dbUser.id;
+      token.role = dbUser.role;
+      token.sessionVersion = dbUser.sessionVersion;
+
       return token;
     },
     async session({ session, token }) {
+      if (token.sessionInvalidated || !session.user) {
+        return {
+          ...session,
+          error: "SessionInvalidated",
+          user: undefined,
+        };
+      }
+
       if (session.user) {
-        // @ts-expect-error
-        session.user.id = token.userId;
-        // @ts-expect-error
-        session.user.role = token.role;
+        const sessionUser = session.user as typeof session.user & {
+          id: string;
+          role: "ADMIN" | "STAFF" | "STUDENT";
+        };
+
+        sessionUser.id = token.userId ?? "";
+        sessionUser.role = token.role ?? "STUDENT";
       }
       return session;
     },
