@@ -4,5 +4,17 @@
     "why": "Establecer la arquitectura AI-First para escalar a largo plazo",
     "where": "Todo el repositorio",
     "learned": "El sistema usará Skills Registry, Context.md y Ramas Aisladas (feature) para evitar el colapso del contexto y la rotura de producción."
+  },
+  {
+    "what": "Decisión sobre BillingRule.AUTHORIZE",
+    "why": "El enum era ambiguo (¿retención de tarjeta o pago presencial?); el spec 07 lo planteó como Human Gate",
+    "where": "specs/07-stripe-payments-hardening.md §2.3; src/app/api/stripe/checkout/route.ts, src/app/api/bookings/draft/route.ts",
+    "learned": "AUTHORIZE = 'pago en persona' (Opción A): la cita se agenda sin cobro online y se paga en el salón. Se mantiene el comportamiento actual del código. La retención real de tarjeta (capture_method=manual) queda como backlog ligado a la política de no-show (spec 05)."
+  },
+  {
+    "what": "Política de comisión de Stripe (feeMode)",
+    "why": "Comisión inconsistente: curso y link añadían fee al cliente, la cita no; se necesitaba una única política",
+    "where": "specs/07-stripe-payments-hardening.md §2.5/T7; src/lib/fees.ts, Settings.feeMode",
+    "learned": "Decisión de negocio: SURCHARGE (el cliente paga la comisión) en los tres flujos; hay que homogeneizar la cita, que hoy no la aplica. ADVERTENCIA asumida por el negocio: repercutir la comisión de tarjeta al consumidor está restringido en la UE (Reg. UE 2015/751 / PSD2) — pendiente de revisión legal antes de producción."
   }
 ]
