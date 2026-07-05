@@ -8,6 +8,7 @@
     "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "jest --runInBand",
     "seed": "prisma db seed",
     "sync:testimonials": "tsx scripts/sync-testimonials.ts"
   },
@@ -52,13 +53,16 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/fluent-ffmpeg": "^2.1.28",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "jest": "^30.4.2",
     "puppeteer": "^24.37.5",
     "tailwindcss": "^4",
+    "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "^5"

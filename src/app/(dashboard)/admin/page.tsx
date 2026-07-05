@@ -227,7 +227,12 @@ export default async function AdminOverviewPage() {
     db.user.count({ where: { createdAt: { gte: last7Start } } }),
     db.course.count({ where: { isActive: true } }),
     db.courseAccess.count(),
-    db.courseAccess.count({ where: { OR: [{ accessUntil: null }, { accessUntil: { gt: now } }] } }),
+    db.courseAccess.count({
+      where: {
+        revokedAt: null,
+        OR: [{ accessUntil: null }, { accessUntil: { gt: now } }],
+      },
+    }),
     db.certificate.count({ where: { valid: true } }),
     db.certificate.count({ where: { valid: true, issuedAt: { gte: monthStart } } }),
     db.examSubmission.count({ where: { status: "PENDING" } }),
@@ -256,7 +261,9 @@ export default async function AdminOverviewPage() {
         COUNT(ca.id)::bigint AS enrollments,
         COUNT(cert.id)::bigint AS certificates
       FROM "Course" c
-      LEFT JOIN "CourseAccess" ca ON ca."courseId" = c.id
+      LEFT JOIN "CourseAccess" ca
+        ON ca."courseId" = c.id
+       AND ca."revokedAt" IS NULL
       LEFT JOIN "Certificate" cert ON cert."courseId" = c.id AND cert.valid = true
       WHERE c."isActive" = true
       GROUP BY c.id, c.title
@@ -294,6 +301,7 @@ export default async function AdminOverviewPage() {
       INNER JOIN "CourseAccess" ca
         ON ca."courseId" = cert."courseId"
        AND ca."userId" = cert."userId"
+       AND ca."revokedAt" IS NULL
       WHERE cert.valid = true
     `,
     db.$queryRaw<RetentionRow[]>`
@@ -337,6 +345,7 @@ export default async function AdminOverviewPage() {
         )::bigint AS retained_30
       FROM "CourseAccess" ca
       WHERE ca."createdAt" >= ${last90Start}
+        AND ca."revokedAt" IS NULL
     `,
     db.$queryRaw<ModuleDropoffRow[]>`
       SELECT
@@ -347,7 +356,9 @@ export default async function AdminOverviewPage() {
         COUNT(DISTINCT mp."userId") FILTER (WHERE mp.completed = true)::bigint AS completed_users
       FROM "Module" m
       INNER JOIN "Course" c ON c.id = m."courseId"
-      LEFT JOIN "CourseAccess" ca ON ca."courseId" = c.id
+      LEFT JOIN "CourseAccess" ca
+        ON ca."courseId" = c.id
+       AND ca."revokedAt" IS NULL
       LEFT JOIN "ModuleProgress" mp
         ON mp."moduleId" = m.id
        AND mp."userId" = ca."userId"

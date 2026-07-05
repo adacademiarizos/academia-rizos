@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
+import { isCourseAccessActive } from '@/lib/course-access'
 import { CommunityService } from '@/server/services/community-service'
 
 export async function GET(request: NextRequest) {
@@ -108,10 +109,10 @@ export async function POST(request: NextRequest) {
       if (room.type === 'COURSE' && room.courseId) {
         const access = await db.courseAccess.findUnique({
           where: { userId_courseId: { userId: user.id, courseId: room.courseId } },
-          select: { accessUntil: true },
+          select: { accessUntil: true, revokedAt: true },
         })
 
-        const hasAccess = access && (access.accessUntil === null || access.accessUntil > new Date())
+        const hasAccess = isCourseAccessActive(access)
 
         if (!hasAccess) {
           return NextResponse.json(

@@ -140,6 +140,12 @@ Payment
   amountCents, currency
   stripeCheckoutSessionId?, stripePaymentIntentId?
 
+WebhookEvent
+  stripeEventId (único)
+  type
+  receivedAt, processedAt
+  payload? (debug / auditoría)
+
 BusinessHours  — horarios semanales (dayOfWeek, openTime, closeTime)
 BusinessOffDay — días libres globales
 ```
@@ -156,7 +162,7 @@ Course
      └─ ModuleTest[]    (tests por módulo)
      └─ ModuleResource[] (PDFs, docs descargables)
   └─ CourseTest[]       (tests globales, isFinalExam?)
-  └─ CourseAccess[]     (userId, expiresAt?)
+  └─ CourseAccess[]     (userId, expiresAt?, revokedAt?)
 
 ModuleProgress  — userId + moduleId, completed
 CourseTestSubmission / ExamSubmission — respuestas del estudiante, status: PENDING | APPROVED | REVISION_REQUESTED
@@ -198,16 +204,19 @@ Settings        — feePercent, feeFixedCents, defaultCurrency
 2. POST /api/bookings/draft  — crea Appointment(PENDING) + Payment(REQUIRES_PAYMENT)
 3. Redirige a Stripe Checkout
 4. Stripe llama al webhook POST /api/stripe/webhook
-5. Webhook actualiza Payment(PAID) + Appointment(CONFIRMED)
-6. Email confirmación al cliente
+5. El webhook registra WebhookEvent(stripeEventId) para deduplicación
+6. Webhook actualiza Payment(PAID) + Appointment(CONFIRMED)
+7. Si Stripe luego envía `checkout.session.expired`, `payment_intent.payment_failed`, `charge.refunded` o disputas, el mismo webhook sincroniza Payment + Appointment automáticamente
+8. Email confirmación al cliente
 ```
 
 ### Flujo de compra de curso
 ```
 1. Cliente va a /learn/[courseId] → clic en Comprar
 2. GET /api/courses/[courseId]/checkout — crea Stripe session
-3. Stripe webhook → crea CourseAccess
-4. Email recibo al cliente
+3. Stripe webhook → crea o reactiva CourseAccess
+4. Si el pago se reembolsa o se pierde una disputa, el webhook marca Payment(REFUNDED) y revoca CourseAccess.revokedAt
+5. Email recibo al cliente
 ```
 
 ### Flujo de examen y certificado

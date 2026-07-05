@@ -77,6 +77,27 @@ npm run dev
 
 La app corre en `http://localhost:3000`.
 
+### Webhooks de Stripe
+
+El endpoint `POST /api/stripe/webhook` ahora espera este set completo de eventos:
+
+- `checkout.session.completed`
+- `checkout.session.expired`
+- `payment_intent.payment_failed`
+- `charge.refunded`
+- `charge.dispute.created`
+- `charge.dispute.closed`
+
+En desarrollo local puedes reenviarlos con Stripe CLI:
+
+```bash
+stripe listen \
+  --events checkout.session.completed,checkout.session.expired,payment_intent.payment_failed,charge.refunded,charge.dispute.created,charge.dispute.closed \
+  --forward-to http://localhost:3000/api/stripe/webhook
+```
+
+En producción, asegúrate de suscribir exactamente esos eventos en el endpoint del Dashboard de Stripe.
+
 ---
 
 ## Estructura de carpetas

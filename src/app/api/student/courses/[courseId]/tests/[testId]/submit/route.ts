@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { z } from 'zod'
 import { db } from '@/lib/db'
+import { isCourseAccessActive } from '@/lib/course-access'
 
 const SubmitSchema = z.object({
   answers: z.record(z.string(), z.string()), // questionId -> answer (JSON string or plain text or URL)
@@ -15,9 +16,9 @@ async function requireStudent(courseId: string) {
   if (!user) return null
   const access = await db.courseAccess.findUnique({
     where: { userId_courseId: { userId: user.id, courseId } },
+    select: { accessUntil: true, revokedAt: true },
   })
-  if (!access) return null
-  if (access.accessUntil && access.accessUntil < new Date()) return null
+  if (!isCourseAccessActive(access)) return null
   return user
 }
 

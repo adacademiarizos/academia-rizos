@@ -35,6 +35,7 @@ const PAY_STATUS: Record<string, { label: string; style: string }> = {
   AUTHORIZED:       { label: "Autorizado",  style: "bg-indigo-500/20 text-indigo-300" },
   FAILED:           { label: "Fallido",     style: "bg-red-500/20 text-red-300" },
   REFUNDED:         { label: "Reembolsado", style: "bg-zinc-500/20 text-zinc-300" },
+  CANCELED:         { label: "Cancelado",   style: "bg-zinc-500/20 text-zinc-300" },
 };
 
 function formatDate(d: string) {

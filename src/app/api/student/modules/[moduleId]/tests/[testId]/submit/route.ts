@@ -21,9 +21,10 @@ async function verifyStudentAccess(userId: string, courseId: string) {
     where: {
       userId_courseId: { userId, courseId },
     },
+    select: { revokedAt: true },
   })
 
-  return !!access
+  return !!access && !access.revokedAt
 }
 
 export async function POST(

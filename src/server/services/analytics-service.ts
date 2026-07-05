@@ -13,7 +13,7 @@ export class AnalyticsService {
     try {
       // Courses enrolled
       const coursesEnrolled = await db.courseAccess.count({
-        where: { userId },
+        where: { userId, revokedAt: null },
       })
 
       // Modules completed
@@ -58,7 +58,7 @@ export class AnalyticsService {
         where: { userId_courseId: { userId, courseId } },
       })
 
-      if (!access) {
+      if (!access || access.revokedAt) {
         return null // No access
       }
 
@@ -181,7 +181,7 @@ export class AnalyticsService {
   static async getCoursesProgress(userId: string) {
     try {
       const courses = await db.courseAccess.findMany({
-        where: { userId },
+        where: { userId, revokedAt: null },
         select: { courseId: true },
       })
 

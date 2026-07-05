@@ -4,5 +4,11 @@
     "why": "Establecer la arquitectura AI-First para escalar a largo plazo",
     "where": "Todo el repositorio",
     "learned": "El sistema usará Skills Registry, Context.md y Ramas Aisladas (feature) para evitar el colapso del contexto y la rotura de producción."
+  },
+  {
+    "what": "Ciclo de vida completo del webhook de Stripe",
+    "why": "Sincronizar reembolsos, fallos, expiraciones y disputas sin duplicar efectos secundarios",
+    "where": "prisma/schema.prisma, src/app/api/stripe/webhook/route.ts, src/server/services/stripe-webhook-service.ts",
+    "learned": "El patrón más estable fue separar la reconciliación core en base de datos de las notificaciones no críticas: primero se consolida Payment/Appointment/CourseAccess y se registra WebhookEvent para idempotencia auditable; después se disparan emails/notificaciones como tareas tolerantes a fallo para no forzar reintentos de Stripe."
   }
 ]

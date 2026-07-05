@@ -26,8 +26,9 @@ export async function GET(
     // Verify student has access to this course
     const access = await db.courseAccess.findUnique({
       where: { userId_courseId: { userId: user.id, courseId } },
+      select: { revokedAt: true },
     })
-    if (!access) {
+    if (!access || access.revokedAt) {
       return NextResponse.json({ success: false, error: 'No access' }, { status: 403 })
     }
 
