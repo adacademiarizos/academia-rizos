@@ -1,0 +1,33 @@
+name: CI/CD Pipeline AI-Driven
+on:
+  pull_request:
+    branches: [ main, dev ]
+jobs:
+  tests:
+    name: Run Automated Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies & Test
+        run: |
+          npm install
+          npm run test
+  security_review:
+    name: Claude Security Review
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Claude Code Security Review
+        uses: anthropics/claude-code-security-review@v1
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  release:
+    name: Google Release Please
+    if: github.base_ref == 'main'
+    needs: [tests, security_review]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/release-please-action@v4
+        with:
+          release-type: node
