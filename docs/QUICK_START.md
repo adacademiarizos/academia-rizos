@@ -68,6 +68,7 @@ La app estará en http://localhost:3000.
 | Documento | Contenido |
 |-----------|----------|
 | `ARCHITECTURE.md` | Arquitectura, rutas, modelos de datos, flujos |
+| `LOCAL_CRON_TESTING.md` | Guía paso a paso para probar los cron jobs en local |
 | `DEPLOY.md` | Guía de despliegue en Vercel + Neon |
 | `DEMO_DATA.md` | Datos demo: usuarios, cursos, credenciales |
 | `TECH-STACK.md` | Stack tecnológico completo |
@@ -85,6 +86,10 @@ La app estará en http://localhost:3000.
 npm run dev          # Servidor de desarrollo
 npm run build        # Build de producción (genera Prisma + migra + next build)
 npm run seed         # Carga datos demo
+npm run db:migrate   # Aplicar migraciones pendientes
+npm run db:seed      # Alias explícito del seed
+npm run cron:fixtures # Preparar datos para probar cron jobs
+npm run cron:test    # Disparar los endpoints cron en local
 npm run lint         # ESLint
 npx prisma studio    # UI visual de la base de datos
 npx prisma migrate dev # Aplicar migraciones pendientes

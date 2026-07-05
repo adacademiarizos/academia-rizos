@@ -307,6 +307,7 @@ model Settings {
   feePercent      Float    @default(2.5)
   feeFixedCents   Int      @default(25)
   defaultCurrency String   @default("EUR")
+  cronAlertState  Json?
   updatedAt       DateTime @updatedAt
 }
 

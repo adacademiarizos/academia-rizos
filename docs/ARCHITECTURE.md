@@ -27,6 +27,7 @@ Servicios externos:
   Cloudflare R2 — archivos (videos, PDFs, imágenes, certificados)
   OpenAI   — transcripción, sinopsis, chat IA
   Gmail / Nodemailer — emails transaccionales
+  Vercel Cron — mantenimiento periódico /api/cron/*
 ```
 
 ---
@@ -105,6 +106,14 @@ Todos los endpoints validan autenticación y permisos server-side. Patrón de re
 // Error
 { success: false, error: string }
 ```
+
+Además existe un endpoint interno de mantenimiento `GET /api/cron/[job]`, protegido con `Authorization: Bearer CRON_SECRET`, invocado por Vercel Cron para tareas operativas:
+
+| Job | Propósito |
+|------|-------------|
+| `expire-access` | Revisa accesos de cursos con `accessUntil` vencido y deja trazabilidad operativa del backlog expirado |
+| `issue-certificates` | Reemite como red de seguridad certificados faltantes para aprobaciones finales ya registradas |
+| `send-receipts` | Reintenta recibos pendientes para pagos `PAID` cuyo email no quedó marcado como enviado |
 
 ---
 
@@ -207,7 +216,8 @@ Settings        — feePercent, feeFixedCents, defaultCurrency
 1. Cliente va a /learn/[courseId] → clic en Comprar
 2. GET /api/courses/[courseId]/checkout — crea Stripe session
 3. Stripe webhook → crea CourseAccess
-4. Email recibo al cliente
+4. Stripe webhook intenta enviar recibo inmediatamente
+5. Vercel Cron `send-receipts` reintenta cualquier recibo pendiente
 ```
 
 ### Flujo de examen y certificado
@@ -220,8 +230,16 @@ Settings        — feePercent, feeFixedCents, defaultCurrency
    - Sube a R2
    - Crea Certificate(valid=true, pdfUrl)
    - Envía email con link al PDF
-5. Estudiante descarga desde /learn/[courseId]
-6. Verificación pública en /verify/certificate/[code]
+5. Vercel Cron `issue-certificates` actúa como red de seguridad si una aprobación quedó sin certificado válido
+6. Estudiante descarga desde /learn/[courseId]
+7. Verificación pública en /verify/certificate/[code]
+```
+
+### Flujo de expiración de acceso
+```
+1. Stripe webhook o checkout crea CourseAccess con accessUntil según Course.rentalDays
+2. Las rutas de lectura validan accessUntil directamente para bloquear video al vencer
+3. Vercel Cron `expire-access` revisa accesos vencidos y deja logging estructurado centralizado
 ```
 
 ---

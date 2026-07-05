@@ -10,5 +10,11 @@
     "why": "Permitir que cuentas con credenciales recuperen acceso sin exponer enumeracion de usuarios ni dejar sesiones antiguas activas",
     "where": "Auth, Prisma, mail transaccional y pantallas publicas",
     "learned": "Con NextAuth en estrategia JWT, invalidar sesiones previas requiere persistir un sessionVersion en User y contrastarlo en callbacks.jwt/session. Para rate limiting consistente en forgot-password conviene registrar intentos por email e IP en base de datos, porque PasswordResetToken por si solo no cubre emails inexistentes ni cuentas OAuth sin password."
+  },
+  {
+    "what": "Automatización de jobs de mantenimiento",
+    "why": "Centralizar cron jobs sin infraestructura nueva y evitar alertas duplicadas",
+    "where": "src/app/api/cron/[job]/route.ts, src/server/jobs/*, prisma/schema.prisma",
+    "learned": "Los jobs de mantenimiento funcionan mejor como un endpoint único autenticado por CRON_SECRET y disparado por Vercel Cron. El estado de alertas se persiste en Settings.cronAlertState para notificar solo en transición a fallo sin crear una tabla nueva."
   }
 ]
