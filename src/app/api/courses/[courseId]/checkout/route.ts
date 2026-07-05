@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
+import { isCourseAccessActive } from '@/lib/course-access'
 import { stripe } from '@/lib/stripe'
 import { CourseService } from '@/server/services/course-service'
 import { addStripeFees } from '@/lib/fees'
@@ -84,9 +85,10 @@ export async function POST(
       where: {
         userId_courseId: { userId: user.id, courseId },
       },
+      select: { accessUntil: true, revokedAt: true },
     })
 
-    if (existingAccess && !existingAccess.accessUntil) {
+    if (existingAccess && isCourseAccessActive(existingAccess) && !existingAccess.accessUntil) {
       return NextResponse.json(
         { success: false, error: 'You already have access to this course' },
         { status: 400 }
@@ -111,6 +113,21 @@ export async function POST(
     const analyticsReferrer = body.referrer || ''
 
     // Create Stripe checkout session
+    const metadata = {
+      type: 'COURSE',
+      courseId: course.id,
+      userId: user.id,
+      priceCents: String(course.priceCents),
+      feeCents: String(feeCents),
+      totalCents: String(totalCents),
+      rentalDays: course.rentalDays ? String(course.rentalDays) : 'lifetime',
+      analyticsSessionId,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      analyticsReferrer,
+    }
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'payment',
       customer_email: user.email,
@@ -129,20 +146,10 @@ export async function POST(
           quantity: 1,
         },
       ],
-      metadata: {
-        type: 'COURSE',
-        courseId: course.id,
-        userId: user.id,
-        priceCents: String(course.priceCents),
-        feeCents: String(feeCents),
-        totalCents: String(totalCents),
-        rentalDays: course.rentalDays ? String(course.rentalDays) : 'lifetime',
-        analyticsSessionId,
-        utmSource,
-        utmMedium,
-        utmCampaign,
-        analyticsReferrer,
+      payment_intent_data: {
+        metadata,
       },
+      metadata,
     })
 
     // Create Payment record
@@ -153,21 +160,14 @@ export async function POST(
     await db.payment.create({
       data: {
         type: 'COURSE',
-        status: 'PROCESSING',
+        status: 'REQUIRES_PAYMENT',
         amountCents: totalCents,
         currency: course.currency,
         stripeCheckoutSessionId: checkoutSession.id,
         courseId: course.id,
         payerId: user.id,
         payerEmail: user.email,
-        metadata: {
-          type: 'COURSE',
-          courseId: course.id,
-          userId: user.id,
-          basePriceCents: course.priceCents,
-          feeCents,
-          totalCents,
-        },
+        metadata,
       },
     })
 

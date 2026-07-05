@@ -443,6 +443,7 @@ model CourseAccess {
   courseId    String
   accessUntil DateTime? // null = lifetime
   createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -450,6 +451,19 @@ model CourseAccess {
   @@unique([userId, courseId])
   @@index([courseId])
   @@index([userId])
+  @@index([revokedAt])
+}
+
+model WebhookEvent {
+  id            String    @id @default(cuid())
+  stripeEventId String    @unique
+  type          String
+  receivedAt    DateTime  @default(now())
+  processedAt   DateTime?
+  payload       Json?
+
+  @@index([type])
+  @@index([processedAt])
 }
 
 model Resource {

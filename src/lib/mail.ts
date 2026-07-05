@@ -169,6 +169,52 @@ export async function sendPaymentReceiptEmail(params: PaymentReceiptParams) {
   });
 }
 
+type PaymentFailedEmailParams = {
+  to: string;
+  customerName?: string;
+  concept: string;
+  amountCents?: number;
+  currency?: string;
+  failureReason?: string;
+  retryUrl?: string;
+};
+
+export async function sendPaymentFailedEmail(params: PaymentFailedEmailParams) {
+  if (!isGmailConfigured()) { warn("sendPaymentFailedEmail", params); return; }
+
+  const rows: Array<[string, string]> = [["Concepto", params.concept]];
+  if (typeof params.amountCents === "number" && params.currency) {
+    const amount = (params.amountCents / 100).toFixed(2);
+    const symbol = params.currency === "EUR" ? "€" : params.currency;
+    rows.push(["Monto", `${symbol}${amount}`]);
+  }
+  if (params.failureReason) {
+    rows.push(["Motivo", params.failureReason]);
+  }
+
+  const cta = params.retryUrl
+    ? `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px"><tr><td>${ctaButton("Reintentar pago", params.retryUrl)}</td></tr></table>`
+    : "";
+
+  const body = `
+    ${emailTitle("No pudimos completar tu pago")}
+    ${para(`Hola <strong>${params.customerName ?? "cliente"}</strong>, tu intento de pago no se completó.`)}
+    ${dataTable(rows)}
+    ${cta}
+    ${divider()}
+    ${para("Puedes intentarlo nuevamente cuando quieras. Si el problema persiste, responde a este correo para ayudarte.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: `Pago fallido — ${params.concept}`,
+    html: shell(`Pago fallido — ${params.concept}`, body),
+  });
+}
+
 // ──────────────────────────────────────────────────────────
 // 2. Confirmación de cita
 // ──────────────────────────────────────────────────────────
@@ -214,6 +260,53 @@ export async function sendAppointmentConfirmationEmail(params: AppointmentConfir
     replyTo: params.to,
     subject: `Cita confirmada — ${params.serviceName}`,
     html: shell(`Cita confirmada — ${params.serviceName}`, body),
+  });
+}
+
+type AppointmentCancelledEmailParams = {
+  to: string;
+  customerName: string;
+  serviceName: string;
+  staffName: string;
+  startAt: Date;
+  endAt: Date;
+  reason?: string;
+};
+
+export async function sendAppointmentCancelledEmail(params: AppointmentCancelledEmailParams) {
+  if (!isGmailConfigured()) { warn("sendAppointmentCancelledEmail", params); return; }
+
+  const dateStr = params.startAt.toLocaleDateString("es-ES", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+  const startTime = params.startAt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  const endTime = params.endAt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+
+  const rows: Array<[string, string]> = [
+    ["Servicio", params.serviceName],
+    ["Especialista", params.staffName],
+    ["Fecha", dateStr.charAt(0).toUpperCase() + dateStr.slice(1)],
+    ["Horario", `${startTime} – ${endTime}`],
+  ];
+  if (params.reason) {
+    rows.push(["Motivo", params.reason]);
+  }
+
+  const body = `
+    ${emailTitle("Tu cita fue cancelada")}
+    ${para(`Hola <strong>${params.customerName}</strong>, la cita asociada a este pago fue cancelada.`)}
+    ${dataTable(rows)}
+    ${divider()}
+    ${para("Si deseas agendar una nueva cita, puedes responder a este correo y te ayudaremos con el siguiente paso.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: `Cita cancelada — ${params.serviceName}`,
+    html: shell(`Cita cancelada — ${params.serviceName}`, body),
   });
 }
 

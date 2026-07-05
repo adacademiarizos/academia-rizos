@@ -4,6 +4,7 @@
  */
 
 import { db } from '@/lib/db'
+import { buildActiveCourseAccessWhere } from '@/lib/course-access'
 
 interface NotificationData {
   userId: string
@@ -151,7 +152,10 @@ export class NotificationService {
       // For now, notify all users enrolled in the course
       if (targetType === 'COURSE') {
         const enrolledUsers = await db.courseAccess.findMany({
-          where: { courseId: targetId },
+          where: {
+            courseId: targetId,
+            ...buildActiveCourseAccessWhere(),
+          },
           select: { userId: true },
           distinct: ['userId'],
         })

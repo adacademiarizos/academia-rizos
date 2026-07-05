@@ -22,7 +22,17 @@ const STATUS_MAP: Record<string, string> = {
   PAID: "bg-green-500/20 text-green-400",
   PROCESSING: "bg-blue-500/20 text-blue-400",
   FAILED: "bg-red-500/20 text-red-400",
+  REFUNDED: "bg-zinc-500/20 text-zinc-300",
   CANCELED: "bg-gray-500/20 text-gray-400",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  REQUIRES_PAYMENT: "Pendiente",
+  PAID: "Pagado",
+  PROCESSING: "Procesando",
+  FAILED: "Fallido",
+  REFUNDED: "Reembolsado",
+  CANCELED: "Cancelado",
 };
 
 function CopyButton({ url }: { url: string }) {
@@ -207,7 +217,7 @@ export default function StaffPaymentLinksPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold text-white">{link.title}</span>
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${statusCls}`}>
-                          {link.status === "REQUIRES_PAYMENT" ? "Pendiente" : link.status === "PAID" ? "Pagado" : link.status}
+                          {STATUS_LABELS[link.status] ?? link.status}
                         </span>
                       </div>
                       {link.description && (

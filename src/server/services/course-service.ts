@@ -4,6 +4,7 @@
 
 import { db } from '@/lib/db'
 import { addStripeFees } from '@/lib/fees'
+import { buildActiveCourseAccessWhere, isCourseAccessActive } from '@/lib/course-access'
 import type { Course, Module } from '@prisma/client'
 
 export class CourseService {
@@ -139,15 +140,16 @@ export class CourseService {
       select: {
         id: true,
         accessUntil: true,
+        revokedAt: true,
       },
     })
 
-    if (!access) {
+    if (!access || access.revokedAt) {
       return { hasAccess: false, isExpired: false, canWatchVideos: false }
     }
 
     // Check if video rental period has expired
-    const isExpired = !!(access.accessUntil && access.accessUntil < new Date())
+    const isExpired = !isCourseAccessActive(access)
 
     return {
       hasAccess: true,          // purchased — always true once enrolled
@@ -314,7 +316,7 @@ export class CourseService {
       where: { userId_courseId: { userId, courseId } },
     })
 
-    if (existing && !existing.accessUntil) {
+    if (existing && !existing.revokedAt && !existing.accessUntil) {
       // Already has lifetime access
       return existing
     }
@@ -327,7 +329,10 @@ export class CourseService {
 
       return db.courseAccess.update({
         where: { id: existing.id },
-        data: { accessUntil: newAccessUntil },
+        data: {
+          accessUntil: newAccessUntil,
+          revokedAt: null,
+        },
       })
     }
 
@@ -341,7 +346,30 @@ export class CourseService {
         userId,
         courseId,
         accessUntil,
+        revokedAt: null,
       },
+    })
+  }
+
+  /**
+   * Revoke a student's course access without deleting historical enrollment.
+   */
+  static async revokeCourseAccess(userId: string, courseId: string) {
+    const activeAccess = await db.courseAccess.findFirst({
+      where: {
+        userId,
+        courseId,
+        ...buildActiveCourseAccessWhere(),
+      },
+    })
+
+    if (!activeAccess) {
+      return null
+    }
+
+    return db.courseAccess.update({
+      where: { id: activeAccess.id },
+      data: { revokedAt: new Date() },
     })
   }
 }

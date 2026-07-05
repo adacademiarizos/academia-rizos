@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
+import { isCourseAccessActive } from '@/lib/course-access'
 import { getOpenAI } from '@/lib/openai'
 
 const TRANSCRIPT_MAX_CHARS = 8000
@@ -115,16 +116,11 @@ export async function POST(request: NextRequest) {
     if (user.role !== 'ADMIN') {
       const access = await db.courseAccess.findUnique({
         where: { userId_courseId: { userId: user.id, courseId } },
+        select: { accessUntil: true, revokedAt: true },
       })
-      if (!access) {
+      if (!isCourseAccessActive(access)) {
         return NextResponse.json(
           { success: false, error: 'No tienes acceso a este curso' },
-          { status: 403 }
-        )
-      }
-      if (access.accessUntil && access.accessUntil < new Date()) {
-        return NextResponse.json(
-          { success: false, error: 'Tu acceso a este curso ha expirado' },
           { status: 403 }
         )
       }

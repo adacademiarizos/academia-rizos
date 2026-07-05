@@ -43,6 +43,7 @@ export type CourseAccess = {
   userId: string
   courseId: string
   accessUntil?: Date | null
+  revokedAt?: Date | null
   createdAt: Date
 }
 

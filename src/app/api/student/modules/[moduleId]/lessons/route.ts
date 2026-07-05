@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
+import { isCourseAccessActive } from '@/lib/course-access'
 
 export async function GET(
   request: NextRequest,
@@ -51,17 +52,17 @@ export async function GET(
     // Check course access and whether the video rental period is still active
     const access = await db.courseAccess.findUnique({
       where: { userId_courseId: { userId: user.id, courseId: module.courseId } },
-      select: { accessUntil: true },
+      select: { accessUntil: true, revokedAt: true },
     })
 
-    if (!access) {
+    if (!access || access.revokedAt) {
       return NextResponse.json(
         { success: false, error: 'No access to this course' },
         { status: 403 }
       )
     }
 
-    const videoExpired = !!(access.accessUntil && access.accessUntil < new Date())
+    const videoExpired = !isCourseAccessActive(access)
 
     const lessons = await db.lesson.findMany({
       where: { moduleId },

@@ -104,10 +104,10 @@ export async function POST(
       where: {
         userId_courseId: { userId: user.id, courseId: module.courseId },
       },
-      select: { id: true },
+      select: { id: true, revokedAt: true },
     })
 
-    if (!courseAccess) {
+    if (!courseAccess || courseAccess.revokedAt) {
       return NextResponse.json(
         { success: false, error: 'No access to this course' },
         { status: 403 }

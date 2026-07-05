@@ -156,6 +156,7 @@ function StatusPill({ status }: { status: string }) {
     PROCESSING: "bg-white/10 text-white/80",
     PAID: "bg-[var(--copper)]/25 text-white ring-1 ring-[var(--copper)]/25",
     FAILED: "bg-white/10 text-white/80",
+    REFUNDED: "bg-white/10 text-white/80",
     CANCELED: "bg-white/10 text-white/80",
     EXPIRED: "bg-white/10 text-white/80",
   };
