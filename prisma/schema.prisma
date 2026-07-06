@@ -366,6 +366,7 @@ model Module {
   tests       ModuleTest[]
   submissions ModuleSubmission[]
   lessons     Lesson[]
+  styles      ModuleStyle[]
 
   likes    Like[]
   comments Comment[]
@@ -374,8 +375,31 @@ model Module {
   @@index([courseId])
 }
 
+model ModuleStyle {
+  id          String  @id @default(cuid())
+  moduleId    String
+  order       Int
+  name        String
+  slug        String
+  description String?
+  isActive    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  module  Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@unique([moduleId, slug])
+  @@unique([moduleId, order])
+  @@index([moduleId])
+  @@index([moduleId, order])
+}
+
 model Lesson {
   id           String  @id @default(cuid())
+  styleId      String
+  // Legacy denormalized field kept so old module-scoped APIs can remain stable.
   moduleId     String
   order        Int
   title        String
@@ -387,9 +411,11 @@ model Lesson {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  style  ModuleStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  module Module      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
-  @@unique([moduleId, order])
+  @@unique([styleId, order])
+  @@index([styleId])
   @@index([moduleId])
 }
 
@@ -845,7 +871,7 @@ model ContactContent {
   whatsappLabel      String   @default("Escribenos directamente")
   emailPrimaryLabel  String   @default("Consultas generales")
   emailPrimary       String   @default("hola@apoteosicas.com")
-  emailSecondaryLabel String  @default("Academia y cursos")
+  emailSecondaryLabel String   @default("Academia y cursos")
   emailSecondary     String   @default("academia@apoteosicas.com")
   actionLabel        String   @default("Reservar cita online")
   actionHref         String   @default("/booking")

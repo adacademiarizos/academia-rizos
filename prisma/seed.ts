@@ -74,6 +74,60 @@ function slugify(name: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+async function seedGeneralStylesAndLessons(courseIds: string[]) {
+  console.log('\nðŸ“š Seeding module styles & lessons...')
+
+  const modules = await prisma.module.findMany({
+    where: { courseId: { in: courseIds } },
+    orderBy: [{ courseId: 'asc' }, { order: 'asc' }],
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      videoUrl: true,
+      videoFileUrl: true,
+      transcript: true,
+    },
+  })
+
+  for (const courseModule of modules) {
+    const style = await prisma.moduleStyle.upsert({
+      where: { moduleId_slug: { moduleId: courseModule.id, slug: 'general' } },
+      update: {
+        name: 'General',
+        order: 0,
+        isActive: true,
+      },
+      create: {
+        moduleId: courseModule.id,
+        order: 0,
+        name: 'General',
+        slug: 'general',
+        description: 'Contenido base de la seccion.',
+        isActive: true,
+      },
+    })
+
+    const existingLessons = await prisma.lesson.count({ where: { moduleId: courseModule.id } })
+    if (existingLessons === 0) {
+      await prisma.lesson.create({
+        data: {
+          moduleId: courseModule.id,
+          styleId: style.id,
+          order: 0,
+          title: courseModule.title,
+          description: courseModule.description,
+          videoUrl: courseModule.videoUrl,
+          videoFileUrl: courseModule.videoFileUrl,
+          transcript: courseModule.transcript,
+        },
+      })
+    }
+  }
+
+  console.log(`  âœ… ${modules.length} module styles checked`)
+}
+
 type RawVariant = {
   name: string;
   time: number | string;
@@ -584,6 +638,8 @@ async function main() {
   })
 
   console.log(`✅ Course 3 created: ${course3.title}`)
+
+  await seedGeneralStylesAndLessons([course1.id, course2.id, course3.id])
 
   /* ─────────────────────────────────────────────
    *  COURSE ACCESS & PROGRESS

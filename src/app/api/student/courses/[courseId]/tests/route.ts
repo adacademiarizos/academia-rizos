@@ -1,25 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options'
+import { authorizeCourseAccessByCourseId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { db } from '@/lib/db'
-
-async function requireStudent(courseId: string) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.email) return null
-  const user = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true, role: true } })
-  if (!user) return null
-
-  // Check course access
-  const access = await db.courseAccess.findUnique({
-    where: { userId_courseId: { userId: user.id, courseId } },
-  })
-  if (!access) return null
-
-  // Check expiration
-  if (access.accessUntil && access.accessUntil < new Date()) return null
-
-  return user
-}
 
 export async function GET(
   _req: NextRequest,
@@ -27,8 +8,14 @@ export async function GET(
 ) {
   try {
     const { courseId } = await params
-    const user = await requireStudent(courseId)
-    if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    const access = await authorizeCourseAccessByCourseId(courseId, {
+      allowAdmin: true,
+      requireActiveAccess: true,
+    })
+
+    if (!access.ok) {
+      return toAccessDeniedResponse(access)
+    }
 
     const tests = await db.courseTest.findMany({
       where: { courseId },

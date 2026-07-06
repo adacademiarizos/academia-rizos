@@ -8,11 +8,14 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 import { z } from 'zod'
+import { ensureGeneralModuleStyle, getNextLessonOrder } from '@/lib/academy-content'
 
 const CreateLessonSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   videoUrl: z.string().optional(),
+  videoFileUrl: z.string().optional(),
+  transcript: z.string().optional(),
 })
 
 async function verifyAdmin() {
@@ -42,8 +45,8 @@ export async function GET(
       )
     }
 
-    const module = await db.module.findUnique({ where: { id: moduleId } })
-    if (!module) {
+    const courseModule = await db.module.findUnique({ where: { id: moduleId } })
+    if (!courseModule) {
       return NextResponse.json(
         { success: false, error: 'Module not found' },
         { status: 404 }
@@ -52,10 +55,22 @@ export async function GET(
 
     const lessons = await db.lesson.findMany({
       where: { moduleId },
-      orderBy: { order: 'asc' },
+      orderBy: [{ style: { order: 'asc' } }, { order: 'asc' }],
+      include: {
+        style: {
+          select: { id: true, name: true, slug: true, order: true },
+        },
+      },
     })
 
-    return NextResponse.json({ success: true, data: lessons })
+    return NextResponse.json({
+      success: true,
+      data: lessons.map((lesson) => ({
+        ...lesson,
+        styleId: lesson.style.id,
+        styleName: lesson.style.name,
+      })),
+    })
   } catch (error) {
     console.error('Error fetching lessons:', error)
     return NextResponse.json(
@@ -80,8 +95,8 @@ export async function POST(
       )
     }
 
-    const module = await db.module.findUnique({ where: { id: moduleId } })
-    if (!module) {
+    const courseModule = await db.module.findUnique({ where: { id: moduleId } })
+    if (!courseModule) {
       return NextResponse.json(
         { success: false, error: 'Module not found' },
         { status: 404 }
@@ -91,20 +106,19 @@ export async function POST(
     const body = await request.json()
     const data = CreateLessonSchema.parse(body)
 
-    // Get next order number
-    const lastLesson = await db.lesson.findFirst({
-      where: { moduleId },
-      orderBy: { order: 'desc' },
-    })
-    const nextOrder = (lastLesson?.order ?? -1) + 1
+    const style = await ensureGeneralModuleStyle(moduleId)
+    const nextOrder = await getNextLessonOrder(style.id)
 
     const lesson = await db.lesson.create({
       data: {
         moduleId,
+        styleId: style.id,
         order: nextOrder,
         title: data.title,
         description: data.description ?? null,
         videoUrl: data.videoUrl ?? null,
+        videoFileUrl: data.videoFileUrl ?? null,
+        transcript: data.transcript ?? null,
       },
     })
 

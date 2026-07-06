@@ -1,60 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
+import { getProtectedRouteDecision } from '@/lib/route-guard'
 
 export default async function handler(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  const isAdminRoute = pathname.startsWith('/admin')
-  const isStaffRoute = pathname.startsWith('/staff')
-  const isStudentRoute = pathname === '/student'
-  const isNotificationsRoute = pathname === '/notifications'
-  const isBugReportRoute = pathname.startsWith('/bug-report')
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
+  const role = (token as { role?: string } | null)?.role ?? null
+  const decision = getProtectedRouteDecision(pathname, !!token, role)
 
-  if (isAdminRoute || isStaffRoute || isStudentRoute || isNotificationsRoute || isBugReportRoute) {
-    const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
-
-    // User not authenticated
-    if (!token) {
-      const url = req.nextUrl.clone()
-      url.pathname = '/signin'
-      url.searchParams.set('callbackUrl', pathname)
-      return NextResponse.redirect(url)
-    }
-
-    const role = (token as any)?.role
-
-    // Admin routes - only ADMIN role allowed
-    if (isAdminRoute && role !== 'ADMIN') {
-      const url = req.nextUrl.clone()
-      url.pathname = role === 'STAFF' ? '/staff/appointments' : '/student'
-      return NextResponse.redirect(url)
-    }
-
-    // Staff routes - only STAFF or ADMIN allowed
-    if (isStaffRoute && role !== 'STAFF' && role !== 'ADMIN') {
-      const url = req.nextUrl.clone()
-      url.pathname = '/student'
-      return NextResponse.redirect(url)
-    }
-
-    // Student dashboard - redirect ADMIN and STAFF to their own dashboards
-    if (isStudentRoute && role === 'ADMIN') {
-      const url = req.nextUrl.clone()
-      url.pathname = '/admin'
-      return NextResponse.redirect(url)
-    }
-    if (isStudentRoute && role === 'STAFF') {
-      const url = req.nextUrl.clone()
-      url.pathname = '/staff/appointments'
-      return NextResponse.redirect(url)
-    }
-
-    // Notifications - accessible to all authenticated users (no redirects)
+  if (!decision.allow) {
+    const url = req.nextUrl.clone()
+    url.pathname = '/access-denied'
+    url.searchParams.set('reason', decision.reason)
+    url.searchParams.set('from', pathname)
+    return NextResponse.redirect(url)
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/staff/:path*', '/student', '/notifications', '/bug-report', '/bug-report/:path*'],
+  matcher: [
+    '/admin/:path*',
+    '/staff/:path*',
+    '/student',
+    '/notifications',
+    '/bug-report',
+    '/bug-report/:path*',
+    '/learn/:path*',
+  ],
 }

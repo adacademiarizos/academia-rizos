@@ -1,91 +1,54 @@
 /**
  * GET /api/student/modules/[moduleId]/lessons
- * Returns all lessons for a module (for students)
+ * Returns all lessons for a module (for students with active access)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options'
+import { authorizeCourseAccessByModuleId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { db } from '@/lib/db'
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ moduleId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const user = await db.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
-    })
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      )
-    }
-
     const { moduleId } = await params
-
-    // Resolve the course this module belongs to
-    const module = await db.module.findUnique({
-      where: { id: moduleId },
-      select: { courseId: true },
+    const access = await authorizeCourseAccessByModuleId(moduleId, {
+      allowAdmin: true,
+      requireActiveAccess: true,
     })
 
-    if (!module) {
-      return NextResponse.json(
-        { success: false, error: 'Module not found' },
-        { status: 404 }
-      )
+    if (!access.ok) {
+      return toAccessDeniedResponse(access)
     }
-
-    // Check course access and whether the video rental period is still active
-    const access = await db.courseAccess.findUnique({
-      where: { userId_courseId: { userId: user.id, courseId: module.courseId } },
-      select: { accessUntil: true },
-    })
-
-    if (!access) {
-      return NextResponse.json(
-        { success: false, error: 'No access to this course' },
-        { status: 403 }
-      )
-    }
-
-    const videoExpired = !!(access.accessUntil && access.accessUntil < new Date())
 
     const lessons = await db.lesson.findMany({
       where: { moduleId },
-      orderBy: { order: 'asc' },
+      orderBy: [{ style: { order: 'asc' } }, { order: 'asc' }],
       select: {
         id: true,
+        styleId: true,
         order: true,
         title: true,
         description: true,
         videoUrl: true,
         videoFileUrl: true,
         transcript: true,
+        style: {
+          select: { name: true },
+        },
       },
     })
 
-    // If the video rental period has expired, strip video URLs but keep metadata
-    const data = videoExpired
-      ? lessons.map((l) => ({ ...l, videoUrl: null, videoFileUrl: null }))
-      : lessons
+    const data = lessons.map(({ style, ...lesson }) => ({
+      ...lesson,
+      styleName: style.name,
+    }))
 
     return NextResponse.json({
       success: true,
       data,
-      videoExpired,
+      videoExpired: false,
     })
   } catch (error) {
     console.error('Error fetching lessons:', error)
@@ -98,4 +61,3 @@ export async function GET(
     )
   }
 }
-

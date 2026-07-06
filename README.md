@@ -31,6 +31,13 @@ Una aplicación web full-stack construida con **Next.js 16 (App Router)** que un
 
 ---
 
+### Modelo academico actual
+
+La jerarquia de contenido de la academia es `Curso -> Seccion/Modulo -> Estilo -> Leccion`.
+Los estilos agrupan lecciones dentro de cada seccion (por ejemplo `General`, `Rizos`, `Lacio`, `Afro`) y no cambian el progreso, que sigue siendo por modulo.
+
+---
+
 ## Lo que NO hace (por ahora)
 
 - No gestiona pagos presenciales ni en efectivo (solo Stripe online).
@@ -51,6 +58,8 @@ Tailwind CSS v4 · GSAP · Framer Motion · Puppeteer · Nodemailer
 
 Para el detalle completo ver [`docs/TECH-STACK.md`](docs/TECH-STACK.md).
 Para la arquitectura y modelos de datos ver [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Para el modelo academico de cursos/estilos/lecciones ver [`docs/ACADEMY_CONTENT_MODEL.md`](docs/ACADEMY_CONTENT_MODEL.md).
+Para el plan QA transversal ver [`docs/QA_TEST_PLAN.md`](docs/QA_TEST_PLAN.md).
 Para desplegar en Vercel ver [`DEPLOY.md`](DEPLOY.md).
 
 ---
@@ -61,15 +70,16 @@ Para desplegar en Vercel ver [`DEPLOY.md`](DEPLOY.md).
 # 1. Clonar e instalar
 git clone https://github.com/adacademiarizos/academia-rizos.git
 cd academia-rizos
-npm install
+npm ci
 
 # 2. Variables de entorno
 cp .env.example .env.local
 # Completar todas las variables (ver DEPLOY.md)
 
 # 3. Base de datos
-npx prisma db push
+npx prisma migrate dev
 npx prisma generate
+npx prisma db seed
 
 # 4. Iniciar servidor
 npm run dev

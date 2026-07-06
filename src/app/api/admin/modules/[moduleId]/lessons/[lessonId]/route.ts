@@ -45,7 +45,7 @@ export async function PUT(
       )
     }
 
-    const lesson = await db.lesson.findUnique({
+    const lesson = await db.lesson.findFirst({
       where: { id: lessonId, moduleId },
     })
     if (!lesson) {
@@ -101,7 +101,7 @@ export async function DELETE(
       )
     }
 
-    const lesson = await db.lesson.findUnique({
+    const lesson = await db.lesson.findFirst({
       where: { id: lessonId, moduleId },
     })
     if (!lesson) {

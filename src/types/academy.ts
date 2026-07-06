@@ -30,6 +30,34 @@ export type Module = {
   updatedAt: Date
 }
 
+export type ModuleStyle = {
+  id: string
+  moduleId: string
+  order: number
+  name: string
+  slug: string
+  description?: string | null
+  isActive: boolean
+  lessons?: Lesson[]
+  createdAt: Date
+  updatedAt: Date
+}
+
+export type Lesson = {
+  id: string
+  moduleId: string
+  styleId: string
+  order: number
+  title: string
+  description?: string | null
+  videoUrl?: string | null
+  videoFileUrl?: string | null
+  transcript?: string | null
+  styleName?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
 export type ModuleProgress = {
   id: string
   userId: string
@@ -188,6 +216,28 @@ export type CreateModuleRequest = {
 }
 
 export type UpdateModuleRequest = Partial<CreateModuleRequest>
+
+export type CreateModuleStyleRequest = {
+  moduleId: string
+  name: string
+  description?: string | null
+  order?: number
+  isActive?: boolean
+}
+
+export type UpdateModuleStyleRequest = Partial<Omit<CreateModuleStyleRequest, 'moduleId'>>
+
+export type CreateLessonRequest = {
+  styleId: string
+  title: string
+  description?: string | null
+  videoUrl?: string | null
+  videoFileUrl?: string | null
+  transcript?: string | null
+  order?: number
+}
+
+export type UpdateLessonRequest = Partial<Omit<CreateLessonRequest, 'styleId'>>
 
 export type CreateTestRequest = {
   courseId: string

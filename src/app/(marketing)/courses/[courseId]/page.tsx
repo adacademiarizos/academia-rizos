@@ -54,7 +54,7 @@ export default function CourseLandingPage() {
       try {
         const [courseRes, modulesRes] = await Promise.all([
           fetch(`/api/courses/${courseId}`),
-          fetch(`/api/courses/${courseId}/modules`),
+          fetch(`/api/courses/${courseId}/modules?preview=true`),
         ]);
         if (!courseRes.ok) throw new Error("Course not found");
         const courseData = await courseRes.json();

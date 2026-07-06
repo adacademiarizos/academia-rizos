@@ -112,6 +112,19 @@ Este documento describe todos los datos demo que se cargan automáticamente al e
 
 ---
 
+## Estilos y Lecciones Demo
+
+El seed mantiene la jerarquia `Curso -> Seccion/Modulo -> Estilo -> Leccion`.
+
+- Cada modulo demo recibe un estilo `General` con slug `general`.
+- Si un modulo no tiene lecciones previas, el seed crea una leccion inicial usando el titulo, descripcion, video y transcripcion del modulo.
+- Las lecciones quedan asociadas de forma canonica a `ModuleStyle` mediante `styleId`.
+- `Lesson.moduleId` se conserva como campo legacy para endpoints antiguos y reportes.
+
+Ver [`ACADEMY_CONTENT_MODEL.md`](ACADEMY_CONTENT_MODEL.md) para los detalles del modelo.
+
+---
+
 ## Datos Adicionales Demo
 
 ### Acceso a Cursos (CourseAccess)

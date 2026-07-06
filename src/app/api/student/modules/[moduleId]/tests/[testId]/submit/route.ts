@@ -4,57 +4,32 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options'
+import { authorizeCourseAccessByModuleId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 
 const SubmitTestSchema = z.object({
   answers: z.record(
-    z.string(), // questionId
-    z.any() // answer can be string, object, etc
+    z.string(),
+    z.any()
   ),
 })
-
-async function verifyStudentAccess(userId: string, courseId: string) {
-  const access = await db.courseAccess.findUnique({
-    where: {
-      userId_courseId: { userId, courseId },
-    },
-  })
-
-  return !!access
-}
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ moduleId: string; testId: string }> }
 ) {
   try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const user = await db.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true, role: true },
+    const { moduleId, testId } = await params
+    const access = await authorizeCourseAccessByModuleId(moduleId, {
+      allowAdmin: false,
+      requireActiveAccess: true,
     })
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      )
+    if (!access.ok) {
+      return toAccessDeniedResponse(access)
     }
 
-    const { moduleId, testId } = await params
-
-    // Verify module and test exist
     const test = await db.moduleTest.findUnique({
       where: { id: testId },
       include: {
@@ -64,27 +39,13 @@ export async function POST(
     })
 
     if (!test || test.moduleId !== moduleId) {
-      return NextResponse.json(
-        { success: false, error: 'Test not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ success: false, error: 'Test not found' }, { status: 404 })
     }
 
-    // Verify student has access to course
-    const hasAccess = await verifyStudentAccess(user.id, test.module.courseId)
-    if (!hasAccess) {
-      return NextResponse.json(
-        { success: false, error: 'Course access required' },
-        { status: 403 }
-      )
-    }
-
-    // Count existing attempts
     const attemptCount = await db.moduleSubmission.count({
-      where: { testId, userId: user.id },
+      where: { testId, userId: access.user.id },
     })
 
-    // Enforce maxAttempts (0 = unlimited)
     if (test.maxAttempts > 0 && attemptCount >= test.maxAttempts) {
       return NextResponse.json(
         {
@@ -103,7 +64,6 @@ export async function POST(
     const body = await request.json()
     const { answers } = SubmitTestSchema.parse(body)
 
-    // Calculate score
     let correctCount = 0
     const questionSubmissions: Array<{
       questionId: string
@@ -132,46 +92,41 @@ export async function POST(
       })
     }
 
-    // Calculate overall score using test's configured passingScore
     const scorePercentage =
       test.questions.length > 0 ? (correctCount / test.questions.length) * 100 : 0
     const isPassed = test.questions.length > 0 ? scorePercentage >= test.passingScore : false
-
     const currentAttemptNumber = attemptCount + 1
 
-    // Always create a new submission (allows multiple attempts)
     const submission = await db.moduleSubmission.create({
       data: {
         moduleId,
         testId,
-        userId: user.id,
+        userId: access.user.id,
         score: scorePercentage,
         isPassed,
         attemptNumber: currentAttemptNumber,
       },
     })
 
-    // Save individual question responses
     await Promise.all(
-      questionSubmissions.map((qs) =>
+      questionSubmissions.map((questionSubmission) =>
         db.questionSubmission.create({
           data: {
-            questionId: qs.questionId,
+            questionId: questionSubmission.questionId,
             submissionId: submission.id,
-            userId: user.id,
-            answer: qs.answer,
-            isCorrect: qs.isCorrect || null,
-            score: qs.score || null,
+            userId: access.user.id,
+            answer: questionSubmission.answer,
+            isCorrect: questionSubmission.isCorrect || null,
+            score: questionSubmission.score || null,
           },
         })
       )
     )
 
-    // If test is passed and required, record activity and mark module progress
     if (isPassed && test.isRequired) {
       await db.userActivity.create({
         data: {
-          userId: user.id,
+          userId: access.user.id,
           type: 'MODULE_COMPLETED',
           moduleId,
           courseId: test.module.courseId,
@@ -181,14 +136,14 @@ export async function POST(
 
       await db.moduleProgress.upsert({
         where: {
-          userId_moduleId: { userId: user.id, moduleId },
+          userId_moduleId: { userId: access.user.id, moduleId },
         },
         update: {
           completed: true,
           completedAt: new Date(),
         },
         create: {
-          userId: user.id,
+          userId: access.user.id,
           moduleId,
           completed: true,
           completedAt: new Date(),
@@ -212,7 +167,7 @@ export async function POST(
         attemptsUsed: currentAttemptNumber,
         attemptsRemaining,
         maxAttempts: test.maxAttempts,
-        message: isPassed ? '¡Test aprobado!' : 'Test no aprobado. Intenta de nuevo.',
+        message: isPassed ? 'Test aprobado.' : 'Test no aprobado. Intenta de nuevo.',
       },
     })
   } catch (error) {

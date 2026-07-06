@@ -1,39 +1,26 @@
 /**
  * GET /api/student/modules/[moduleId]/tests
- * Returns all tests for a module (for students)
+ * Returns all tests for a module (for students with active access)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options'
+import { authorizeCourseAccessByModuleId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { db } from '@/lib/db'
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ moduleId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const user = await db.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const { moduleId } = await params
+    const access = await authorizeCourseAccessByModuleId(moduleId, {
+      allowAdmin: true,
+      requireActiveAccess: true,
     })
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      )
+    if (!access.ok) {
+      return toAccessDeniedResponse(access)
     }
-
-    const { moduleId } = await params
 
     const tests = await db.moduleTest.findMany({
       where: { moduleId },
