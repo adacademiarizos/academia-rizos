@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { hasCompletedDeletionForEmail } from "@/server/services/gdpr-service";
 
 export const authOptions: NextAuthOptions = {
   secret: env.NEXTAUTH_SECRET,
@@ -28,8 +29,19 @@ export const authOptions: NextAuthOptions = {
 
         if (!email || !password) return null;
 
-        const user = await db.user.findUnique({ where: { email } });
+        const user = await db.user.findUnique({
+          where: { email },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+            password: true,
+            deletedAt: true,
+          },
+        });
         if (!user) return null;
+        if (user.deletedAt || (await hasCompletedDeletionForEmail(email))) return null;
 
         const passwordMatch = user.password
           ? await bcrypt.compare(password, user.password)
@@ -49,10 +61,24 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google" && user.email) {
+        const normalizedEmail = user.email.toLowerCase();
+        if (await hasCompletedDeletionForEmail(normalizedEmail)) {
+          return false;
+        }
+
+        const existingUser = await db.user.findUnique({
+          where: { email: normalizedEmail },
+          select: { id: true, deletedAt: true },
+        });
+
+        if (existingUser?.deletedAt) {
+          return false;
+        }
+
         await db.user.upsert({
-          where: { email: user.email.toLowerCase() },
+          where: { email: normalizedEmail },
           create: {
-            email: user.email.toLowerCase(),
+            email: normalizedEmail,
             name: user.name,
             image: user.image,
             role: "STUDENT",
@@ -66,26 +92,53 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token }) {
-      if (!token.email) return token;
+      const dbUser =
+        typeof token.userId === "string"
+          ? await db.user.findUnique({
+              where: { id: token.userId },
+              select: { id: true, email: true, role: true, deletedAt: true },
+            })
+          : token.email
+          ? await db.user.findUnique({
+              where: { email: token.email.toLowerCase() },
+              select: { id: true, email: true, role: true, deletedAt: true },
+            })
+          : null;
+      const deletedAtIso =
+        dbUser?.deletedAt instanceof Date ? dbUser.deletedAt.toISOString() : null;
 
-      const dbUser = await db.user.findUnique({
-        where: { email: token.email.toLowerCase() },
-        select: { id: true, role: true },
-      });
-
-      if (dbUser) {
-        token.userId = dbUser.id;
-        token.role = dbUser.role;
+      if (!dbUser || dbUser.deletedAt) {
+        token.invalidated = true;
+        token.userId = undefined;
+        token.role = undefined;
+        token.email = undefined;
+        token.deletedAt = deletedAtIso;
+        return token;
       }
+
+      token.invalidated = false;
+      token.userId = dbUser.id;
+      token.role = dbUser.role;
+      token.email = dbUser.email;
+      token.deletedAt = deletedAtIso;
+
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        // @ts-expect-error
-        session.user.id = token.userId;
-        // @ts-expect-error
-        session.user.role = token.role;
+      if (!session.user || token.invalidated || !token.userId || !token.role) {
+        session.invalidated = true;
+        session.user = {
+          ...session.user,
+          id: "",
+          email: undefined,
+          role: "STUDENT",
+        };
+        return session;
       }
+
+      session.invalidated = false;
+      session.user.id = token.userId;
+      session.user.role = token.role;
       return session;
     },
   },

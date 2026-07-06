@@ -75,6 +75,13 @@ enum TestimonialType {
   ACADEMIA
 }
 
+enum DeletionRequestStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  FAILED
+}
+
 model User {
   id       String  @id @default(cuid())
   name     String?
@@ -83,6 +90,7 @@ model User {
   role     Role    @default(STUDENT)
   // Para arrancar con credenciales simples (MVP):
   password String?
+  deletedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -116,6 +124,24 @@ model User {
   // Relations - New features
   bugReports          BugReport[]
   paymentLinksCreated PaymentLink[] @relation("PaymentLinkCreator")
+  deletionRequests    AccountDeletionRequest[]
+}
+
+model AccountDeletionRequest {
+  id            String                @id @default(cuid())
+  userId        String
+  requestedAt   DateTime              @default(now())
+  confirmedAt   DateTime?
+  completedAt   DateTime?
+  status        DeletionRequestStatus @default(PENDING)
+  reason        String?
+  originalEmail String?
+  errorDetail   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
 }
 
 model StaffProfile {
@@ -223,6 +249,7 @@ model Appointment {
   customerName  String?
   customerEmail String?
   customerPhone String?
+  anonymizedAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

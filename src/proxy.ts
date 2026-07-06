@@ -9,15 +9,16 @@ export default async function handler(req: NextRequest) {
   const isStudentRoute = pathname === '/student'
   const isNotificationsRoute = pathname === '/notifications'
   const isBugReportRoute = pathname.startsWith('/bug-report')
+  const isAccountRoute = pathname.startsWith('/account')
 
-  if (isAdminRoute || isStaffRoute || isStudentRoute || isNotificationsRoute || isBugReportRoute) {
+  if (isAdminRoute || isStaffRoute || isStudentRoute || isNotificationsRoute || isBugReportRoute || isAccountRoute) {
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET })
 
     // User not authenticated
     if (!token) {
       const url = req.nextUrl.clone()
       url.pathname = '/signin'
-      url.searchParams.set('callbackUrl', pathname)
+      url.searchParams.set('callbackUrl', `${pathname}${req.nextUrl.search}`)
       return NextResponse.redirect(url)
     }
 
@@ -56,5 +57,5 @@ export default async function handler(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/staff/:path*', '/student', '/notifications', '/bug-report', '/bug-report/:path*'],
+  matcher: ['/admin/:path*', '/staff/:path*', '/student', '/notifications', '/bug-report', '/bug-report/:path*', '/account', '/account/:path*'],
 }

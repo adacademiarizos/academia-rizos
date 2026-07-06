@@ -1,8 +1,20 @@
 [
   {
-    "what": "Inicialización del proyecto",
+    "what": "Inicializacion del proyecto",
     "why": "Establecer la arquitectura AI-First para escalar a largo plazo",
     "where": "Todo el repositorio",
-    "learned": "El sistema usará Skills Registry, Context.md y Ramas Aisladas (feature) para evitar el colapso del contexto y la rotura de producción."
+    "learned": "El sistema usara Skills Registry, Context.md y ramas aisladas para evitar colapso de contexto y reducir riesgo sobre produccion."
+  },
+  {
+    "what": "Cumplimiento GDPR para borrado de cuenta y retencion de invitados",
+    "why": "Ejecutar derecho al olvido sin romper historial operativo ni relaciones existentes",
+    "where": "Prisma, auth, rutas /api/account/delete* y job /api/cron/gdpr-purge-guests",
+    "learned": "La estrategia mas estable fue anonimizar filas existentes en lugar de borrar el User. Eso preserva FKs para pagos, comunidad y auditoria, evita cascadas destructivas y deja la limpieza de blobs en R2 como un paso posterior no bloqueante al commit transaccional de base de datos."
+  },
+  {
+    "what": "Confirmacion UX y correo final de borrado de cuenta",
+    "why": "Evitar falsas confirmaciones y hacer mas clara la ultima accion destructiva para usuarios con password",
+    "where": "src/app/account/AccountDeletionPanel.tsx y src/server/services/gdpr-service.ts",
+    "learned": "El modal de confirmacion funciona mejor que un fragmento inline para la ultima credencial sensible, y el correo de exito debe dispararse solo despues de completar la anonimización y la limpieza asociada sin fallos pendientes."
   }
 ]

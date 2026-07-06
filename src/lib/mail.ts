@@ -496,3 +496,79 @@ export async function sendAdminAlertEmail(params: AdminAlertEmailParams) {
     html: shell(params.title, body),
   });
 }
+
+type AccountDeletionVerificationEmailParams = {
+  to: string;
+  name?: string | null;
+  confirmUrl: string;
+  expiresAt: Date;
+};
+
+export async function sendAccountDeletionVerificationEmail(
+  params: AccountDeletionVerificationEmailParams
+) {
+  if (!isGmailConfigured()) {
+    warn("sendAccountDeletionVerificationEmail", params);
+    return;
+  }
+
+  const expiry = params.expiresAt.toLocaleString("es-ES", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+  const body = `
+    ${emailTitle("Confirma la eliminacion de tu cuenta")}
+    ${para(`Hola <strong>${params.name ?? "usuario"}</strong>, recibimos una solicitud para eliminar tu cuenta de Apoteosicas.`)}
+    ${para("Para continuar, confirma la solicitud desde el enlace seguro de abajo. Si no fuiste tu, puedes ignorar este correo.")}
+    ${insetBlock(`
+      <p style="font-family:Arial,sans-serif;font-size:13px;color:${C.ivoryDim};margin:0 0 8px">Este enlace vence el</p>
+      <p style="font-family:Arial,sans-serif;font-size:15px;color:${C.ivory};margin:0;font-weight:bold">${expiry}</p>
+    `)}
+    <table cellpadding="0" cellspacing="0" border="0"><tr><td>
+      ${ctaButton("Confirmar eliminacion", params.confirmUrl)}
+    </td></tr></table>
+    ${divider()}
+    ${para("Seguiran conservandose solo los registros que la ley exige retener, como ciertos datos contables anonimizados.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: "Confirma la eliminacion de tu cuenta",
+    html: shell("Confirma la eliminacion de tu cuenta", body),
+  });
+}
+
+type AccountDeletionConfirmationEmailParams = {
+  to: string;
+  name?: string | null;
+};
+
+export async function sendAccountDeletionConfirmationEmail(
+  params: AccountDeletionConfirmationEmailParams
+) {
+  if (!isGmailConfigured()) {
+    warn("sendAccountDeletionConfirmationEmail", params);
+    return;
+  }
+
+  const body = `
+    ${emailTitle("Tu solicitud de eliminacion fue procesada")}
+    ${para(`Hola <strong>${params.name ?? "usuario"}</strong>, confirmamos que tu cuenta y los datos personales asociados fueron anonimizados.`)}
+    ${para("Los registros que debamos conservar por obligaciones fiscales o contables permanecen guardados de forma minimizada y desvinculada de tu identidad.")}
+    ${divider()}
+    ${para("Si necesitas constancia adicional de este proceso, responde a este correo y te ayudaremos.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: "Confirmacion de eliminacion de cuenta",
+    html: shell("Confirmacion de eliminacion de cuenta", body),
+  });
+}
