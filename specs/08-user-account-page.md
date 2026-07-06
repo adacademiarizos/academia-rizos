@@ -59,7 +59,25 @@ model User {
   phone String?   // teléfono de contacto del usuario (hoy solo se guarda en Appointment.customerPhone, no en User)
 }
 ```
-> Si se aprueba, permite autocompletar el teléfono en el wizard de reserva y mostrarlo/editarlo en `/account`. Requiere una migración trivial. Si no, se omite sin impacto.
+> **✅ Decisión confirmada: se añade `User.phone`.** Permite mostrarlo/editarlo en `/account` y autocompletarlo en el wizard de reserva (hoy el teléfono solo vive en `Appointment.customerPhone`). Migración trivial. `phone` es editable vía `PATCH /api/me` con validación de formato.
+
+**Modelo nuevo para el cambio de email con reverificación (ver §2.4):**
+
+```
+model EmailChangeRequest {
+  id         String   @id @default(cuid())
+  userId     String
+  newEmail   String                 // email destino (aún no aplicado)
+  tokenHash  String   @unique       // token de verificación hasheado
+  expiresAt  DateTime               // p. ej. 1 hora
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+```
+> El email solo se aplica al `User` cuando se confirma el token enviado al **nuevo** correo. Reutiliza la infraestructura de tokens/emails de `specs/01-password-recovery.md`.
 
 ### 2.3 Endpoints (contratos)
 
@@ -68,17 +86,27 @@ model User {
 | `GET` | `/api/me` (nuevo) | Sesión requerida | Devuelve datos editables del usuario actual: `id, name, email, image, role, createdAt, hasPassword` (bool = `password != null`), y `phone` si se aprueba. |
 | `PATCH` | `/api/me` (nuevo) | Sesión requerida | Actualiza `name`, `image` (y `phone` si aplica). Validación Zod. Solo el propio usuario. |
 | `POST` | `/api/me/password` (nuevo) | Sesión requerida | Cambia o **crea** la contraseña. Si el usuario ya tiene contraseña, exige `currentPassword` correcta; si no (Google), permite establecer una nueva sin actual. Hash con bcrypt. |
+| `POST` | `/api/me/email` (nuevo) | Sesión requerida | Inicia el cambio de email: valida unicidad, crea `EmailChangeRequest` y envía verificación al **nuevo** email. Bloqueado para cuentas solo-Google (§2.4). |
+| `GET`/`POST` | `/api/me/email/confirm` (nuevo) | Token | Confirma el token, aplica `User.email` e invalida sesiones previas. |
 | — | Avatar | Sesión requerida | Reutiliza `POST /api/uploads/presigned` + `/api/uploads/confirm` para subir la imagen a R2 y luego `PATCH /api/me { image }`. |
+
+> `phone` **sí** es editable vía `PATCH /api/me` (decisión confirmada). El `email` **no** se cambia por `PATCH /api/me`: va por su flujo dedicado de reverificación.
 
 **Notas de contrato:**
 - `GET/PATCH /api/me` resuelven al usuario por `session.user.email` (patrón ya usado en el resto de endpoints), nunca por un id recibido del cliente.
 - `PATCH /api/me` **nunca** permite cambiar `role`, `email` (ver §2.4), ni `password` (eso va por su endpoint dedicado).
 - Tras `PATCH`, el cliente debe refrescar la sesión NextAuth (`useSession().update()` o `router.refresh()`) para que el menú muestre el nombre/imagen nuevos (el JWT cachea `name`/`image`).
 
-### 2.4 Decisión sobre el email (requiere confirmación en Human Gate)
+### 2.4 Cambio de email — **editable con reverificación** (decisión confirmada)
 
-- **Opción A (recomendada MVP): email de solo lectura.** Se muestra pero no se edita. Motivo: es la clave de login y para usuarios de Google lo gestiona Google; editarlo sin reverificación rompe accesos.
-- **Opción B: email editable con reverificación.** Requiere enviar verificación al nuevo email antes de aplicar el cambio; depende de la infraestructura de verificación de `specs/01-password-recovery.md`. Queda como stretch.
+**✅ Decisión de negocio: Opción B — email editable con reverificación.** Flujo:
+1. El usuario introduce el nuevo email en `/account` → `POST /api/me/email` valida que no esté en uso (`@unique`), crea un `EmailChangeRequest` con token hasheado (expira ~1 h) y envía un correo de verificación **al nuevo email**.
+2. El usuario abre el enlace → `GET/POST /api/me/email/confirm?token=...` valida el token, aplica `User.email = newEmail`, marca `usedAt`, e invalida sesiones previas (el email es parte del JWT/lookup).
+3. Mensaje genérico y seguro; no confirmar existencia de emails de terceros.
+
+**Caveat para cuentas de Google** (`account.provider === "google"`): el email lo gestiona Google y el `signIn` callback hace `upsert` por email. Cambiar el email local de un usuario de Google puede **desincronizarlo** de su identidad OAuth (en el siguiente login por Google se volvería a crear/emparejar por el email de Google). Diseño: para cuentas cuyo acceso es **solo Google** (`password = null`), **desactivar el cambio de email** en la UI y mostrar "Tu email está gestionado por Google"; permitir el cambio solo a usuarios con contraseña propia (o que primero creen una vía §HU-4). Confirmar esta restricción en la implementación.
+
+> Depende de la infraestructura de tokens/emails de `specs/01-password-recovery.md`; si ese spec aún no está implementado, este bloque de email lo incorpora como dependencia previa.
 
 ### 2.5 Seguridad y validación
 
@@ -108,10 +136,15 @@ model User {
 > Ejecutar en rama `feature/user-account-page`. Al tocar autenticación/contraseña → **tests obligatorios** (unitarios + integración), según la matriz de `AGENT.md`. La edición de nombre/avatar es de menor criticidad (test recomendado, no bloqueante).
 
 **Bloque A — Backend (contratos de datos):**
-- [ ] T1: (Opcional, si se aprueba §2.2) Migración Prisma para añadir `User.phone`.
-- [ ] T2: Crear `GET /api/me` — devuelve datos editables del usuario actual + `hasPassword`.
-- [ ] T3: Crear `PATCH /api/me` — actualiza `name`/`image` (y `phone` si aplica) con validación Zod y autorización por sesión.
+- [ ] T1: Migración Prisma: añadir `User.phone` (confirmado) y crear el modelo `EmailChangeRequest`.
+- [ ] T2: Crear `GET /api/me` — devuelve datos editables del usuario actual + `hasPassword` + `canChangeEmail` (false si es cuenta solo-Google).
+- [ ] T3: Crear `PATCH /api/me` — actualiza `name`/`image`/`phone` con validación Zod y autorización por sesión (nunca `email`/`role`/`password`).
 - [ ] T4: Crear `POST /api/me/password` — cambia o crea contraseña (bcrypt; exige actual si existe; rate-limit).
+
+**Bloque A2 — Cambio de email con reverificación (§2.4, depende de spec 01):**
+- [ ] T4a: Crear `POST /api/me/email` — valida unicidad, bloquea cuentas solo-Google, crea `EmailChangeRequest` (token hasheado, expira ~1 h) y envía verificación al nuevo email vía `src/lib/mail.ts`.
+- [ ] T4b: Crear `GET/POST /api/me/email/confirm` — valida token, aplica `User.email`, marca `usedAt` e invalida sesiones previas.
+- [ ] T4c: Página/handler de confirmación de email y estados de UI (pendiente de verificación / confirmado / token expirado).
 
 **Bloque B — Frontend (página `/account`):**
 - [ ] T5: Crear `src/app/account/page.tsx` (guard de sesión → `/signin` si no autenticado).
@@ -130,4 +163,11 @@ model User {
 
 ---
 
-*(Nota para la IA: Ejecuta las tareas mediante sub-agentes en la rama `feature/user-account-page`. Al finalizar, verifica contra la suite de `/tests` antes de solicitar Merge a `dev`. Detente aquí — Human Gate — hasta recibir aprobación y, en particular, la decisión sobre §2.4 (email de solo lectura vs. editable con reverificación) y §2.2 (añadir o no `User.phone`).)*
+### Decisiones de negocio resueltas (Human Gate parcial)
+
+- **§2.2 → Se añade `User.phone`** (confirmado). Editable en `/account` y reutilizable en el wizard de reserva.
+- **§2.4 → Email editable con reverificación** (confirmado, Opción B). Nuevo modelo `EmailChangeRequest` + flujo de token; **bloqueado para cuentas solo-Google**. Depende de la infraestructura de `specs/01-password-recovery.md`.
+
+**Estado del spec:** en revisión del usuario. La implementación NO ha sido aprobada todavía.
+
+*(Nota para la IA: Ejecuta las tareas mediante sub-agentes en la rama `feature/user-account-page` SOLO tras la aprobación explícita de implementación. Si el spec 01 (tokens/emails de verificación) no está implementado, el Bloque A2 debe incorporarlo como dependencia previa. Al finalizar, verifica contra la suite de `/tests` antes de solicitar Merge a `dev`.)*
