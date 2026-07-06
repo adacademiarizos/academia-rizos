@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Course } from "@/types/academy";
 import { ChatWidget } from "@/app/components/ChatWidget";
 import { CourseAIAssistant } from "@/app/components/CourseAIAssistant";
+import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
+import { useCourseAccess } from "@/app/components/useCourseAccess";
 
 interface Module {
   id: string;
@@ -46,6 +48,7 @@ interface DashboardData {
 export default function LearningDashboard() {
   const params = useParams();
   const courseId = params.courseId as string;
+  const access = useCourseAccess(courseId);
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +56,10 @@ export default function LearningDashboard() {
 
   useEffect(() => {
     const fetchDashboard = async () => {
+      if (access.loading || !access.hasAccess) {
+        return;
+      }
+
       try {
         // Fetch course details
         const courseResponse = await fetch(`/api/courses/${courseId}`);
@@ -104,9 +111,9 @@ export default function LearningDashboard() {
     };
 
     fetchDashboard();
-  }, [courseId]);
+  }, [access.hasAccess, access.loading, courseId]);
 
-  if (loading) {
+  if (access.loading || (access.hasAccess && loading)) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-ap-ink via-ap-ink to-black px-6 py-8">
         <div className="text-center text-ap-ivory">Cargando dashboard...</div>
@@ -114,12 +121,22 @@ export default function LearningDashboard() {
     );
   }
 
-  if (error || !data) {
+  if (access.reason) {
+    return (
+      <ProtectedAccessNotice
+        reason={access.reason}
+        from={`/learn/${courseId}`}
+        showSignIn={access.reason === "SIGN_IN_REQUIRED"}
+      />
+    );
+  }
+
+  if (access.error || error || !data) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-ap-ink via-ap-ink to-black px-6 py-8">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-2xl font-bold text-ap-ivory mb-4">Error</h1>
-          <p className="text-zinc-300 mb-8">{error}</p>
+          <p className="text-zinc-300 mb-8">{access.error || error}</p>
           <Link href="/courses" className="text-ap-copper hover:underline">
             ← Volver al catálogo
           </Link>

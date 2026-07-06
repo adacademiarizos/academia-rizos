@@ -183,6 +183,23 @@ Certificate
   QR → /verify/certificate/[code]
 ```
 
+#### Modelo academico actual
+
+La jerarquia academica vigente es:
+
+```
+Course
+  Module[]              -- secciones del curso
+    ModuleStyle[]       -- agrupadores editables por seccion
+      Lesson[]          -- contenido reproducible
+    ModuleTest[]
+    ModuleResource[]
+```
+
+`ModuleStyle` permite agrupar lecciones por estilo (`General`, `Rizos`, `Lacio`, etc.) dentro de cada seccion. No es una ruta exclusiva del estudiante. `ModuleProgress`, tests, recursos, likes, comentarios, chat y certificados siguen asociados a `Module`/`Course`.
+
+Durante la transicion, `Lesson.moduleId` se mantiene como columna legacy desnormalizada para endpoints antiguos. La relacion canonica nueva es `Lesson.styleId -> ModuleStyle.id`. Ver [`ACADEMY_CONTENT_MODEL.md`](ACADEMY_CONTENT_MODEL.md) para el detalle de migracion, APIs y reglas.
+
 ### Comunidad
 
 ```

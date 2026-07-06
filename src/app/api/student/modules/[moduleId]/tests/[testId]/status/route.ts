@@ -4,36 +4,23 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options'
+import { authorizeCourseAccessByModuleId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { db } from '@/lib/db'
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ moduleId: string; testId: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const user = await db.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const { moduleId, testId } = await params
+    const access = await authorizeCourseAccessByModuleId(moduleId, {
+      allowAdmin: true,
+      requireActiveAccess: true,
     })
 
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      )
+    if (!access.ok) {
+      return toAccessDeniedResponse(access)
     }
-
-    const { moduleId, testId } = await params
 
     const test = await db.moduleTest.findUnique({
       where: { id: testId },
@@ -45,25 +32,19 @@ export async function GET(
     })
 
     if (!test || test.moduleId !== moduleId) {
-      return NextResponse.json(
-        { success: false, error: 'Test not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ success: false, error: 'Test not found' }, { status: 404 })
     }
 
-    // Fetch all submissions for this user+test
     const submissions = await db.moduleSubmission.findMany({
-      where: { testId, userId: user.id },
+      where: { testId, userId: access.user.id },
       select: { score: true, isPassed: true, attemptNumber: true },
       orderBy: { submittedAt: 'asc' },
     })
 
     const attemptsUsed = submissions.length
     const bestScore =
-      submissions.length > 0
-        ? Math.max(...submissions.map((s) => s.score ?? 0))
-        : null
-    const alreadyPassed = submissions.some((s) => s.isPassed)
+      submissions.length > 0 ? Math.max(...submissions.map((submission) => submission.score ?? 0)) : null
+    const alreadyPassed = submissions.some((submission) => submission.isPassed)
     const attemptsRemaining =
       test.maxAttempts === 0 ? null : Math.max(0, test.maxAttempts - attemptsUsed)
 

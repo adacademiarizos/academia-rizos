@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
+import { useCourseAccess } from "@/app/components/useCourseAccess";
 
 interface Question {
   id: string;
@@ -37,6 +39,7 @@ export default function CourseTestPage() {
   const router = useRouter();
   const courseId = params.courseId as string;
   const testId = params.testId as string;
+  const access = useCourseAccess(courseId);
 
   const [test, setTest] = useState<TestInfo | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -50,8 +53,10 @@ export default function CourseTestPage() {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
-    loadAll();
-  }, [courseId, testId]);
+    if (!access.loading && access.hasAccess) {
+      loadAll();
+    }
+  }, [access.hasAccess, access.loading, courseId, testId]);
 
   const loadAll = async () => {
     setLoading(true);
@@ -95,6 +100,7 @@ export default function CourseTestPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("courseId", courseId);
       const res = await fetch("/api/student/uploads", {
         method: "POST",
         body: formData,
@@ -147,7 +153,7 @@ export default function CourseTestPage() {
     }
   };
 
-  if (loading) {
+  if (access.loading || (access.hasAccess && loading)) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-ap-ink via-ap-ink to-black px-6 py-8">
         <div className="text-center text-ap-ivory">Cargando...</div>
@@ -155,14 +161,24 @@ export default function CourseTestPage() {
     );
   }
 
-  if (error) {
+  if (access.reason) {
+    return (
+      <ProtectedAccessNotice
+        reason={access.reason}
+        from={`/learn/${courseId}/tests/${testId}`}
+        showSignIn={access.reason === "SIGN_IN_REQUIRED"}
+      />
+    );
+  }
+
+  if (access.error || error) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-ap-ink via-ap-ink to-black px-6 py-8">
         <div className="max-w-2xl mx-auto">
           <Link href={`/learn/${courseId}`} className="text-zinc-400 hover:text-ap-copper text-sm">
             ← Volver al curso
           </Link>
-          <p className="text-red-400 mt-4">{error}</p>
+          <p className="text-red-400 mt-4">{access.error || error}</p>
         </div>
       </main>
     );

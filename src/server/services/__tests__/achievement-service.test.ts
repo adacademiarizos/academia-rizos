@@ -34,6 +34,7 @@ describe('AchievementService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.useRealTimers()
   })
 
   describe('checkAndAwardAchievements', () => {
@@ -75,7 +76,7 @@ describe('AchievementService', () => {
       }
       ;(db.achievement.create as jest.Mock).mockResolvedValue(mockAchievement)
 
-      const result = await AchievementService.checkAndAwardAchievements(mockUserId)
+      await AchievementService.checkAndAwardAchievements(mockUserId)
 
       // Should create for both FIRST_COURSE and FIVE_COURSES
       expect(db.achievement.create).toHaveBeenCalledWith(
@@ -101,7 +102,7 @@ describe('AchievementService', () => {
       }
       ;(db.achievement.create as jest.Mock).mockResolvedValue(mockAchievement)
 
-      const result = await AchievementService.checkAndAwardAchievements(mockUserId)
+      await AchievementService.checkAndAwardAchievements(mockUserId)
 
       expect(db.achievement.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -126,7 +127,7 @@ describe('AchievementService', () => {
       }
       ;(db.achievement.create as jest.Mock).mockResolvedValue(mockAchievement)
 
-      const result = await AchievementService.checkAndAwardAchievements(mockUserId)
+      await AchievementService.checkAndAwardAchievements(mockUserId)
 
       expect(db.achievement.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -198,7 +199,7 @@ describe('AchievementService', () => {
       const mockActivity = {
         id: 'act-1',
         userId: mockUserId,
-        type: 'MODULE_COMPLETED',
+        type: 'PROFILE_VIEWED',
         courseId: 'course-1',
         createdAt: new Date(),
       }
@@ -206,7 +207,7 @@ describe('AchievementService', () => {
 
       const result = await AchievementService.recordActivity(
         mockUserId,
-        'MODULE_COMPLETED',
+        'PROFILE_VIEWED',
         'course-1'
       )
 
@@ -214,7 +215,7 @@ describe('AchievementService', () => {
       expect(db.userActivity.create).toHaveBeenCalledWith({
         data: {
           userId: mockUserId,
-          type: 'MODULE_COMPLETED',
+          type: 'PROFILE_VIEWED',
           courseId: 'course-1',
           moduleId: undefined,
         },
@@ -223,7 +224,10 @@ describe('AchievementService', () => {
 
     it('should trigger achievement check for trigger-worthy activities', async () => {
       ;(db.userActivity.create as jest.Mock).mockResolvedValue({})
-      ;(db.achievement.findUnique as jest.Mock).mockResolvedValue(null)
+      const checkSpy = jest
+        .spyOn(AchievementService, 'checkAndAwardAchievements')
+        .mockResolvedValue([])
+      jest.useFakeTimers()
 
       // These activity types should trigger achievement checks
       const triggerActivities = [
@@ -234,13 +238,15 @@ describe('AchievementService', () => {
       ]
 
       for (const activity of triggerActivities) {
-        jest.useFakeTimers()
         await AchievementService.recordActivity(mockUserId, activity)
-        jest.runAllTimers()
-        jest.useRealTimers()
       }
 
+      await jest.runAllTimersAsync()
+
       expect(db.userActivity.create).toHaveBeenCalledTimes(4)
+      expect(checkSpy).toHaveBeenCalledTimes(4)
+      checkSpy.mockRestore()
+      jest.useRealTimers()
     })
   })
 

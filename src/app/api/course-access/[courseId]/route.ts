@@ -4,69 +4,82 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options'
-
-import { db } from '@/lib/db'
-import { CourseService } from '@/server/services/course-service'
+import { authorizeCourseAccessByCourseId } from '@/lib/course-access-control'
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
     const { courseId } = await params
 
     if (!courseId) {
-      return NextResponse.json(
-        { success: false, error: 'Course ID is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ success: false, error: 'Course ID is required' }, { status: 400 })
     }
 
-    // Get current user session
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        {
-          success: true,
-          data: {
-            hasAccess: false,
-            isExpired: false,
-            accessUntil: null,
-            requiresLogin: true,
-          },
-        },
-        { status: 200 }
-      )
-    }
-
-    // Get user from database
-    const user = await db.user.findUnique({
-      where: { email: session.user.email },
-      select: { id: true },
+    const access = await authorizeCourseAccessByCourseId(courseId, {
+      allowAdmin: true,
+      requireActiveAccess: true,
     })
 
-    if (!user) {
+    if (!access.ok) {
+      if (access.code === 'SIGN_IN_REQUIRED') {
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              hasAccess: false,
+              isExpired: false,
+              accessUntil: null,
+              requiresLogin: true,
+              reason: 'SIGN_IN_REQUIRED',
+              viaAdmin: false,
+            },
+          },
+          { status: 200 }
+        )
+      }
+
+      if (
+        access.code === 'COURSE_PURCHASE_REQUIRED' ||
+        access.code === 'COURSE_ACCESS_EXPIRED' ||
+        access.code === 'COURSE_ACCESS_REVOKED'
+      ) {
+        return NextResponse.json(
+          {
+            success: true,
+            data: {
+              hasAccess: false,
+              isExpired: access.code === 'COURSE_ACCESS_EXPIRED',
+              accessUntil: null,
+              requiresLogin: false,
+              reason: access.code,
+              viaAdmin: false,
+            },
+          },
+          { status: 200 }
+        )
+      }
+
       return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
+        { success: false, error: access.message, code: access.code },
+        { status: access.status }
       )
     }
-
-    // Check access
-    const access = await CourseService.checkUserAccess(user.id, courseId)
 
     return NextResponse.json({
       success: true,
-      data: access,
+      data: {
+        hasAccess: true,
+        isExpired: false,
+        accessUntil: access.accessUntil,
+        requiresLogin: false,
+        reason: null,
+        viaAdmin: access.viaAdmin,
+      },
     })
   } catch (error) {
     console.error('Error checking course access:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to check access' },
-      { status: 500 }
-    )
+    return NextResponse.json({ success: false, error: 'Failed to check access' }, { status: 500 })
   }
 }
