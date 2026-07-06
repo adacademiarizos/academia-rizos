@@ -16,5 +16,11 @@
     "why": "Comisión inconsistente: curso y link añadían fee al cliente, la cita no; se necesitaba una única política",
     "where": "specs/07-stripe-payments-hardening.md §2.5/T7; src/lib/fees.ts, Settings.feeMode",
     "learned": "Decisión de negocio: SURCHARGE (el cliente paga la comisión) en los tres flujos; hay que homogeneizar la cita, que hoy no la aplica. ADVERTENCIA asumida por el negocio: repercutir la comisión de tarjeta al consumidor está restringido en la UE (Reg. UE 2015/751 / PSD2) — pendiente de revisión legal antes de producción."
+  },
+  {
+    "what": "Página de cuenta del usuario (/account) — decisiones de diseño",
+    "why": "El icono de usuario del menú (MobileDrawer/Sidebar) no enlazaba a nada; no existía página privada editable ni endpoints GET/PATCH /api/me",
+    "where": "specs/08-user-account-page.md; src/app/(dashboard)/components/{mobile/MobileDrawer,Sidebar}.tsx; prisma/schema.prisma (User)",
+    "learned": "El bloque de usuario del menú enlazará a una nueva ruta /account privada y editable. Decisiones confirmadas: (1) se añade User.phone (editable en /account, reutilizable en el wizard de reserva); (2) el email SÍ es editable pero con reverificación (nuevo modelo EmailChangeRequest + token, depende de la infra del spec 01), y se BLOQUEA para cuentas solo-Google (password=null) porque su email lo gestiona Google. El email nunca se cambia por PATCH /api/me; va por flujo dedicado."
   }
 ]
