@@ -325,6 +325,7 @@ model Course {
   priceCents   Int
   currency     String  @default("EUR")
   rentalDays   Int? // if null => lifetime access
+  certificateSlogan String?
   isActive     Boolean @default(true)
 
   createdAt DateTime @default(now())

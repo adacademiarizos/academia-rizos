@@ -11,6 +11,7 @@ interface Course {
   id: string
   title: string
   description: string | null
+  certificateSlogan: string | null
   priceCents: number
   isActive: boolean
   createdAt: string
@@ -32,14 +33,16 @@ export default function AdminCoursesPage() {
   const [newCourse, setNewCourse] = useState<{
     title: string
     description: string
+    certificateSlogan: string
     rentalDays: number | undefined
     isActive: boolean
     thumbnailUrl: string
   }>({
     title: '',
     description: '',
+    certificateSlogan: '',
     rentalDays: undefined,
-    isActive: true,
+    isActive: false,
     thumbnailUrl: '',
   })
   const [priceInput, setPriceInput] = useState('')
@@ -135,6 +138,11 @@ export default function AdminCoursesPage() {
         return
       }
 
+      if (newCourse.isActive && !newCourse.certificateSlogan.trim()) {
+        alert('Completá el slogan del certificado antes de publicar el curso')
+        return
+      }
+
       const baseVal = parseFloat(priceInput)
       if (!priceInput || isNaN(baseVal) || baseVal <= 0) {
         alert('Ingresá un precio válido mayor a 0')
@@ -158,15 +166,17 @@ export default function AdminCoursesPage() {
         setNewCourse({
           title: '',
           description: '',
+          certificateSlogan: '',
           rentalDays: undefined,
-          isActive: true,
+          isActive: false,
           thumbnailUrl: '',
         })
         setPriceInput('')
         fetchCourses()
         alert('Curso creado exitosamente')
       } else {
-        alert('Error creating course')
+        const data = await response.json()
+        alert(data.error || 'Error al crear el curso')
       }
     } catch (error) {
       console.error('Error:', error)
@@ -416,6 +426,22 @@ export default function AdminCoursesPage() {
               />
 
               <div>
+                <label className="mb-2 flex items-center justify-between text-sm text-white/70">
+                  <span>Slogan del certificado</span>
+                  <span className="text-xs text-white/35">{newCourse.certificateSlogan.length}/100</span>
+                </label>
+                <input
+                  type="text"
+                  value={newCourse.certificateSlogan}
+                  onChange={(e) => setNewCourse({ ...newCourse, certificateSlogan: e.target.value })}
+                  placeholder="Ej.: Especialización en definición y cuidado de rizos"
+                  maxLength={100}
+                  className="h-11 w-full rounded-2xl bg-white/5 px-4 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition"
+                />
+                <p className="mt-1.5 text-xs text-white/35">Obligatorio para publicar y emitir certificados.</p>
+              </div>
+
+              <div>
                 <input
                   type="number"
                   value={priceInput}
@@ -457,10 +483,16 @@ export default function AdminCoursesPage() {
                 <input
                   type="checkbox"
                   checked={newCourse.isActive}
-                  onChange={(e) => setNewCourse({ ...newCourse, isActive: e.target.checked })}
+                  onChange={(e) => {
+                    if (e.target.checked && !newCourse.certificateSlogan.trim()) {
+                      alert('Completá el slogan del certificado antes de publicar el curso')
+                      return
+                    }
+                    setNewCourse({ ...newCourse, isActive: e.target.checked })
+                  }}
                   className="rounded"
                 />
-                <span className="text-sm text-white/60">Activar curso al crear</span>
+                <span className="text-sm text-white/60">Publicar curso al crear</span>
               </label>
             </div>
 

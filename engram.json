@@ -22,5 +22,11 @@
     "why": "El icono de usuario del menú (MobileDrawer/Sidebar) no enlazaba a nada; no existía página privada editable ni endpoints GET/PATCH /api/me",
     "where": "specs/08-user-account-page.md; src/app/(dashboard)/components/{mobile/MobileDrawer,Sidebar}.tsx; prisma/schema.prisma (User)",
     "learned": "El bloque de usuario del menú enlazará a una nueva ruta /account privada y editable. Decisiones confirmadas: (1) se añade User.phone (editable en /account, reutilizable en el wizard de reserva); (2) el email SÍ es editable pero con reverificación (nuevo modelo EmailChangeRequest + token, depende de la infra del spec 01), y se BLOQUEA para cuentas solo-Google (password=null) porque su email lo gestiona Google. El email nunca se cambia por PATCH /api/me; va por flujo dedicado."
+  },
+  {
+    "what": "Exact certificate template and required course slogan",
+    "why": "The certificate must use the approved Elizabeth Rizos visual model and avoid publishing a course without its certificate copy.",
+    "where": "docs/academy-certificate-template.md; prisma/migrations/20260805120000_add_certificate_slogan; src/lib/pdf.ts; admin course APIs",
+    "learned": "certificateSlogan is nullable only for drafts. Publishing requires a trimmed non-empty slogan of at most 100 characters, server-side. Certificates embed local visual assets and fonts, use the course slogan in the specialization position, and generate a verification QR for /verify/certificate/{code}. Existing courses without a slogan are deactivated by the migration; existing access is not revoked."
   }
 ]

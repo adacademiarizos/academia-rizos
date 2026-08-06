@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { generateCertificatePdf } from '@/lib/pdf'
 import { uploadFile } from '@/lib/storage'
 import { sendCertificateEmail } from '@/lib/mail'
+import { normalizeCertificateSlogan } from '@/validators/course.schema'
 
 function generateCertCode(): string {
   const timestamp = Date.now().toString(36).toUpperCase()
@@ -27,11 +28,19 @@ export async function generateAndSaveCertificate(
   // Fetch user and course data
   const [user, course] = await Promise.all([
     db.user.findUnique({ where: { id: userId }, select: { name: true, email: true } }),
-    db.course.findUnique({ where: { id: courseId }, select: { title: true } }),
+    db.course.findUnique({
+      where: { id: courseId },
+      select: { title: true, certificateSlogan: true },
+    }),
   ])
 
   if (!user || !course) {
     throw new Error('User or course not found')
+  }
+
+  const certificateSlogan = normalizeCertificateSlogan(course.certificateSlogan)
+  if (!certificateSlogan) {
+    throw new Error('Cannot issue a certificate for a course without a certificate slogan')
   }
 
   const code = generateCertCode()
@@ -41,6 +50,7 @@ export async function generateAndSaveCertificate(
   const pdfBuffer = await generateCertificatePdf({
     userName: user.name ?? user.email ?? 'Estudiante',
     courseName: course.title,
+    certificateSlogan,
     code,
     issuedAt,
   })

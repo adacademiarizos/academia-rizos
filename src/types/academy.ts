@@ -6,6 +6,7 @@ export type Course = {
   description?: string | null
   trailerUrl?: string | null
   thumbnailUrl?: string | null
+  certificateSlogan?: string | null
   priceCents: number       // net price admin receives
   totalPriceCents: number  // what the customer pays (base + Stripe fees)
   feeCents: number         // Stripe fee amount
@@ -198,6 +199,7 @@ export type ChatMessage = {
 export type CreateCourseRequest = {
   title: string
   description?: string
+  certificateSlogan?: string
   trailerUrl?: string
   priceCents: number
   currency?: string
