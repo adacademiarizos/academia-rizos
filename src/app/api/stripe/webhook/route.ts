@@ -3,9 +3,9 @@ import { headers } from "next/headers";
 import { verifyStripeWebhook } from "@/lib/stripe";
 import { db } from "@/lib/db";
 import { sendPaymentReceiptEmail, sendAppointmentConfirmationEmail, sendAppointmentNotificationEmail, sendAdminAlertEmail } from "@/lib/mail";
-import { CourseService } from "@/server/services/course-service";
 import { NotificationService } from "@/server/services/notification-service";
 import { AchievementService } from "@/server/services/achievement-service";
+import { StripePaymentConfirmationService } from "@/server/services/stripe-payment-confirmation-service";
 
 export async function POST(req: Request) {
   const sig = (await headers()).get("stripe-signature");
@@ -47,55 +47,19 @@ export async function POST(req: Request) {
 
       const payerEmail = (session.customer_details?.email as string | undefined) ?? undefined;
 
-      // Upsert Payment by stripeCheckoutSessionId
-      const payment = await db.payment.upsert({
-        where: { stripeCheckoutSessionId },
-        create: {
-          type: (type as any) ?? "PAYMENT_LINK",
-          status: "PAID",
-          amountCents: amountTotal ?? 0,
-          currency,
-          stripeCheckoutSessionId,
-          stripePaymentIntentId,
-          appointmentId: metadata.appointmentId ?? null,
-          courseId: metadata.courseId ?? null,
-          paymentLinkId: metadata.paymentLinkId ?? null,
-          payerEmail,
-          metadata,
-        },
-        update: {
-          status: "PAID",
-          amountCents: amountTotal ?? 0,
-          currency,
-          stripePaymentIntentId,
-          payerEmail: payerEmail ?? undefined,
-          metadata,
-        },
+      const checkoutType = type === "APPOINTMENT" || type === "COURSE" || type === "PAYMENT_LINK" ? type : undefined;
+      const { payment, isFirstConfirmation } = await StripePaymentConfirmationService.confirm({
+        type: checkoutType,
+        stripeCheckoutSessionId,
+        stripePaymentIntentId,
+        amountCents: amountTotal ?? 0,
+        currency,
+        payerEmail,
+        metadata,
       });
 
-      // Track conversion event for analytics
-      await db.conversionEvent.create({
-        data: {
-          type: payment.type === "APPOINTMENT" ? "BOOKING" : payment.type === "COURSE" ? "COURSE_PURCHASE" : "PAYMENT_LINK",
-          sessionId: metadata.analyticsSessionId || "unknown",
-          userId: metadata.userId || payment.payerId || null,
-          referrer: metadata.analyticsReferrer || null,
-          utmSource: metadata.utmSource || null,
-          utmMedium: metadata.utmMedium || null,
-          utmCampaign: metadata.utmCampaign || null,
-          amountCents: payment.amountCents,
-          currency: payment.currency,
-          metadata: {
-            paymentId: payment.id,
-            appointmentId: payment.appointmentId,
-            courseId: payment.courseId,
-            paymentLinkId: payment.paymentLinkId,
-          },
-        },
-      }).catch((e) => console.error("[analytics] conversion event error:", e));
-
       // Si es appointment, confirmar appointment y notificar
-      if (payment.type === "APPOINTMENT" && payment.appointmentId) {
+      if (isFirstConfirmation && payment.type === "APPOINTMENT" && payment.appointmentId) {
         const appointment = await db.appointment.update({
           where: { id: payment.appointmentId },
           data: { status: "CONFIRMED" },
@@ -174,10 +138,9 @@ export async function POST(req: Request) {
       }
 
       // ✅ Si es course, otorgar acceso al curso
-      if (payment.type === "COURSE" && payment.courseId && payment.payerId) {
+      if (isFirstConfirmation && payment.type === "COURSE" && payment.courseId && payment.payerId) {
         try {
-          await CourseService.createCourseAccess(payment.payerId, payment.courseId);
-          console.log(`✅ Granted course access: ${payment.payerId} → ${payment.courseId}`);
+          console.log(`✅ Course enrollment committed: ${payment.payerId} → ${payment.courseId}`);
 
           // Get course and payer info for admin notifications
           const [courseInfo, payerInfo] = await Promise.all([

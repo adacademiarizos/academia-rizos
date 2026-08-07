@@ -4,7 +4,9 @@
 
 import { db } from '@/lib/db'
 import { addStripeFees } from '@/lib/fees'
-import type { Course, Module } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
+
+type CourseAccessClient = Pick<Prisma.TransactionClient, 'course' | 'courseAccess'>
 
 export class CourseService {
   /**
@@ -298,9 +300,9 @@ export class CourseService {
   /**
    * Create course access (after purchase)
    */
-  static async createCourseAccess(userId: string, courseId: string) {
+  static async createCourseAccess(userId: string, courseId: string, client: CourseAccessClient = db) {
     // Check course exists
-    const course = await db.course.findUnique({
+    const course = await client.course.findUnique({
       where: { id: courseId },
       select: { rentalDays: true },
     })
@@ -310,7 +312,7 @@ export class CourseService {
     }
 
     // Check if already has access
-    const existing = await db.courseAccess.findUnique({
+    const existing = await client.courseAccess.findUnique({
       where: { userId_courseId: { userId, courseId } },
     })
 
@@ -325,7 +327,7 @@ export class CourseService {
         ? new Date(Date.now() + course.rentalDays * 24 * 60 * 60 * 1000)
         : null
 
-      return db.courseAccess.update({
+      return client.courseAccess.update({
         where: { id: existing.id },
         data: { accessUntil: newAccessUntil },
       })
@@ -336,7 +338,7 @@ export class CourseService {
       ? new Date(Date.now() + course.rentalDays * 24 * 60 * 60 * 1000)
       : null
 
-    return db.courseAccess.create({
+    return client.courseAccess.create({
       data: {
         userId,
         courseId,

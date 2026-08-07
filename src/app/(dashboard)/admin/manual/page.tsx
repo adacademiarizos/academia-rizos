@@ -16,7 +16,6 @@ import {
   Bug,
   Lightbulb,
   AlertCircle,
-  Bell,
 } from "lucide-react";
 import { ManualPrintButton } from "@/app/(dashboard)/components/manuals/ManualPrintButton";
 
@@ -151,7 +150,7 @@ export default async function AdminManualPage() {
                 <p className="mt-2 text-sm text-white/60">
                   Guia actualizada para operar el panel admin segun la estructura real del proyecto.
                 </p>
-                <p className="mt-1 text-xs text-white/35">Actualizado: Marzo 2026</p>
+                <p className="mt-1 text-xs text-white/35">Actualizado: Agosto 2026</p>
               </div>
               <div className="manual-print-hide">
                 <ManualPrintButton />
@@ -187,18 +186,23 @@ export default async function AdminManualPage() {
               subtitle="Vista ejecutiva con KPIs de website y academia"
             />
             <p className="text-sm leading-relaxed text-white/70">
-              Overview resume trafico, conversion, crecimiento de usuarios, salud de academia y calidad de la
-              plataforma. Es la pantalla para tomar decisiones rapidas antes de entrar al detalle.
+              Overview resume los resultados de Website + Academia. Es la pantalla para decidir en menos de un minuto
+              si conviene profundizar en adquisición, conversión, un curso o una revisión pendiente.
             </p>
             <Card>
-              <Field label="Website" desc="Visitas, conversion, fuentes de trafico, paises, dispositivos y rendimiento de campañas." />
-              <Field label="Academia" desc="Cursos activos, matriculas, certificados, revisiones pendientes, pass rates y drop-off." />
-              <Field label="Calidad" desc="Reportes de bugs por tipo y tendencia mensual." />
+              <Field label="Periodo" desc="30 días por defecto; puedes usar 7, 90 días o ajustar las dos fechas. La comparación siempre usa el período anterior equivalente." />
+              <Field label="Resultado" desc="Facturación de cursos por moneda, compras confirmadas, conversión a compra y alumnos activos." />
+              <Field label="Recorrido" desc="Sesiones → vistas de curso → compras. Cada bloque enlaza a su vista de detalle conservando el período." />
+              <Field label="Salud" desc="Retención madura, progreso, tiempo a certificación y cursos con más compras." />
             </Card>
             <Tip>
-              Si ves pendientes de revision en academia, entra a Cursos - Revision de examenes para aprobar o pedir
-              correccion.
+              La facturación del overview solo incluye pagos de cursos ya confirmados. Si hay más de una moneda, los
+              importes se muestran separados y no se suman artificialmente.
             </Tip>
+            <Warning>
+              Citas, pagos de salón y links de pago no se muestran en este overview. Para fuentes, campañas,
+              dispositivos o páginas, usa Analíticas.
+            </Warning>
           </section>
 
           <section className="manual-print-section">

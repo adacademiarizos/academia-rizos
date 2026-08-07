@@ -259,6 +259,7 @@ model Payment {
 
   receiptEmailSentAt DateTime?
   receiptToEmail     String?
+  paidAt             DateTime?
 
   metadata Json?
 
@@ -270,6 +271,7 @@ model Payment {
   payer       User?        @relation("PayerPayments", fields: [payerId], references: [id])
 
   @@index([type, status])
+  @@index([type, status, paidAt])
   @@index([stripePaymentIntentId])
   @@index([stripeCheckoutSessionId])
 }
@@ -981,6 +983,7 @@ model PageView {
 model ConversionEvent {
   id        String   @id @default(cuid())
   type      String // "BOOKING" | "COURSE_PURCHASE" | "REGISTRATION"
+  paymentId String?  @unique
   sessionId String
   userId    String?
   referrer  String?

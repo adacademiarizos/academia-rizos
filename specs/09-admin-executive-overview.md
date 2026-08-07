@@ -1,6 +1,6 @@
 # Especificación 09: Overview ejecutivo de Website + Academia
 
-**Estado:** diseño aprobado; pendiente de implementación.
+**Estado:** implementado y verificado con pruebas unitarias, migración temporal y consultas reales.
 
 ## 1. Propósito y alcance
 
@@ -14,14 +14,14 @@ Como administrador, quiero abrir `/admin` y ver el rendimiento comercial y acad�
 
 ### Criterios de aceptación
 
-- [ ] El período por defecto es 30 días; se puede cambiar a 7, 90 o un rango personalizado.
-- [ ] Todos los bloques usan el mismo período y comparan contra el período inmediatamente anterior de igual duración.
-- [ ] El primer vistazo contiene solamente: facturación académica, compras, conversión a compra y alumnos activos.
-- [ ] El overview visualiza el recorrido sesiones → visitas de curso → compras y el estado de salud de la academia.
-- [ ] Las revisiones pendientes de certificados aparecen como una sola franja accionable, subordinada a los KPIs de resultado.
-- [ ] Ninguna métrica de citas, reservas, pagos de salón ni links de pago se muestra aquí.
-- [ ] Las métricas detalladas permanecen accesibles desde Analíticas, Cursos y Revisiones conservando el rango seleccionado.
-- [ ] Los estados sin datos, datos parciales, errores de sección y monedas múltiples son explícitos y no producen agregados engañosos.
+- [x] El período por defecto es 30 días; se puede cambiar a 7, 90 o un rango personalizado.
+- [x] Todos los bloques usan el mismo período y comparan contra el período inmediatamente anterior de igual duración.
+- [x] El primer vistazo contiene solamente: facturación académica, compras, conversión a compra y alumnos activos.
+- [x] El overview visualiza el recorrido sesiones → visitas de curso → compras y el estado de salud de la academia.
+- [x] Las revisiones pendientes de certificados aparecen como una sola franja accionable, subordinada a los KPIs de resultado.
+- [x] Ninguna métrica de citas, reservas, pagos de salón ni links de pago se muestra aquí.
+- [x] Las métricas detalladas permanecen accesibles desde Analíticas, Cursos y Revisiones conservando el rango seleccionado.
+- [x] Los estados sin datos, datos parciales, errores de sección y monedas múltiples son explícitos y no producen agregados engañosos.
 
 ## 2. Diseño de información
 
@@ -66,7 +66,7 @@ Todos los rangos se interpretan con la zona horaria configurable del negocio. `f
 | Retención 30 días | Usuarios de una matrícula con al menos 30 días de antigüedad que vuelven a realizar actividad de aprendizaje dentro de sus primeros 30 días. | `CourseAccess`, `UserActivity`, `PageView` | `/admin/analytics/courses` |
 | Progreso medio | Módulos completados ÷ módulos asignados para accesos vigentes. | `ModuleProgress`, `Module`, `CourseAccess` | `/admin/analytics/courses` |
 | Tiempo a certificarse | Mediana de días entre acceso de curso y certificado válido. | `CourseAccess`, `Certificate` | `/admin/analytics/courses` |
-| Ranking de cursos | Tres cursos ordenados por facturación del período; muestra compras, certificados y conversión del curso. | `Payment`, `Course`, `Certificate`, `PageView` | `/admin/analytics/courses?courseId=…` |
+| Ranking de cursos | Tres cursos ordenados por compras confirmadas del período; muestra facturación separada por moneda, certificados y conversión del curso. | `Payment`, `Course`, `Certificate`, `PageView` | `/admin/analytics/courses?courseId=…` |
 | Atención | Cantidad de exámenes y evaluaciones finales pendientes que pueden desbloquear certificados. | `ExamSubmission`, `CourseTestSubmission` | `/admin/courses/review` |
 
 ### Cambios de modelo y consistencia
@@ -131,25 +131,25 @@ flowchart LR
 
 ## 7. Validación y pruebas
 
-- [ ] Pruebas unitarias del servicio: los ingresos y compras incluyen solo `COURSE + PAID`, y excluyen citas, links, pendientes, cancelados y reembolsos.
-- [ ] Pruebas de fecha: el día final completo se incluye y el comparativo es de igual duración.
+- [x] Pruebas unitarias del servicio: los ingresos y compras incluyen solo `COURSE + PAID`, y excluyen citas, links, pendientes, cancelados y reembolsos.
+- [x] Pruebas de fecha: el día final completo se incluye y el comparativo es de igual duración.
 - [ ] Pruebas de cohortes: la retención a 30 días excluye alumnos con menos de 30 días desde la matrícula.
-- [ ] Pruebas del webhook: la reentrega del mismo checkout no duplica la venta ni la conversión atribuida.
+- [x] Pruebas del webhook: la reentrega del mismo checkout no duplica la venta ni la conversión atribuida.
 - [ ] Pruebas de autorización: usuario anónimo y no ADMIN no acceden a `/admin` ni a detalles protegidos.
-- [ ] Pruebas de estados: cero datos, datos sin período previo, sección fallida y más de una moneda.
+- [x] Pruebas de estados: cero datos, datos sin período previo, sección fallida y más de una moneda.
 - [ ] Prueba de integración de navegación: los enlaces conservan `from/to` y el alcance académico.
 - [ ] Revisión manual: escritorio, tablet, móvil, foco de teclado, contraste y lectura con datos incompletos.
 
 ## 8. Plan de implementación
 
-- [ ] Crear migración para `Payment.paidAt`, `ConversionEvent.paymentId` y sus índices; aplicar backfill determinista.
-- [ ] Hacer idempotente la confirmación de Stripe y garantizar que la transición a `PAID` fija `paidAt` una vez.
-- [ ] Extraer el helper de rangos y corregir la semántica inclusiva de las Analíticas existentes.
-- [ ] Implementar y probar `AdminExecutiveOverviewService` con su contrato tipado y agregados de negocio.
-- [ ] Reemplazar `src/app/(dashboard)/admin/page.tsx` por la composición ejecutiva y componentes presentacionales acotados.
-- [ ] Conectar enlaces de detalle, selector de período y estados de degradación.
-- [ ] Añadir pruebas unitarias, de integración y revisión responsive/accesible.
-- [ ] Actualizar la documentación de arquitectura y el manual administrativo cuando la implementación esté verificada.
+- [x] Crear migración para `Payment.paidAt`, `ConversionEvent.paymentId` y sus índices; aplicar backfill determinista.
+- [x] Hacer idempotente la confirmación de Stripe y garantizar que la transición a `PAID` fija `paidAt` una vez.
+- [x] Extraer el helper de rangos y corregir la semántica inclusiva de las Analíticas existentes.
+- [x] Implementar y probar `AdminExecutiveOverviewService` con su contrato tipado y agregados de negocio.
+- [x] Reemplazar `src/app/(dashboard)/admin/page.tsx` por la composición ejecutiva y componentes presentacionales acotados.
+- [x] Conectar enlaces de detalle, selector de período y estados de degradación.
+- [ ] Completar pruebas específicas de autorización, cohorte y navegación, además de revisión responsive manual autenticada.
+- [x] Actualizar la documentación de arquitectura y el manual administrativo cuando la implementación esté verificada.
 
 ## 9. Decisiones críticas
 
