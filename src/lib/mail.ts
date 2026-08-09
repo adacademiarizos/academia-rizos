@@ -124,6 +124,62 @@ function isGmailConfigured() {
   return Boolean(env.GMAIL_USER && env.GMAIL_REFRESH_TOKEN);
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function toAbsoluteInternalActionUrl(actionUrl: string) {
+  if (!actionUrl.startsWith("/") || actionUrl.startsWith("//")) {
+    throw new Error("Notification email action URL must be an internal relative URL");
+  }
+
+  return new URL(actionUrl, env.NEXT_PUBLIC_APP_URL).toString();
+}
+
+export type NotificationEmailParams = {
+  to: string;
+  title: string;
+  message: string;
+  actionUrl?: string | null;
+};
+
+/**
+ * Generic, durable-outbox email. Domain-specific receipts and password-reset
+ * emails retain their existing templates; this avoids serializing sensitive
+ * credentials or template-specific payloads into NotificationDelivery.
+ */
+export async function sendNotificationEmail(params: NotificationEmailParams) {
+  if (!isGmailConfigured()) {
+    throw new Error("Gmail notification delivery is not configured");
+  }
+
+  const title = escapeHtml(params.title);
+  const message = escapeHtml(params.message).replace(/\n/g, "<br/>");
+  const actionUrl = params.actionUrl
+    ? toAbsoluteInternalActionUrl(params.actionUrl)
+    : undefined;
+  const action = actionUrl
+    ? `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px"><tr><td>${ctaButton("Ver detalle", actionUrl)}</td></tr></table>`
+    : "";
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: params.title,
+    html: shell(
+      title,
+      `${emailTitle(title)}${para(message)}${action}${divider()}${para("Este mensaje fue generado automáticamente por la plataforma.", true)}`,
+    ),
+  });
+}
+
 // ──────────────────────────────────────────────────────────
 // 1. Recibo de pago
 // ──────────────────────────────────────────────────────────

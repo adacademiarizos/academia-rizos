@@ -5,6 +5,25 @@
 
 import { db } from '@/lib/db'
 import { buildActiveCourseAccessWhere } from '@/lib/course-access'
+import { NotificationDeliveryChannel, NotificationPriority } from '@prisma/client'
+import {
+  cancelScheduledNotificationDeliveries,
+  dispatchNotification,
+  materializeInAppNotificationDelivery,
+  type CancelScheduledDeliveriesInput,
+  type NotificationDispatchInput,
+  type PendingInAppDelivery,
+} from '@/server/services/notification-dispatcher'
+
+export {
+  notificationEventKeys,
+  type CancelScheduledDeliveriesInput,
+  type NotificationDispatchInput,
+  type NotificationDispatchRecipient,
+  type NotificationDispatchResult,
+  type NotificationEventKey,
+  type NotificationResource,
+} from '@/server/services/notification-dispatcher'
 
 interface NotificationData {
   userId: string
@@ -12,6 +31,12 @@ interface NotificationData {
   title: string
   message: string
   relatedId?: string
+  eventKey?: string
+  dedupeKey?: string
+  resourceType?: string
+  resourceId?: string
+  actionUrl?: string
+  priority?: NotificationPriority
 }
 
 export class NotificationService {
@@ -24,6 +49,12 @@ export class NotificationService {
     title,
     message,
     relatedId,
+    eventKey,
+    dedupeKey,
+    resourceType,
+    resourceId,
+    actionUrl,
+    priority,
   }: NotificationData) {
     try {
       const notification = await db.notification.create({
@@ -33,6 +64,12 @@ export class NotificationService {
           title,
           message,
           relatedId,
+          ...(eventKey ? { eventKey } : {}),
+          ...(dedupeKey ? { dedupeKey } : {}),
+          ...(resourceType ? { resourceType } : {}),
+          ...(resourceId ? { resourceId } : {}),
+          ...(actionUrl ? { actionUrl } : {}),
+          ...(priority ? { priority } : {}),
         },
       })
       return notification
@@ -91,7 +128,7 @@ export class NotificationService {
     try {
       const notification = await db.notification.update({
         where: { id: notificationId },
-        data: { isRead: true },
+        data: { isRead: true, readAt: new Date() },
       })
       return notification
     } catch (error) {
@@ -107,7 +144,7 @@ export class NotificationService {
     try {
       const result = await db.notification.updateMany({
         where: { userId, isRead: false },
-        data: { isRead: true },
+        data: { isRead: true, readAt: new Date() },
       })
       return result
     } catch (error) {
@@ -128,6 +165,67 @@ export class NotificationService {
     } catch (error) {
       console.error('Error deleting notification:', error)
       throw error
+    }
+  }
+
+  /**
+   * Central P1 dispatch entry point. It returns an error result rather than
+   * throwing, so callers can invoke it after a business mutation without
+   * rolling that mutation back when notification infrastructure is unavailable.
+   */
+  static async dispatch(input: NotificationDispatchInput) {
+    return dispatchNotification(input)
+  }
+
+  /**
+   * Cancels only future deliveries for an explicit resource/event/dedupe scope.
+   */
+  static async cancelScheduledDeliveries(input: CancelScheduledDeliveriesInput) {
+    return cancelScheduledNotificationDeliveries(input)
+  }
+
+  /**
+   * Used only by the outbox worker after it has claimed an IN_APP delivery.
+   * It throws on persistence failure so the worker can retry the delivery.
+   */
+  static async materializeInAppDelivery(delivery: PendingInAppDelivery, now?: Date) {
+    return materializeInAppNotificationDelivery(delivery, now)
+  }
+
+  /**
+   * A terminal outbox failure should be visible to admins but must not enqueue
+   * another email and create a notification-delivery retry loop.
+   */
+  static async notifyDeliveryExhausted(input: {
+    deliveryId: string
+    eventKey: string
+    resource?: { type: string; id: string }
+  }) {
+    try {
+      const admins = await db.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { id: true },
+      })
+
+      return this.dispatch({
+        eventKey: 'notification.delivery_exhausted',
+        type: 'SYSTEM',
+        title: 'No se pudo entregar una notificación',
+        message: `La notificación ${input.eventKey} agotó sus reintentos de entrega.`,
+        recipients: admins.map((admin) => ({ userId: admin.id })),
+        channels: [NotificationDeliveryChannel.IN_APP],
+        resource: input.resource,
+        priority: NotificationPriority.HIGH,
+        dedupeKey: `notification-delivery:${input.deliveryId}:exhausted`,
+      })
+    } catch (error) {
+      console.error('Error notifying admins about exhausted delivery:', error)
+      return {
+        ok: false as const,
+        notifications: 0,
+        deliveries: 0,
+        error: 'NOTIFICATION_DISPATCH_FAILED' as const,
+      }
     }
   }
 
