@@ -19,6 +19,7 @@ jest.mock('@/lib/db', () => ({
     },
     user: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
     },
     courseAccess: {
       findMany: jest.fn(),
@@ -166,6 +167,51 @@ describe('NotificationService', () => {
       expect(db.notification.updateMany).toHaveBeenCalledWith({
         where: { userId: mockUserId, isRead: false },
         data: { isRead: true },
+      })
+    })
+  })
+
+  describe('triggerOnAppointmentStatus', () => {
+    it('creates a no-show notification', async () => {
+      ;(db.notification.create as jest.Mock).mockResolvedValue(mockNotification)
+
+      await NotificationService.triggerOnAppointmentStatus(
+        mockUserId,
+        'appointment-1',
+        'NO_SHOW',
+        'Corte'
+      )
+
+      expect(db.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: mockUserId,
+          type: 'APPOINTMENT',
+          title: 'Inasistencia registrada',
+          relatedId: 'appointment-1',
+        }),
+      })
+    })
+  })
+
+  describe('notifyAllAdmins', () => {
+    it('excludes the assigned staff member from the admin broadcast', async () => {
+      ;(db.user.findMany as jest.Mock).mockResolvedValue([{ id: 'admin-2' }])
+      ;(db.notification.create as jest.Mock).mockResolvedValue(mockNotification)
+
+      await NotificationService.notifyAllAdmins({
+        type: 'APPOINTMENT',
+        title: 'Nueva cita reservada',
+        message: 'Ada reservó Corte',
+        relatedId: 'appointment-1',
+        excludeUserIds: ['staff-1'],
+      })
+
+      expect(db.user.findMany).toHaveBeenCalledWith({
+        where: { role: 'ADMIN', id: { notIn: ['staff-1'] } },
+        select: { id: true },
+      })
+      expect(db.notification.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ userId: 'admin-2' }),
       })
     })
   })
