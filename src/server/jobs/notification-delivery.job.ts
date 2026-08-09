@@ -8,6 +8,10 @@ import { db } from "@/lib/db";
 import { sendNotificationEmail } from "@/lib/mail";
 import { NotificationService } from "@/server/services/notification-service";
 
+import {
+  scheduleNotificationReminders,
+  type NotificationReminderScheduleResult,
+} from "./notification-schedule.job";
 import type { MaintenanceJobResult } from "./types";
 
 export const NOTIFICATION_DELIVERY_BATCH_SIZE = 50;
@@ -288,6 +292,42 @@ export async function processNotificationDeliveries(
   return { processed, errors };
 }
 
-export async function notificationDeliveryJob(): Promise<MaintenanceJobResult> {
-  return processNotificationDeliveries();
+export type NotificationJobDeps = {
+  scheduleReminders: () => Promise<NotificationReminderScheduleResult>;
+  processDeliveries: () => Promise<MaintenanceJobResult>;
+};
+
+const defaultNotificationJobDeps: NotificationJobDeps = {
+  scheduleReminders: scheduleNotificationReminders,
+  processDeliveries: processNotificationDeliveries,
+};
+
+/**
+ * Plan future milestones before draining due deliveries. Each phase is
+ * isolated so a scheduling query failure cannot block retries that are
+ * already in the outbox.
+ */
+export async function notificationDeliveryJob(
+  overrides: Partial<NotificationJobDeps> = {},
+): Promise<MaintenanceJobResult> {
+  const deps: NotificationJobDeps = { ...defaultNotificationJobDeps, ...overrides };
+  const errors: string[] = [];
+
+  try {
+    const scheduleResult = await deps.scheduleReminders();
+    errors.push(...scheduleResult.errors);
+  } catch (error) {
+    errors.push("Notification reminder scheduling failed: " + toErrorMessage(error));
+  }
+
+  try {
+    const deliveryResult = await deps.processDeliveries();
+    return {
+      processed: deliveryResult.processed,
+      errors: [...errors, ...deliveryResult.errors],
+    };
+  } catch (error) {
+    errors.push("Notification delivery processing failed: " + toErrorMessage(error));
+    return { processed: 0, errors };
+  }
 }
