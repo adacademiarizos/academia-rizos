@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authorizeCourseAccessByModuleId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { db } from '@/lib/db'
-import { NotificationService } from '@/server/services/notification-service'
 
 async function autoCreatePendingCertificate(userId: string, courseId: string) {
   const totalModules = await db.module.count({ where: { courseId } })
@@ -116,9 +115,8 @@ export async function POST(
       autoCreatePendingCertificate(access.user.id, access.courseId).catch((error) => {
         console.error('Auto-certificate check failed:', error)
       })
-      NotificationService.triggerOnCourseCompletion(access.user.id, access.courseId).catch((error) => {
-        console.error('Course completion notification failed:', error)
-      })
+      // A module is only an intermediate milestone. The final exam/certificate
+      // workflow is the sole owner of COURSE_COMPLETION notifications.
     }
 
     return NextResponse.json({

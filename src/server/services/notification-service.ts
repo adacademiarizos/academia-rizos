@@ -14,6 +14,14 @@ interface NotificationData {
   relatedId?: string
 }
 
+type AssessmentSubmissionNotification = {
+  userId: string
+  courseId: string
+  submissionId: string
+  assessmentType: 'COURSE_TEST' | 'FINAL_EXAM'
+  requiresReview: boolean
+}
+
 export class NotificationService {
   /**
    * Create a new notification
@@ -416,6 +424,50 @@ export class NotificationService {
     } catch (error) {
       console.error('Error notifying admins:', error)
       // Don't throw
+    }
+  }
+
+  /**
+   * Persist an acknowledgement for a student assessment submission and, when
+   * human review is required, alert every administrator who can review it.
+   */
+  static async triggerOnAssessmentSubmission({
+    userId,
+    courseId,
+    submissionId,
+    assessmentType,
+    requiresReview,
+  }: AssessmentSubmissionNotification) {
+    try {
+      const course = await db.course.findUnique({
+        where: { id: courseId },
+        select: { title: true },
+      })
+      const courseName = course?.title ?? 'tu curso'
+      const assessmentLabel = assessmentType === 'FINAL_EXAM' ? 'examen final' : 'evaluación'
+      const received = assessmentType === 'FINAL_EXAM' ? 'recibido' : 'recibida'
+
+      await this.createNotification({
+        userId,
+        type: 'SUBMISSION',
+        title: 'Entrega recibida',
+        message: `Tu ${assessmentLabel} de "${courseName}" fue ${received}${
+          requiresReview ? ' y está pendiente de revisión.' : '.'
+        }`,
+        relatedId: submissionId,
+      })
+
+      if (requiresReview) {
+        await this.notifyAllAdmins({
+          type: 'SUBMISSION',
+          title: 'Nueva entrega pendiente de revisión',
+          message: `Se recibió un ${assessmentLabel} de "${courseName}" para revisión.`,
+          relatedId: submissionId,
+        })
+      }
+    } catch (error) {
+      console.error('Error triggering assessment submission notification:', error)
+      // Don't throw - a notification must not make a valid submission fail.
     }
   }
 
