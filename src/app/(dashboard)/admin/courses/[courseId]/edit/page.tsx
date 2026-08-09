@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import FileUploadProgress from '@/app/components/FileUploadProgress'
+import { LearningContentManager } from '../../components/LearningContentManager'
 
 interface Course {
   id: string
@@ -1426,6 +1427,7 @@ export default function CourseEditPage() {
                                         </div>
                                       </div>
                                     )}
+                                    <LearningContentManager scope="STYLE" scopeId={style.id} courseId={courseId} />
                                   </div>
                                 ))
                               )}
@@ -1566,6 +1568,7 @@ export default function CourseEditPage() {
 
                                     {expandedLessonId === lesson.id && (
                                       <div className="px-3 pb-3 pt-2 space-y-2">
+                                        <LearningContentManager scope="LESSON" scopeId={lesson.id} courseId={courseId} />
                                         <input
                                           type="text"
                                           value={editLessonForms[lesson.id]?.title || ''}
@@ -1667,6 +1670,8 @@ export default function CourseEditPage() {
                           </div>
 
                           {/* Recursos del Módulo */}
+                          <LearningContentManager scope="MODULE" scopeId={editingModuleId!} courseId={courseId} />
+
                           <div className="border-t border-white/10 pt-4">
                             <label className="block text-sm font-medium text-white/70 mb-2">
                               Recursos del módulo
@@ -2011,6 +2016,8 @@ export default function CourseEditPage() {
           </>
         )}
       </div>
+
+      <LearningContentManager scope="COURSE" scopeId={courseId} courseId={courseId} />
 
       {/* Course Tests Section */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[28px] p-8">

@@ -65,6 +65,28 @@ enum SubmissionStatus {
   APPROVED
 }
 
+/// The only place where a learning resource or assessment can live.
+/// Database checks added by the migration guarantee that exactly one parent is set.
+enum LearningScope {
+  COURSE
+  MODULE
+  STYLE
+  LESSON
+}
+
+enum AssessmentQuestionType {
+  MULTIPLE_CHOICE
+  WRITTEN
+  PHOTO
+  VIDEO
+}
+
+enum AssessmentAttemptStatus {
+  PENDING_REVIEW
+  APPROVED
+  NOT_PASSED
+}
+
 enum BugType {
   CONTENT
   FUNCTIONALITY
@@ -97,17 +119,22 @@ model User {
   variantPrices      VariantStaffPrice[] @relation("VariantStaffPrice_staff")
 
   // Relations - Academia
-  courseAccess          CourseAccess[]
-  comments              Comment[]
-  likes                 Like[]
-  chatMessages          ChatMessage[]
-  submissions           Submission[]
-  certificates          Certificate[]
-  moduleProgress        ModuleProgress[]
-  moduleSubmissions     ModuleSubmission[]
-  questionSubmissions   QuestionSubmission[]
-  examSubmissions       ExamSubmission[]
-  courseTestSubmissions CourseTestSubmission[]
+  courseAccess            CourseAccess[]
+  comments                Comment[]
+  likes                   Like[]
+  chatMessages            ChatMessage[]
+  submissions             Submission[]
+  certificates            Certificate[]
+  moduleProgress          ModuleProgress[]
+  lessonProgress          LessonProgress[]
+  moduleSubmissions       ModuleSubmission[]
+  questionSubmissions     QuestionSubmission[]
+  examSubmissions         ExamSubmission[]
+  courseTestSubmissions   CourseTestSubmission[]
+  assessmentAttempts      AssessmentAttempt[]      @relation("AssessmentAttemptStudent")
+  assessmentReviews       AssessmentAttempt[]      @relation("AssessmentAttemptReviewer")
+  assessmentRevalidations AssessmentRevalidation[] @relation("AssessmentRevalidationStudent")
+  assessmentGrants        AssessmentRevalidation[] @relation("AssessmentRevalidationGrantedBy")
 
   // Relations - ETAPA 5
   notifications Notification[]
@@ -359,14 +386,16 @@ model Course {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  modules         Module[]
-  resources       Resource[]
-  courseResources CourseResource[]
-  courseTests     CourseTest[]
-  access          CourseAccess[]
-  test            Test?
-  exam            CourseExam?
-  payments        Payment[]        @relation("CoursePayments")
+  modules           Module[]
+  resources         Resource[]
+  courseResources   CourseResource[]
+  courseTests       CourseTest[]
+  learningResources LearningResource[]
+  assessments       Assessment[]
+  access            CourseAccess[]
+  test              Test?
+  exam              CourseExam?
+  payments          Payment[]          @relation("CoursePayments")
 
   likes        Like[]        @relation("CourseLikes")
   comments     Comment[]     @relation("CourseComments")
@@ -389,13 +418,15 @@ model Module {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  course      Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  progress    ModuleProgress[]
-  resources   ModuleResource[]
-  tests       ModuleTest[]
-  submissions ModuleSubmission[]
-  lessons     Lesson[]
-  styles      ModuleStyle[]
+  course            Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress          ModuleProgress[]
+  resources         ModuleResource[]
+  tests             ModuleTest[]
+  learningResources LearningResource[]
+  assessments       Assessment[]
+  submissions       ModuleSubmission[]
+  lessons           Lesson[]
+  styles            ModuleStyle[]
 
   likes    Like[]
   comments Comment[]
@@ -416,8 +447,10 @@ model ModuleStyle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  module  Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  lessons Lesson[]
+  module            Module             @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  lessons           Lesson[]
+  learningResources LearningResource[]
+  assessments       Assessment[]
 
   @@unique([moduleId, slug])
   @@unique([moduleId, order])
@@ -440,8 +473,11 @@ model Lesson {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  style  ModuleStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
-  module Module      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  style             ModuleStyle        @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  module            Module             @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress          LessonProgress[]
+  learningResources LearningResource[]
+  assessments       Assessment[]
 
   @@unique([styleId, order])
   @@index([styleId])
@@ -461,6 +497,23 @@ model ModuleProgress {
   @@unique([userId, moduleId])
   @@index([moduleId])
   @@index([userId])
+}
+
+/// Canonical academic progress. A lesson is complete only after all of its
+/// required unified assessments have been approved.
+model LessonProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  lessonId    String
+  completedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
 }
 
 model CourseAccess {
@@ -703,6 +756,147 @@ model CourseResource {
   @@index([courseId, order])
 }
 
+// ============= UNIFIED LEARNING CONTENT =============
+// Legacy CourseResource and ModuleResource remain below/above for backwards
+// compatibility. New reads and writes use these models exclusively.
+
+model LearningResource {
+  id        String        @id @default(cuid())
+  scope     LearningScope
+  courseId  String?
+  moduleId  String?
+  styleId   String?
+  lessonId  String?
+  title     String
+  fileUrl   String
+  fileType  String
+  fileSize  Int
+  order     Int           @default(0)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  course Course?      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module Module?      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  style  ModuleStyle? @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  lesson Lesson?      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, order])
+  @@index([moduleId, order])
+  @@index([styleId, order])
+  @@index([lessonId, order])
+}
+
+model Assessment {
+  id           String        @id @default(cuid())
+  scope        LearningScope
+  courseId     String?
+  moduleId     String?
+  styleId      String?
+  lessonId     String?
+  title        String
+  description  String?
+  order        Int           @default(0)
+  isRequired   Boolean       @default(false)
+  /// Only a COURSE assessment can be final. A partial unique index enforces
+  /// one final assessment per course; it is also required by a SQL check.
+  isFinalExam  Boolean       @default(false)
+  maxAttempts  Int           @default(1)
+  passingScore Int           @default(70)
+  publishedAt  DateTime?     @default(now())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  course        Course?                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  module        Module?                  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  style         ModuleStyle?             @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  lesson        Lesson?                  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions     AssessmentQuestion[]
+  attempts      AssessmentAttempt[]
+  revalidations AssessmentRevalidation[]
+
+  @@index([courseId, order])
+  @@index([moduleId, order])
+  @@index([styleId, order])
+  @@index([lessonId, order])
+}
+
+model AssessmentQuestion {
+  id            String                 @id @default(cuid())
+  assessmentId  String
+  type          AssessmentQuestionType
+  title         String
+  description   String?
+  order         Int                    @default(0)
+  required      Boolean                @default(true)
+  /// Multiple choice options. Kept null for written/photo/video questions.
+  options       Json?
+  correctAnswer String?
+  config        Json?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  answers    AssessmentAnswer[]
+
+  @@index([assessmentId, order])
+}
+
+model AssessmentAttempt {
+  id            String                  @id @default(cuid())
+  assessmentId  String
+  userId        String
+  attemptNumber Int
+  status        AssessmentAttemptStatus @default(PENDING_REVIEW)
+  score         Float?
+  reviewNote    String?
+  reviewedAt    DateTime?
+  reviewedById  String?
+  submittedAt   DateTime                @default(now())
+
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  student    User               @relation("AssessmentAttemptStudent", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer   User?              @relation("AssessmentAttemptReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  answers    AssessmentAnswer[]
+
+  @@unique([assessmentId, userId, attemptNumber])
+  @@index([assessmentId, userId, status])
+  @@index([userId, status])
+}
+
+model AssessmentAnswer {
+  id           String   @id @default(cuid())
+  attemptId    String
+  questionId   String
+  responseText String?
+  fileUrl      String?
+  fileMimeType String?
+  isCorrect    Boolean?
+  createdAt    DateTime @default(now())
+
+  attempt  AssessmentAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([questionId])
+}
+
+model AssessmentRevalidation {
+  id              String   @id @default(cuid())
+  assessmentId    String
+  userId          String
+  grantedById     String
+  attemptsGranted Int
+  reason          String?
+  createdAt       DateTime @default(now())
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  student    User       @relation("AssessmentRevalidationStudent", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy  User       @relation("AssessmentRevalidationGrantedBy", fields: [grantedById], references: [id])
+
+  @@index([assessmentId, userId])
+  @@index([grantedById])
+}
+
 model ModuleTest {
   id           String   @id @default(cuid())
   moduleId     String
@@ -900,32 +1094,32 @@ model AboutFounderContent {
 }
 
 model ContactContent {
-  id                 String   @id // "ACADEMIA" | "SALON"
-  sectionKicker      String   @default("Contacto")
-  sectionTitle       String   @default("Estamos aqui para ti")
-  sectionDescription String   @default("Puedes contactarnos a traves de nuestras redes sociales, por correo electronico o visitar nuestro estudio fisico.")
-  instagramUrl       String   @default("https://www.instagram.com/elizabeth.rizos")
-  instagramHandle    String   @default("@elizabeth.rizos")
-  tiktokUrl          String   @default("https://www.tiktok.com/@elizabeth.rizos")
-  tiktokHandle       String   @default("@elizabeth.rizos")
-  facebookUrl        String   @default("https://www.facebook.com/elizabethrizos")
-  facebookHandle     String   @default("elizabeth rizos")
-  whatsappUrl        String   @default("https://wa.me/34600000000")
-  whatsappLabel      String   @default("Escribenos directamente")
-  emailPrimaryLabel  String   @default("Consultas generales")
-  emailPrimary       String   @default("hola@apoteosicas.com")
+  id                  String   @id // "ACADEMIA" | "SALON"
+  sectionKicker       String   @default("Contacto")
+  sectionTitle        String   @default("Estamos aqui para ti")
+  sectionDescription  String   @default("Puedes contactarnos a traves de nuestras redes sociales, por correo electronico o visitar nuestro estudio fisico.")
+  instagramUrl        String   @default("https://www.instagram.com/elizabeth.rizos")
+  instagramHandle     String   @default("@elizabeth.rizos")
+  tiktokUrl           String   @default("https://www.tiktok.com/@elizabeth.rizos")
+  tiktokHandle        String   @default("@elizabeth.rizos")
+  facebookUrl         String   @default("https://www.facebook.com/elizabethrizos")
+  facebookHandle      String   @default("elizabeth rizos")
+  whatsappUrl         String   @default("https://wa.me/34600000000")
+  whatsappLabel       String   @default("Escribenos directamente")
+  emailPrimaryLabel   String   @default("Consultas generales")
+  emailPrimary        String   @default("hola@apoteosicas.com")
   emailSecondaryLabel String   @default("Academia y cursos")
-  emailSecondary     String   @default("academia@apoteosicas.com")
-  actionLabel        String   @default("Reservar cita online")
-  actionHref         String   @default("/booking")
-  locationTitle      String   @default("Nuestro Estudio")
-  address            String   @default("Calle Ejemplo, 123\\n28001 Madrid, Espana")
-  scheduleLine1      String   @default("Lunes - Viernes: 10:00 - 20:00")
-  scheduleLine2      String   @default("Sabado: 10:00 - 15:00")
-  scheduleLine3      String   @default("Domingo: Cerrado")
-  mapsUrl            String   @default("https://maps.google.com")
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  emailSecondary      String   @default("academia@apoteosicas.com")
+  actionLabel         String   @default("Reservar cita online")
+  actionHref          String   @default("/booking")
+  locationTitle       String   @default("Nuestro Estudio")
+  address             String   @default("Calle Ejemplo, 123\\n28001 Madrid, Espana")
+  scheduleLine1       String   @default("Lunes - Viernes: 10:00 - 20:00")
+  scheduleLine2       String   @default("Sabado: 10:00 - 15:00")
+  scheduleLine3       String   @default("Domingo: Cerrado")
+  mapsUrl             String   @default("https://maps.google.com")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model ResultImage {

@@ -8,6 +8,8 @@ interface FileUploadProgressProps {
   moduleId?: string
   lessonId?: string
   courseId?: string
+  /** Upload to storage but let the caller persist the learning resource. */
+  deferPersistence?: boolean
   accept?: string
   maxSize?: number // in MB
 }
@@ -33,6 +35,7 @@ export default function FileUploadProgress({
   moduleId,
   lessonId,
   courseId,
+  deferPersistence = false,
   accept,
   maxSize,
 }: FileUploadProgressProps) {
@@ -94,6 +97,7 @@ export default function FileUploadProgress({
           moduleId,
           lessonId,
           courseId,
+          deferPersistence,
           fileName: selectedFile.name,
         }),
       })
@@ -140,6 +144,7 @@ export default function FileUploadProgress({
           moduleId,
           lessonId,
           courseId,
+          deferPersistence,
         }),
       })
 

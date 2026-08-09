@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { LikeButton } from "@/app/components/LikeButton";
 import { CommentsSection } from "@/app/components/CommentsSection";
+import { LearningAssessmentPanel } from "@/app/components/LearningAssessmentPanel";
+import { LearningResourcesPanel } from "@/app/components/LearningResourcesPanel";
 import ModuleTestSubmission from "@/app/components/ModuleTestSubmission";
 import { ChatWidget } from "@/app/components/ChatWidget";
 import { CourseAIAssistant } from "@/app/components/CourseAIAssistant";
@@ -72,8 +74,9 @@ export default function ModulePlayer() {
   const [error, setError] = useState<string | null>(null);
   const [completing, setCompleting] = useState(false);
   const [activeTab, setActiveTab] = useState<"description" | "transcript">("description");
-  const [tests, setTests] = useState<any[]>([]);
-  const [resources, setResources] = useState<ModuleResource[]>([]);
+  // Legacy state remains for the temporary compatibility view below.
+  const [tests] = useState<any[]>([]);
+  const [resources] = useState<ModuleResource[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [styles, setStyles] = useState<ModuleStyle[]>([]);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
@@ -133,19 +136,6 @@ export default function ModulePlayer() {
           }
         }
 
-        // Fetch tests for this module
-        const testsResponse = await fetch(`/api/student/modules/${moduleId}/tests`);
-        if (testsResponse.ok) {
-          const testsData = await testsResponse.json();
-          setTests(testsData.data || []);
-        }
-
-        // Fetch resources for this module
-        const resourcesResponse = await fetch(`/api/student/modules/${moduleId}/resources`);
-        if (resourcesResponse.ok) {
-          const resourcesData = await resourcesResponse.json();
-          setResources(resourcesData.data || []);
-        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
@@ -219,6 +209,7 @@ export default function ModulePlayer() {
   const { module, courseId: cId, courseName } = data;
   const hasLessons = lessons.length > 0;
   const activeLesson = lessons.find((l) => l.id === activeLessonId);
+  const activeStyle = styles.find((style) => style.lessons.some((lesson) => lesson.id === activeLessonId));
 
   const videoSrc = hasLessons
     ? (activeLesson?.videoFileUrl || activeLesson?.videoUrl || "")
@@ -277,7 +268,7 @@ export default function ModulePlayer() {
                         return (
                           <button
                             key={lesson.id}
-                            onClick={() => { setActiveLessonId(lesson.id); setActiveTestId(null); }}
+                            onClick={() => setActiveLessonId(lesson.id)}
                             className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-start gap-3 ${
                               isActive
                                 ? "bg-ap-copper/15 border border-ap-copper/30 text-ap-ivory"
@@ -300,7 +291,10 @@ export default function ModulePlayer() {
               </div>
             )}
 
-            {/* Resources */}
+            <LearningResourcesPanel scope="MODULE" scopeId={moduleId} title="Recursos del módulo" />
+            <LearningAssessmentPanel scope="MODULE" scopeId={moduleId} courseId={courseId} title="Evaluaciones del módulo" />
+
+            {/* Legacy resources */}
             {resources.length > 0 && (
               <div>
                 <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
@@ -364,7 +358,7 @@ export default function ModulePlayer() {
             )}
 
             {/* Status */}
-            <div className="p-4 rounded-2xl bg-white/5 border border-zinc-700 space-y-3">
+            {!hasLessons && <div className="p-4 rounded-2xl bg-white/5 border border-zinc-700 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-zinc-400 text-sm">Estado</span>
                 <span
@@ -387,7 +381,7 @@ export default function ModulePlayer() {
                   {completing ? "Guardando..." : "Marcar como completado"}
                 </button>
               )}
-            </div>
+            </div>}
 
             {/* Navigation */}
             <div className="space-y-2">
@@ -507,6 +501,8 @@ export default function ModulePlayer() {
                   </div>
                 )}
               </div>
+              {activeStyle && <div className="space-y-4"><LearningResourcesPanel scope="STYLE" scopeId={activeStyle.id} title={`Recursos: ${activeStyle.name}`} /><LearningAssessmentPanel scope="STYLE" scopeId={activeStyle.id} courseId={courseId} title={`Evaluaciones: ${activeStyle.name}`} /></div>}
+              {activeLesson && <div className="space-y-4"><LearningResourcesPanel scope="LESSON" scopeId={activeLesson.id} title="Recursos de la lección" /><LearningAssessmentPanel scope="LESSON" scopeId={activeLesson.id} courseId={courseId} title="Evaluaciones de la lección" /></div>}
             </>
           )}
         </div>

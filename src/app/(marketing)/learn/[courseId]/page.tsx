@@ -8,6 +8,8 @@ import { ChatWidget } from "@/app/components/ChatWidget";
 import { CourseAIAssistant } from "@/app/components/CourseAIAssistant";
 import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
 import { useCourseAccess } from "@/app/components/useCourseAccess";
+import { LearningAssessmentPanel } from "@/app/components/LearningAssessmentPanel";
+import { LearningResourcesPanel } from "@/app/components/LearningResourcesPanel";
 
 interface Module {
   id: string;
@@ -71,6 +73,14 @@ export default function LearningDashboard() {
         if (!modulesResponse.ok) throw new Error("Failed to fetch modules");
         const modulesData = await modulesResponse.json();
 
+        let learningProgress = { percentage: modulesData.data.progress, finalEligible: false };
+        try {
+          const progressResponse = await fetch(`/api/student/courses/${courseId}/learning-progress`);
+          if (progressResponse.ok) learningProgress = await progressResponse.json().then((body) => body.data);
+        } catch {
+          // The legacy percentage remains a temporary display fallback.
+        }
+
         // Fetch course tests
         let courseTests: CourseTestItem[] = [];
         try {
@@ -98,8 +108,8 @@ export default function LearningDashboard() {
         setData({
           course: courseData.data,
           modules: modulesData.data.modules,
-          progress: modulesData.data.progress,
-          allModulesCompleted: modulesData.data.progress === 100,
+          progress: learningProgress.percentage,
+          allModulesCompleted: learningProgress.finalEligible,
           courseTests,
           certificate,
         });
@@ -233,8 +243,10 @@ export default function LearningDashboard() {
               </Link>
             ))}
 
-            {/* Course Tests or Legacy Final Exam */}
-            <div className="mt-8 pt-8 border-t border-zinc-700">
+            <LearningAssessmentPanel scope="COURSE" scopeId={courseId} courseId={courseId} title="Evaluaciones del curso" />
+
+            {/* Legacy course tests remain available only during migration rollout. */}
+            <div className="hidden mt-8 pt-8 border-t border-zinc-700" aria-hidden="true">
               {data.courseTests.length > 0 ? (
                 <>
                   <h2 className="text-xl font-bold text-ap-ivory mb-6">Tests y Evaluaciones</h2>
@@ -354,9 +366,7 @@ export default function LearningDashboard() {
             {/* Resources Card */}
             <div className="p-6 rounded-2xl bg-white/5 border border-zinc-700 space-y-4">
               <h3 className="font-bold text-ap-ivory">Recursos</h3>
-              <button className="w-full py-2 rounded-lg bg-ap-copper/20 text-ap-copper hover:bg-ap-copper/30 transition text-sm font-medium">
-                Descargar Materiales
-              </button>
+              <LearningResourcesPanel scope="COURSE" scopeId={courseId} title="Material del curso" />
 
               {/* Certificate section */}
               {data.certificate ? (
