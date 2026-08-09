@@ -4,7 +4,6 @@
  */
 
 import { db } from '@/lib/db'
-import { buildActiveCourseAccessWhere } from '@/lib/course-access'
 import { NotificationDeliveryChannel, NotificationPriority } from '@prisma/client'
 import {
   cancelScheduledNotificationDeliveries,
@@ -238,88 +237,31 @@ export class NotificationService {
   }
 
   /**
-   * Trigger notification when someone comments
-   * Notifies: course owner/creator
+   * @deprecated Community notifications are intentionally direct-only. New
+   * code must use CommunityNotificationService for validated replies/mentions.
+   * This no-op keeps legacy callers from restoring the former course broadcast.
    */
   static async triggerOnComment(
-    commenterId: string,
-    commentId: string,
-    targetType: string,
-    targetId: string
+    _commenterId: string,
+    _commentId: string,
+    _targetType: string,
+    _targetId: string
   ) {
-    try {
-      const commenter = await db.user.findUnique({
-        where: { id: commenterId },
-        select: { name: true },
-      })
-
-      if (!commenter?.name) return
-
-      // For now, notify all users enrolled in the course
-      if (targetType === 'COURSE') {
-        const enrolledUsers = await db.courseAccess.findMany({
-          where: {
-            courseId: targetId,
-            ...buildActiveCourseAccessWhere(),
-          },
-          select: { userId: true },
-          distinct: ['userId'],
-        })
-
-        for (const { userId } of enrolledUsers) {
-          if (userId !== commenterId) {
-            await this.createNotification({
-              userId,
-              type: 'COMMENT',
-              title: 'Nuevo comentario',
-              message: `${commenter.name} comentó en el curso`,
-              relatedId: targetId,
-            })
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error triggering comment notification:', error)
-      // Don't throw - notifications shouldn't break main flow
-    }
+    void [_commenterId, _commentId, _targetType, _targetId]
+    return undefined
   }
 
   /**
-   * Trigger notification when someone likes content
+   * @deprecated Likes are an activity signal only and never send a recipient
+   * notification. Retained as a no-op for backwards compatibility.
    */
   static async triggerOnLike(
-    likerId: string,
-    targetType: string,
-    targetId: string
+    _likerId: string,
+    _targetType: string,
+    _targetId: string
   ) {
-    try {
-      const liker = await db.user.findUnique({
-        where: { id: likerId },
-        select: { name: true },
-      })
-
-      if (!liker?.name) return
-
-      if (targetType === 'COMMENT') {
-        // Notify the comment author
-        const comment = await db.comment.findUnique({
-          where: { id: targetId },
-          select: { userId: true },
-        })
-        if (comment && comment.userId !== likerId) {
-          await this.createNotification({
-            userId: comment.userId,
-            type: 'LIKE',
-            title: 'A alguien le gustó tu comentario',
-            message: `${liker.name} le dio me gusta a tu comentario`,
-            relatedId: targetId,
-          })
-        }
-      }
-    } catch (error) {
-      console.error('Error triggering like notification:', error)
-      // Don't throw
-    }
+    void [_likerId, _targetType, _targetId]
+    return undefined
   }
 
   /**

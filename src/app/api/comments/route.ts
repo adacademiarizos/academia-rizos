@@ -10,7 +10,10 @@ import {
   toAccessDeniedResponse,
 } from '@/lib/course-access-control'
 import { CommunityService } from '@/server/services/community-service'
-import { NotificationService } from '@/server/services/notification-service'
+import {
+  CommunityInteractionValidationError,
+  CommunityNotificationService,
+} from '@/server/services/community-notification-service'
 import { AchievementService } from '@/server/services/achievement-service'
 import { createCommentSchema } from '@/validators/academy'
 
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { targetType, body: commentBody, courseId, moduleId } = validation.data
+    const { targetType, body: commentBody, courseId, moduleId, replyToCommentId } = validation.data
     const access =
       targetType === 'MODULE' && moduleId
         ? await authorizeCourseAccessByModuleId(moduleId, {
@@ -90,6 +93,26 @@ export async function POST(request: NextRequest) {
       return toAccessDeniedResponse(access)
     }
 
+    const targetId = targetType === 'MODULE' ? moduleId : courseId
+    if (!targetId) {
+      return NextResponse.json(
+        { success: false, error: 'No se encontró el contenido a comentar.' },
+        { status: 400 }
+      )
+    }
+
+    // Validate reply/mention recipients before the business mutation. The
+    // client only supplies a canonical token or comment id; recipient access
+    // is derived and authorized on the server.
+    const interactionRecipients = await CommunityNotificationService.resolveCommentInteractionRecipients({
+      authorId: access.user.id,
+      courseId: access.courseId,
+      targetType,
+      targetId,
+      body: commentBody,
+      replyToCommentId,
+    })
+
     const comment = await CommunityService.createComment(
       access.user.id,
       targetType,
@@ -98,9 +121,13 @@ export async function POST(request: NextRequest) {
       moduleId
     )
 
-    const targetId = courseId || moduleId || ''
     await Promise.all([
-      NotificationService.triggerOnComment(access.user.id, comment.id, targetType, targetId),
+      CommunityNotificationService.dispatchCommentInteractions({
+        actor: comment.user,
+        comment,
+        courseId: access.courseId,
+        recipients: interactionRecipients,
+      }),
       AchievementService.recordActivity(access.user.id, 'COMMENT_POSTED', courseId, moduleId),
     ]).catch((error) => {
       console.error('Error with notifications/achievements:', error)
@@ -111,6 +138,10 @@ export async function POST(request: NextRequest) {
       data: comment,
     })
   } catch (error) {
+    if (error instanceof CommunityInteractionValidationError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 })
+    }
+
     console.error('Error creating comment:', error)
     return NextResponse.json(
       {

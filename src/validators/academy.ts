@@ -116,6 +116,9 @@ export const createCommentSchema = z.object({
   targetType: z.enum(['COURSE', 'MODULE']),
   courseId: z.string().cuid().optional(),
   moduleId: z.string().cuid().optional(),
+  // This is only an interaction hint. The server resolves it against the
+  // exact course/module before persisting a comment or notifying anyone.
+  replyToCommentId: z.string().min(1).max(128).optional(),
 }).refine(
   (data) => data.courseId || data.moduleId,
   {

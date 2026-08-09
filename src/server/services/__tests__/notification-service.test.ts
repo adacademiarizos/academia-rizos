@@ -228,32 +228,8 @@ describe('NotificationService', () => {
     })
   })
 
-  describe('triggerOnComment', () => {
-    it('should not fail on errors', async () => {
-      ;(db.user.findUnique as jest.Mock).mockResolvedValue(null)
-
-      // Should not throw
-      await expect(
-        NotificationService.triggerOnComment(
-          'commenter-1',
-          'comment-1',
-          'COURSE',
-          'course-1'
-        )
-      ).resolves.not.toThrow()
-    })
-
-    it('should identify course and notify enrolled users', async () => {
-      ;(db.user.findUnique as jest.Mock).mockResolvedValue({
-        id: 'commenter-1',
-        name: 'John Doe',
-      })
-      ;(db.courseAccess.findMany as jest.Mock).mockResolvedValue([
-        { userId: 'user-2' },
-        { userId: 'user-3' },
-      ])
-      ;(db.notification.create as jest.Mock).mockResolvedValue(mockNotification)
-
+  describe('legacy community notification triggers', () => {
+    it('does not broadcast a comment to enrolled users', async () => {
       await NotificationService.triggerOnComment(
         'commenter-1',
         'comment-1',
@@ -261,8 +237,14 @@ describe('NotificationService', () => {
         'course-1'
       )
 
-      // Should create notifications for enrolled users (except commenter)
-      expect(db.notification.create).toHaveBeenCalledTimes(2)
+      expect(db.notification.create).not.toHaveBeenCalled()
+      expect(db.courseAccess.findMany).not.toHaveBeenCalled()
+    })
+
+    it('does not create a recipient notification for likes', async () => {
+      await NotificationService.triggerOnLike('liker-1', 'COMMENT', 'comment-1')
+
+      expect(db.notification.create).not.toHaveBeenCalled()
     })
   })
 
