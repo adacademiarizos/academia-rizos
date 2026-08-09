@@ -25,24 +25,49 @@ export async function POST(req: Request) {
   const appointment = await db.appointment.findUnique({
     where: { id },
     select: {
+      status: true,
       customerId: true,
+      staffId: true,
       service: { select: { name: true } },
     },
   });
 
-  await db.appointment.update({
+  if (!appointment) {
+    return NextResponse.json(
+      { ok: false, error: { code: "NOT_FOUND", message: "Appointment not found" } },
+      { status: 404 }
+    );
+  }
+
+  const updated = await db.appointment.update({
     where: { id },
     data: { status: status as any },
+    select: { id: true, status: true },
   });
 
-  // Notify the customer if they have an account
-  if (appointment?.customerId) {
-    await NotificationService.triggerOnAppointmentStatus(
-      appointment.customerId,
-      id,
-      status,
-      appointment.service?.name ?? "servicio"
-    );
+  if (appointment.status !== updated.status) {
+    const serviceName = appointment.service?.name ?? "servicio";
+    const notificationTasks = [
+      NotificationService.triggerOnAppointmentStatus(
+        appointment.staffId,
+        updated.id,
+        updated.status,
+        serviceName
+      ),
+    ];
+
+    if (appointment.customerId) {
+      notificationTasks.push(
+        NotificationService.triggerOnAppointmentStatus(
+          appointment.customerId,
+          updated.id,
+          updated.status,
+          serviceName
+        )
+      );
+    }
+
+    await Promise.all(notificationTasks);
   }
 
   return NextResponse.redirect(new URL("/admin/appointments", req.url));

@@ -120,7 +120,7 @@ async function getPaymentContext(paymentId: string) {
           endAt: true,
           notes: true,
           service: { select: { name: true } },
-          staff: { select: { name: true, email: true } },
+          staff: { select: { id: true, name: true, email: true } },
         },
       },
       course: {
@@ -130,7 +130,7 @@ async function getPaymentContext(paymentId: string) {
         select: { id: true, name: true, email: true },
       },
       paymentLink: {
-        select: { id: true, title: true, status: true },
+        select: { id: true, title: true, status: true, createdById: true },
       },
     },
   });
@@ -279,7 +279,11 @@ async function queuePaymentReceipt(tasks: DeferredTask[], payment: PaymentContex
   });
 }
 
-async function queueAppointmentConfirmationTasks(tasks: DeferredTask[], payment: PaymentContext) {
+async function queueAppointmentConfirmationTasks(
+  tasks: DeferredTask[],
+  payment: PaymentContext,
+  notifyStaffConfirmation: boolean,
+) {
   if (
     !payment.appointment ||
     payment.status !== "PAID" ||
@@ -340,12 +344,24 @@ async function queueAppointmentConfirmationTasks(tasks: DeferredTask[], payment:
     });
   }
 
+  if (notifyStaffConfirmation) {
+    queueTask(tasks, "paid appointment staff notification failed", async () => {
+      await NotificationService.triggerOnPaidAppointmentConfirmation(
+        payment.appointment!.staff.id,
+        payment.appointment!.id,
+        serviceName,
+        customerName,
+      );
+    });
+  }
+
   queueTask(tasks, "appointment admin notification failed", async () => {
     await NotificationService.notifyAllAdmins({
       type: "APPOINTMENT",
       title: "Nueva cita reservada",
       message: `${customerName} reservó ${serviceName}`,
       relatedId: payment.appointment!.id,
+      excludeUserIds: [payment.appointment!.staff.id],
     });
   });
 }
@@ -431,7 +447,8 @@ async function queuePaymentFailedTasks(tasks: DeferredTask[], payment: PaymentCo
 async function queueAppointmentRefundTasks(
   tasks: DeferredTask[],
   payment: PaymentContext,
-  reason: string
+  reason: string,
+  notifyStaffStatusChange: boolean,
 ) {
   if (!payment.appointment) {
     return;
@@ -470,6 +487,17 @@ async function queueAppointmentRefundTasks(
         message: `Tu cita de ${serviceName} fue cancelada porque el pago ya no es válido`,
         relatedId: payment.appointment!.id,
       });
+    });
+  }
+
+  if (notifyStaffStatusChange) {
+    queueTask(tasks, "appointment refund staff notification failed", async () => {
+      await NotificationService.triggerOnAppointmentStatus(
+        payment.appointment!.staff.id,
+        payment.appointment!.id,
+        "CANCELLED",
+        serviceName,
+      );
     });
   }
 
@@ -615,14 +643,20 @@ async function handleCheckoutSessionCompleted(
 
   const payment = await getPaymentContext(paymentId);
 
+  let appointmentStatusChangedToConfirmed = false;
   if (payment.status === "PAID" && payment.appointmentId && payment.appointment) {
     if (payment.appointment.status !== "CONFIRMED" && payment.appointment.status !== "CANCELLED") {
       await db.appointment.update({
         where: { id: payment.appointment.id },
         data: { status: "CONFIRMED" },
       });
+      appointmentStatusChangedToConfirmed = true;
     }
-    await queueAppointmentConfirmationTasks(tasks, await getPaymentContext(paymentId));
+    await queueAppointmentConfirmationTasks(
+      tasks,
+      await getPaymentContext(paymentId),
+      appointmentStatusChangedToConfirmed,
+    );
   }
 
   if (payment.status === "PAID" && payment.type === "PAYMENT_LINK" && payment.paymentLinkId) {
@@ -630,6 +664,18 @@ async function handleCheckoutSessionCompleted(
       where: { id: payment.paymentLinkId },
       data: { status: "PAID" },
     });
+
+    if (payment.paymentLink?.createdById) {
+      queueTask(tasks, "payment link creator notification failed", async () => {
+        await NotificationService.createNotification({
+          userId: payment.paymentLink!.createdById!,
+          type: "PAYMENT",
+          title: "Pago recibido",
+          message: `Se pagÃ³ tu link "${payment.paymentLink!.title}" por ${formatMoney(payment.amountCents, payment.currency)}`,
+          relatedId: payment.paymentLink!.id,
+        });
+      });
+    }
   }
 
   if (payment.status === "PAID" && payment.type === "COURSE" && payment.courseId && payment.payerId) {
@@ -691,7 +737,7 @@ async function handleCheckoutSessionCompleted(
     await queuePaymentReceipt(tasks, payment, payment.payerEmail);
   }
 
-  if (payment.status === "PAID" && payment.type !== "COURSE") {
+  if (payment.status === "PAID" && payment.type === "PAYMENT_LINK") {
     queueTask(tasks, "payment admin notification failed", async () => {
       await NotificationService.notifyAllAdmins({
         type: "PAYMENT",
@@ -708,6 +754,7 @@ async function handleCheckoutSessionCompleted(
 async function handleCheckoutSessionExpired(
   event: Stripe.Event
 ): Promise<DeferredTask[]> {
+  const tasks: DeferredTask[] = [];
   const session = event.data.object as Stripe.Checkout.Session;
   const payment = await db.payment.findUnique({
     where: { stripeCheckoutSessionId: session.id },
@@ -738,9 +785,18 @@ async function handleCheckoutSessionExpired(
       where: { id: context.appointment.id },
       data: { status: "CANCELLED" },
     });
+
+    queueTask(tasks, "expired appointment staff notification failed", async () => {
+      await NotificationService.triggerOnAppointmentStatus(
+        context.appointment!.staff.id,
+        context.appointment!.id,
+        "CANCELLED",
+        context.appointment!.service?.name ?? "Servicio",
+      );
+    });
   }
 
-  return [];
+  return tasks;
 }
 
 async function handlePaymentIntentFailed(
@@ -831,6 +887,7 @@ async function handlePaymentIntentFailed(
 
 async function applyFullRefundState(paymentId: string, reason: string) {
   const payment = await getPaymentContext(paymentId);
+  let appointmentStatusChangedToCancelled = false;
 
   if (payment.status !== "REFUNDED" && payment.status !== "CANCELED") {
     await db.payment.update({
@@ -856,6 +913,7 @@ async function applyFullRefundState(paymentId: string, reason: string) {
       where: { id: appointment.id },
       data: { status: "CANCELLED" },
     });
+    appointmentStatusChangedToCancelled = true;
   }
 
   if (payment.type === "COURSE" && payment.payerId && payment.courseId) {
@@ -866,7 +924,12 @@ async function applyFullRefundState(paymentId: string, reason: string) {
   const refreshedPayment = await getPaymentContext(paymentId);
 
   if (refreshedPayment.type === "APPOINTMENT") {
-    await queueAppointmentRefundTasks(tasks, refreshedPayment, reason);
+    await queueAppointmentRefundTasks(
+      tasks,
+      refreshedPayment,
+      reason,
+      appointmentStatusChangedToCancelled,
+    );
   }
 
   if (refreshedPayment.type === "COURSE") {

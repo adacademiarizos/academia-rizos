@@ -36,20 +36,48 @@ export async function PATCH(
       );
     }
 
+    const current = await db.appointment.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+
+    if (!current) {
+      return NextResponse.json(
+        { ok: false, error: { code: "NOT_FOUND", message: "Appointment not found" } },
+        { status: 404 }
+      );
+    }
+
     const updated = await db.appointment.update({
       where: { id },
       data: { status: body.status },
-      select: { id: true, status: true, customerId: true, service: { select: { name: true } } },
+      select: {
+        id: true,
+        status: true,
+        customerId: true,
+        staffId: true,
+        service: { select: { name: true } },
+      },
     });
 
-    // Notify customer about status change
-    if (updated.customerId) {
+    if (current.status !== updated.status) {
+      const serviceName = updated.service?.name ?? 'tu servicio';
+
+      if (updated.customerId) {
+        NotificationService.triggerOnAppointmentStatus(
+          updated.customerId,
+          updated.id,
+          updated.status,
+          serviceName
+        ).catch((err) => console.error('Customer appointment status notification failed:', err))
+      }
+
       NotificationService.triggerOnAppointmentStatus(
-        updated.customerId,
+        updated.staffId,
         updated.id,
         updated.status,
-        updated.service?.name ?? 'tu servicio'
-      ).catch((err) => console.error('Appointment status notification failed:', err))
+        serviceName
+      ).catch((err) => console.error('Staff appointment status notification failed:', err))
     }
 
     return NextResponse.json({ ok: true, data: updated });

@@ -372,6 +372,10 @@ export class NotificationService {
           title: 'Cita completada',
           message: `Tu cita de "${serviceName}" fue marcada como completada`,
         },
+        NO_SHOW: {
+          title: 'Inasistencia registrada',
+          message: `Tu cita de "${serviceName}" fue marcada como no asistida`,
+        },
         PENDING: {
           title: 'Cita en espera',
           message: `Tu cita de "${serviceName}" está en espera de confirmación`,
@@ -395,6 +399,29 @@ export class NotificationService {
   }
 
   /**
+   * Alert the staff member assigned to an appointment once its payment confirms.
+   */
+  static async triggerOnPaidAppointmentConfirmation(
+    staffId: string,
+    appointmentId: string,
+    serviceName: string,
+    customerName: string,
+  ) {
+    try {
+      await this.createNotification({
+        userId: staffId,
+        type: 'APPOINTMENT',
+        title: 'Cita pagada confirmada',
+        message: `${customerName} confirmó el pago de su cita de "${serviceName}"`,
+        relatedId: appointmentId,
+      })
+    } catch (error) {
+      console.error('Error triggering paid appointment notification:', error)
+      // Don't throw
+    }
+  }
+
+  /**
    * Notify all admin users (in-app)
    */
   static async notifyAllAdmins({
@@ -402,10 +429,20 @@ export class NotificationService {
     title,
     message,
     relatedId,
-  }: { type: string; title: string; message: string; relatedId?: string }) {
+    excludeUserIds = [],
+  }: {
+    type: string
+    title: string
+    message: string
+    relatedId?: string
+    excludeUserIds?: string[]
+  }) {
     try {
       const admins = await db.user.findMany({
-        where: { role: 'ADMIN' },
+        where: {
+          role: 'ADMIN',
+          ...(excludeUserIds.length > 0 ? { id: { notIn: excludeUserIds } } : {}),
+        },
         select: { id: true },
       })
       await Promise.all(

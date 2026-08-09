@@ -30,6 +30,8 @@ const CourseService = {
 const NotificationService = {
   notifyAllAdmins: jest.fn(),
   createNotification: jest.fn(),
+  triggerOnAppointmentStatus: jest.fn(),
+  triggerOnPaidAppointmentConfirmation: jest.fn(),
   triggerOnCourseEnrollment: jest.fn(),
 };
 
@@ -107,6 +109,8 @@ describe("processStripeEvent", () => {
     CourseService.revokeCourseAccess.mockResolvedValue({});
     NotificationService.notifyAllAdmins.mockResolvedValue({});
     NotificationService.createNotification.mockResolvedValue({});
+    NotificationService.triggerOnAppointmentStatus.mockResolvedValue({});
+    NotificationService.triggerOnPaidAppointmentConfirmation.mockResolvedValue({});
     NotificationService.triggerOnCourseEnrollment.mockResolvedValue({});
     AchievementService.recordActivity.mockResolvedValue({});
     sendAdminAlertEmail.mockResolvedValue(undefined);
@@ -137,7 +141,7 @@ describe("processStripeEvent", () => {
           endAt: new Date("2026-07-05T11:00:00Z"),
           notes: null,
           service: { name: "Corte" },
-          staff: { name: "Eli", email: "staff@example.com" },
+          staff: { id: "staff_1", name: "Eli", email: "staff@example.com" },
         },
       })
     );
@@ -155,7 +159,111 @@ describe("processStripeEvent", () => {
       where: { id: "appt_1" },
       data: { status: "CANCELLED" },
     });
-    expect(tasks).toHaveLength(0);
+    await runDeferredTasks(tasks);
+    expect(NotificationService.triggerOnAppointmentStatus).toHaveBeenCalledWith(
+      "staff_1",
+      "appt_1",
+      "CANCELLED",
+      "Corte",
+    );
+  });
+
+  it("notifies assigned staff once when a paid appointment is confirmed", async () => {
+    db.payment.findUniqueOrThrow.mockResolvedValue(
+      makePaymentContext({
+        type: "APPOINTMENT",
+        appointmentId: "appt_1",
+        courseId: null,
+        appointment: {
+          id: "appt_1",
+          status: "PENDING",
+          customerId: "user_1",
+          customerName: "Ada",
+          customerEmail: "student@example.com",
+          startAt: new Date("2026-07-05T10:00:00Z"),
+          endAt: new Date("2026-07-05T11:00:00Z"),
+          notes: null,
+          service: { name: "Corte" },
+          staff: { id: "staff_1", name: "Eli", email: "staff@example.com" },
+        },
+      })
+    );
+
+    const tasks = await processStripeEvent({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_1",
+          amount_total: 15000,
+          currency: "eur",
+          payment_intent: "pi_1",
+          customer_details: { email: "student@example.com" },
+          metadata: { type: "APPOINTMENT", appointmentId: "appt_1" },
+        },
+      },
+    } as any);
+
+    await runDeferredTasks(tasks);
+
+    expect(NotificationService.triggerOnPaidAppointmentConfirmation).toHaveBeenCalledWith(
+      "staff_1",
+      "appt_1",
+      "Corte",
+      "Ada",
+    );
+    expect(NotificationService.notifyAllAdmins).toHaveBeenCalledTimes(1);
+    expect(NotificationService.notifyAllAdmins).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Nueva cita reservada",
+        excludeUserIds: ["staff_1"],
+      })
+    );
+  });
+
+  it("notifies the paid payment-link creator while retaining the admin payment alert", async () => {
+    db.payment.findUniqueOrThrow.mockResolvedValue(
+      makePaymentContext({
+        type: "PAYMENT_LINK",
+        appointmentId: null,
+        courseId: null,
+        paymentLinkId: "link_1",
+        payerId: null,
+        paymentLink: {
+          id: "link_1",
+          title: "Saldo tratamiento",
+          status: "REQUIRES_PAYMENT",
+          createdById: "staff_1",
+        },
+      })
+    );
+
+    const tasks = await processStripeEvent({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_1",
+          amount_total: 15000,
+          currency: "eur",
+          payment_intent: "pi_1",
+          customer_details: { email: "student@example.com" },
+          metadata: { type: "PAYMENT_LINK", paymentLinkId: "link_1" },
+        },
+      },
+    } as any);
+
+    await runDeferredTasks(tasks);
+
+    expect(NotificationService.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "staff_1",
+        type: "PAYMENT",
+        title: "Pago recibido",
+        relatedId: "link_1",
+      })
+    );
+    expect(NotificationService.notifyAllAdmins).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Nuevo pago recibido" })
+    );
   });
 
   it("marks failed payment intents as FAILED and queues customer/admin notifications", async () => {
