@@ -1,5 +1,6 @@
 import {
   NotificationDeliveryChannel,
+  NotificationPreferenceCategory,
   NotificationPriority,
 } from "@prisma/client";
 
@@ -177,4 +178,32 @@ describe("NotificationEventService recipient matrix", () => {
       );
     }
   );
+
+  it("dispatches an optional in-app recognition only to the student who earned it", async () => {
+    findUserMock.mockResolvedValue({
+      id: "student-1",
+      email: "student@example.com",
+      role: "STUDENT",
+    });
+
+    await NotificationEventService.achievementEarned({
+      achievementId: "achievement-1",
+      userId: "student-1",
+      achievementName: "Primer paso",
+    });
+
+    expect(dispatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "achievement.earned",
+        type: "ACHIEVEMENT",
+        recipients: [{ userId: "student-1" }],
+        channels: [NotificationDeliveryChannel.IN_APP],
+        resource: { type: "ACHIEVEMENT", id: "achievement-1" },
+        actionUrl: "/student",
+        priority: NotificationPriority.LOW,
+        preferenceCategory: NotificationPreferenceCategory.ACHIEVEMENTS,
+        dedupeKey: "achievement:achievement-1:earned",
+      }),
+    );
+  });
 });

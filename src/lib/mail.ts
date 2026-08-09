@@ -149,9 +149,9 @@ export type NotificationEmailParams = {
 };
 
 /**
- * Generic, durable-outbox email. Domain-specific receipts and password-reset
- * emails retain their existing templates; this avoids serializing sensitive
- * credentials or template-specific payloads into NotificationDelivery.
+ * Generic, durable-outbox email for transactional notifications. Password-reset
+ * emails retain their dedicated template because their sensitive token payload
+ * must not be serialized into NotificationDelivery.
  */
 export async function sendNotificationEmail(params: NotificationEmailParams) {
   if (!isGmailConfigured()) {
@@ -177,51 +177,6 @@ export async function sendNotificationEmail(params: NotificationEmailParams) {
       title,
       `${emailTitle(title)}${para(message)}${action}${divider()}${para("Este mensaje fue generado automáticamente por la plataforma.", true)}`,
     ),
-  });
-}
-
-// ──────────────────────────────────────────────────────────
-// 1. Recibo de pago
-// ──────────────────────────────────────────────────────────
-type PaymentReceiptParams = {
-  to: string;
-  paymentId: string;
-  amountCents: number;
-  currency: string;
-  concept: "Cita" | "Curso" | "Pago";
-  stripePaymentIntentId?: string;
-};
-
-export async function sendPaymentReceiptEmail(params: PaymentReceiptParams) {
-  if (!isGmailConfigured()) { warn("sendPaymentReceiptEmail", params); return; }
-
-  const amount = (params.amountCents / 100).toFixed(2);
-  const symbol = params.currency === "EUR" ? "€" : params.currency;
-
-  const rows: Array<[string, string]> = [
-    ["Concepto", params.concept],
-    ["Monto",    `${symbol}${amount}`],
-    ["Referencia", params.paymentId],
-  ];
-  if (params.stripePaymentIntentId) {
-    rows.push(["Stripe ID", params.stripePaymentIntentId]);
-  }
-
-  const body = `
-    ${emailTitle("Pago confirmado")}
-    ${para("Tu pago fue procesado correctamente.")}
-    ${dataTable(rows)}
-    ${divider()}
-    ${para("¿Necesitas ayuda? Responde a este correo.", true)}
-  `;
-
-  const transport = await createGmailTransport();
-  await transport.sendMail({
-    from: env.EMAIL_FROM,
-    to: params.to,
-    replyTo: params.to,
-    subject: `Comprobante de pago — ${params.concept}`,
-    html: shell(`Comprobante de pago — ${params.concept}`, body),
   });
 }
 

@@ -3,10 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options';
 import { db } from "@/lib/db";
 import { uploadFile } from "@/lib/storage";
-import { sendBugReportEmail } from "@/lib/mail";
-import { NotificationService } from "@/server/services/notification-service";
-
-const ADMIN_BUG_EMAIL = "ramsesgonzalez20066@gmail.com";
+import { NotificationEventService } from "@/server/services/notification-event-service";
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB per image
 const MAX_IMAGES = 5;
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
@@ -78,39 +75,15 @@ export async function POST(req: Request) {
     },
   });
 
-  // In-app notification to all admins
-  NotificationService.notifyAllAdmins({
-    type: 'BUG_REPORT',
-    title: `Nuevo reporte de bug: ${bugType}`,
-    message: `${user.name ?? 'Un usuario'} reportó: ${title}`,
-    relatedId: report.id,
-  }).catch((err) => console.error('Bug report notification failed:', err))
-
-  // Send email to admins if FUNCTIONALITY
-  if (bugType === "FUNCTIONALITY") {
-    const adminUsers = await db.user.findMany({
-      where: { role: "ADMIN" },
-      select: { email: true },
-    });
-
-    const adminEmails = [
-      ...adminUsers.map((u) => u.email).filter(Boolean),
-      ADMIN_BUG_EMAIL,
-    ];
-
-    // Deduplicate
-    const uniqueEmails = [...new Set(adminEmails)];
-
-    sendBugReportEmail({
-      to: uniqueEmails,
-      reporterName: user.name ?? "Usuario",
-      reporterEmail: user.email,
-      title,
-      description,
-      bugType,
-      imageUrls,
-    }).catch((e) => console.error("[bug-report] email send failed", e));
-  }
+  // Notifications are queued after persistence and never alter the outcome of
+  // the report. Functional incidents additionally receive outbox email.
+  await NotificationEventService.bugReportCreated({
+    reportId: report.id,
+    reporter: user,
+    reporterName: user.name ?? "Usuario",
+    title,
+    bugType,
+  });
 
   return NextResponse.json({ ok: true, data: { id: report.id } });
 }

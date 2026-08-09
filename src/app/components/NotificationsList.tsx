@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getSafeNotificationActionUrl } from './notification-action-url'
+import { NotificationPreferences } from './NotificationPreferences'
 
 interface Notification {
   id: string
@@ -141,6 +142,8 @@ export function NotificationsList() {
           </button>
         )}
       </div>
+
+      <NotificationPreferences />
 
       {/* Filters */}
       <div className="flex gap-2 mb-6">

@@ -3,7 +3,6 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 import { generateAndSaveCertificate } from '@/server/services/certificate.service'
-import { NotificationService } from '@/server/services/notification-service'
 
 export const maxDuration = 60;
 
@@ -50,9 +49,6 @@ export async function POST(
     // Delete the pending placeholder and generate the real certificate
     await db.certificate.delete({ where: { id } })
     const issued = await generateAndSaveCertificate(cert.userId, cert.courseId)
-
-    // Notify the student
-    await NotificationService.triggerOnCertificateIssued(cert.userId, cert.courseId)
 
     return NextResponse.json({ success: true, data: issued })
   } catch (error) {

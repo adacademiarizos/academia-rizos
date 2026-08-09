@@ -44,6 +44,8 @@ type AssessmentSubmissionNotification = {
   submissionId: string
   assessmentType: 'COURSE_TEST' | 'FINAL_EXAM'
   requiresReview: boolean
+  /** Revalidation version for legacy upsert-based submissions. */
+  submissionVersion?: string
 }
 
 export class NotificationService {
@@ -276,12 +278,17 @@ export class NotificationService {
 
       if (!course?.title) return
 
-      await this.createNotification({
-        userId,
+      await this.dispatch({
+        eventKey: 'certificate.issued',
         type: 'CERTIFICATE',
         title: '¡Certificado disponible!',
-        message: `Tu certificado de "${course.title}" está listo para descargar`,
-        relatedId: courseId,
+        message: `Tu certificado de "${course.title}" está listo para descargar.`,
+        recipients: [{ userId }],
+        channels: [NotificationDeliveryChannel.IN_APP],
+        resource: { type: 'CERTIFICATE', id: `${userId}:${courseId}` },
+        actionUrl: `/learn/${courseId}`,
+        priority: NotificationPriority.HIGH,
+        dedupeKey: `certificate:${userId}:${courseId}:issued`,
       })
     } catch (error) {
       console.error('Error triggering certificate notification:', error)
@@ -299,16 +306,61 @@ export class NotificationService {
         select: { title: true },
       })
 
-      await this.createNotification({
-        userId,
+      await this.dispatch({
+        eventKey: 'certificate.revoked',
         type: 'CERTIFICATE',
         title: 'Certificado revocado',
-        message: `Tu certificado de "${course?.title ?? 'un curso'}" ha sido revocado por un administrador`,
-        relatedId: courseId,
+        message: `Tu certificado de "${course?.title ?? 'un curso'}" fue revocado por un administrador.`,
+        recipients: [{ userId }],
+        channels: [NotificationDeliveryChannel.IN_APP],
+        resource: { type: 'CERTIFICATE', id: `${userId}:${courseId}` },
+        actionUrl: `/learn/${courseId}`,
+        priority: NotificationPriority.HIGH,
+        dedupeKey: `certificate:${userId}:${courseId}:revoked`,
       })
     } catch (error) {
       console.error('Error triggering certificate revoked notification:', error)
       // Don't throw
+    }
+  }
+
+  /** Alert the review queue only when a pending certificate record is created. */
+  static async triggerOnCertificatePendingReview(input: {
+    certificateId: string
+    userId: string
+    courseId: string
+  }) {
+    try {
+      const [student, course, admins] = await Promise.all([
+        db.user.findUnique({
+          where: { id: input.userId },
+          select: { name: true, email: true },
+        }),
+        db.course.findUnique({
+          where: { id: input.courseId },
+          select: { title: true },
+        }),
+        db.user.findMany({
+          where: { role: 'ADMIN' },
+          select: { id: true },
+        }),
+      ])
+      if (!course || admins.length === 0) return
+
+      await this.dispatch({
+        eventKey: 'certificate.pending',
+        type: 'CERTIFICATE',
+        title: 'Certificado pendiente de revisión',
+        message: `${student?.name ?? student?.email ?? 'Un estudiante'} completó el flujo sin examen final y requiere revisión para "${course.title}".`,
+        recipients: admins.map((admin) => ({ userId: admin.id })),
+        channels: [NotificationDeliveryChannel.IN_APP],
+        resource: { type: 'CERTIFICATE', id: input.certificateId },
+        actionUrl: '/admin/courses/certificates',
+        priority: NotificationPriority.HIGH,
+        dedupeKey: `certificate:${input.certificateId}:pending-review`,
+      })
+    } catch (error) {
+      console.error('Error triggering pending certificate notification:', error)
     }
   }
 
@@ -319,7 +371,9 @@ export class NotificationService {
     userId: string,
     courseId: string,
     status: 'APPROVED' | 'REVISION_REQUESTED',
-    reviewNote?: string | null
+    reviewNote?: string | null,
+    submissionId?: string,
+    reviewVersion?: string,
   ) {
     try {
       const course = await db.course.findUnique({
@@ -329,25 +383,23 @@ export class NotificationService {
 
       const courseName = course?.title ?? 'tu curso'
 
-      if (status === 'APPROVED') {
-        await this.createNotification({
-          userId,
-          type: 'EXAM_REVIEW',
-          title: '¡Examen aprobado!',
-          message: `Tu examen de "${courseName}" fue aprobado. Recibirás tu certificado en breve.`,
-          relatedId: courseId,
-        })
-      } else {
-        await this.createNotification({
-          userId,
-          type: 'EXAM_REVIEW',
-          title: 'Revisión solicitada en tu examen',
-          message: reviewNote
+      const approved = status === 'APPROVED'
+      await this.dispatch({
+        eventKey: 'academy.review.completed',
+        type: 'EXAM_REVIEW',
+        title: approved ? '¡Examen aprobado!' : 'Revisión solicitada en tu examen',
+        message: approved
+          ? `Tu examen de "${courseName}" fue aprobado. Recibirás tu certificado en breve.`
+          : reviewNote
             ? `Tu examen de "${courseName}" necesita revisiones: ${reviewNote}`
-            : `Tu examen de "${courseName}" necesita algunas correcciones`,
-          relatedId: courseId,
-        })
-      }
+            : `Tu examen de "${courseName}" necesita algunas correcciones.`,
+        recipients: [{ userId }],
+        channels: [NotificationDeliveryChannel.IN_APP],
+        resource: { type: 'ASSESSMENT_SUBMISSION', id: submissionId ?? `${courseId}:exam` },
+        actionUrl: `/learn/${courseId}`,
+        priority: NotificationPriority.HIGH,
+        dedupeKey: `academy-review:${submissionId ?? `${courseId}:exam`}:${status}:${reviewVersion ?? reviewNote ?? 'initial'}`,
+      })
     } catch (error) {
       console.error('Error triggering exam review notification:', error)
       // Don't throw
@@ -362,6 +414,8 @@ export class NotificationService {
     courseId: string,
     status: 'APPROVED' | 'REVISION_REQUESTED',
     isFinalExam: boolean,
+    submissionId?: string,
+    reviewVersion?: string,
   ) {
     try {
       const course = await db.course.findUnique({
@@ -371,26 +425,26 @@ export class NotificationService {
 
       const courseName = course?.title ?? 'tu curso'
 
-      if (status === 'APPROVED') {
-        const message = isFinalExam
-          ? `Tu examen final de "${courseName}" fue aprobado. Tu certificado está listo.`
-          : `Tu evaluación de "${courseName}" fue aprobada. ¡Buen trabajo!`
-        await this.createNotification({
-          userId,
-          type: 'EXAM_REVIEW',
-          title: isFinalExam ? '¡Examen final aprobado!' : '¡Evaluación aprobada!',
-          message,
-          relatedId: courseId,
-        })
-      } else {
-        await this.createNotification({
-          userId,
-          type: 'EXAM_REVIEW',
-          title: 'Revisión solicitada',
-          message: `Tu evaluación de "${courseName}" necesita algunas correcciones`,
-          relatedId: courseId,
-        })
-      }
+      const approved = status === 'APPROVED'
+      const assessmentLabel = isFinalExam ? 'examen final' : 'evaluación'
+      await this.dispatch({
+        eventKey: 'academy.review.completed',
+        type: 'EXAM_REVIEW',
+        title: approved
+          ? isFinalExam ? '¡Examen final aprobado!' : '¡Evaluación aprobada!'
+          : 'Revisión solicitada',
+        message: approved
+          ? isFinalExam
+            ? `Tu examen final de "${courseName}" fue aprobado. Tu certificado está listo.`
+            : `Tu evaluación de "${courseName}" fue aprobada. ¡Buen trabajo!`
+          : `Tu evaluación de "${courseName}" necesita algunas correcciones.`,
+        recipients: [{ userId }],
+        channels: [NotificationDeliveryChannel.IN_APP],
+        resource: { type: 'ASSESSMENT_SUBMISSION', id: submissionId ?? `${courseId}:${assessmentLabel}` },
+        actionUrl: `/learn/${courseId}`,
+        priority: NotificationPriority.HIGH,
+        dedupeKey: `academy-review:${submissionId ?? `${courseId}:${assessmentLabel}`}:${status}:${reviewVersion ?? 'initial'}`,
+      })
     } catch (error) {
       console.error('Error triggering test review notification:', error)
       // Don't throw
@@ -514,6 +568,7 @@ export class NotificationService {
     submissionId,
     assessmentType,
     requiresReview,
+    submissionVersion,
   }: AssessmentSubmissionNotification) {
     try {
       const course = await db.course.findUnique({
@@ -524,22 +579,37 @@ export class NotificationService {
       const assessmentLabel = assessmentType === 'FINAL_EXAM' ? 'examen final' : 'evaluación'
       const received = assessmentType === 'FINAL_EXAM' ? 'recibido' : 'recibida'
 
-      await this.createNotification({
-        userId,
+      await this.dispatch({
+        eventKey: 'academy.submission.received',
         type: 'SUBMISSION',
         title: 'Entrega recibida',
         message: `Tu ${assessmentLabel} de "${courseName}" fue ${received}${
           requiresReview ? ' y está pendiente de revisión.' : '.'
         }`,
-        relatedId: submissionId,
+        recipients: [{ userId }],
+        channels: [NotificationDeliveryChannel.IN_APP],
+        resource: { type: 'ASSESSMENT_SUBMISSION', id: submissionId },
+        actionUrl: `/learn/${courseId}`,
+        priority: NotificationPriority.NORMAL,
+        dedupeKey: `academy-submission:${submissionId}:${submissionVersion ?? 'initial'}:received`,
       })
 
       if (requiresReview) {
-        await this.notifyAllAdmins({
+        const admins = await db.user.findMany({
+          where: { role: 'ADMIN' },
+          select: { id: true },
+        })
+        await this.dispatch({
+          eventKey: 'academy.submission.pending_review',
           type: 'SUBMISSION',
           title: 'Nueva entrega pendiente de revisión',
           message: `Se recibió un ${assessmentLabel} de "${courseName}" para revisión.`,
-          relatedId: submissionId,
+          recipients: admins.map((admin) => ({ userId: admin.id })),
+          channels: [NotificationDeliveryChannel.IN_APP],
+          resource: { type: 'ASSESSMENT_SUBMISSION', id: submissionId },
+          actionUrl: '/admin/courses/review',
+          priority: NotificationPriority.HIGH,
+          dedupeKey: `academy-submission:${submissionId}:${submissionVersion ?? 'initial'}:pending-review`,
         })
       }
     } catch (error) {
@@ -555,7 +625,7 @@ export class NotificationService {
     try {
       const user = await db.user.findUnique({
         where: { id: userId },
-        select: { name: true },
+        select: { name: true, email: true },
       })
 
       const course = await db.course.findUnique({
@@ -563,15 +633,45 @@ export class NotificationService {
         select: { title: true },
       })
 
-      if (!user?.name || !course?.title) return
+      if (!user || !course?.title) return
 
-      await this.createNotification({
-        userId,
-        type: 'COURSE_COMPLETION',
-        title: '¡Curso finalizado!',
-        message: `Felicidades, completaste "${course.title}"`,
-        relatedId: courseId,
+      const admins = await db.user.findMany({
+        where: { role: 'ADMIN' },
+        select: { id: true },
       })
+
+      // The progress roadmap is the only caller allowed to invoke this after
+      // a final assessment/certificate workflow; module progress must not.
+      await Promise.all([
+        this.dispatch({
+          eventKey: 'academy.course.completed',
+          type: 'COURSE_COMPLETION',
+          title: '¡Curso finalizado!',
+          message: `Felicidades, completaste "${course.title}".`,
+          recipients: [{ userId }],
+          channels: [NotificationDeliveryChannel.IN_APP],
+          resource: { type: 'COURSE', id: courseId },
+          actionUrl: `/learn/${courseId}`,
+          priority: NotificationPriority.HIGH,
+          dedupeKey: `course:${courseId}:user:${userId}:completed`,
+        }),
+        ...(admins.length
+          ? [
+              this.dispatch({
+                eventKey: 'academy.course.completed',
+                type: 'COURSE_COMPLETION',
+                title: 'Finalización académica confirmada',
+                message: `${user.name ?? user.email} finalizó "${course.title}" tras aprobar el flujo final.`,
+                recipients: admins.map((admin) => ({ userId: admin.id })),
+                channels: [NotificationDeliveryChannel.IN_APP],
+                resource: { type: 'COURSE', id: courseId },
+                actionUrl: '/admin/courses/review',
+                priority: NotificationPriority.HIGH,
+                dedupeKey: `course:${courseId}:user:${userId}:completed`,
+              }),
+            ]
+          : []),
+      ])
     } catch (error) {
       console.error('Error triggering completion notification:', error)
       // Don't throw
@@ -590,12 +690,17 @@ export class NotificationService {
 
       if (!course?.title) return
 
-      await this.createNotification({
-        userId,
+      await this.dispatch({
+        eventKey: 'course.access_granted',
         type: 'PAYMENT',
         title: '¡Acceso otorgado!',
-        message: `Ahora tienes acceso a "${course.title}"`,
-        relatedId: courseId,
+        message: `Ahora tienes acceso a "${course.title}".`,
+        recipients: [{ userId }],
+        channels: [NotificationDeliveryChannel.IN_APP],
+        resource: { type: 'COURSE', id: courseId },
+        actionUrl: `/learn/${courseId}`,
+        priority: NotificationPriority.NORMAL,
+        dedupeKey: `course:${courseId}:user:${userId}:access-granted`,
       })
     } catch (error) {
       console.error('Error triggering enrollment notification:', error)

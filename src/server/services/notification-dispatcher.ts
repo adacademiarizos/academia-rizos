@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import {
   NotificationDeliveryChannel,
   NotificationDeliveryStatus,
+  NotificationPreferenceCategory,
   NotificationPriority,
   type Prisma,
 } from "@prisma/client";
@@ -24,6 +25,7 @@ export const notificationEventKeys = [
   "payment_link.expired",
   "payment_link.failed",
   "payment_link.refunded",
+  "payment.receipt",
   "payment.failed",
   "payment.refunded",
   "payment.dispute_created",
@@ -33,9 +35,12 @@ export const notificationEventKeys = [
   "course.access_expiring",
   "course.access_expired",
   "course.published",
+  "achievement.earned",
+  "academy.submission.received",
   "academy.submission.pending_review",
   "academy.review.completed",
   "academy.course.completed",
+  "certificate.pending",
   "certificate.issued",
   "certificate.revoked",
   "user.registered",
@@ -80,6 +85,11 @@ export type NotificationDispatchInput = {
   channels?: NotificationDeliveryChannel[];
   /** Future values create pending outbox rows instead of visible in-app items. */
   scheduledFor?: Date;
+  /**
+   * Opt-in category for discretionary events only. Transactional, security and
+   * academic-review events deliberately omit this field and cannot be muted.
+   */
+  preferenceCategory?: NotificationPreferenceCategory;
 };
 
 export type NotificationDispatchResult =
@@ -205,6 +215,35 @@ async function resolveRecipients(input: NotificationDispatchInput) {
   return resolved;
 }
 
+async function applyNotificationPreferences(
+  recipients: ResolvedRecipient[],
+  category: NotificationPreferenceCategory | undefined,
+) {
+  if (!category) {
+    return recipients;
+  }
+
+  const userIds = Array.from(
+    new Set(recipients.flatMap((recipient) => (recipient.userId ? [recipient.userId] : []))),
+  );
+
+  if (userIds.length === 0) {
+    return recipients;
+  }
+
+  const disabled = await db.notificationPreference.findMany({
+    where: {
+      category,
+      enabled: false,
+      userId: { in: userIds },
+    },
+    select: { userId: true },
+  });
+  const disabledUserIds = new Set(disabled.map((preference) => preference.userId));
+
+  return recipients.filter((recipient) => !recipient.userId || !disabledUserIds.has(recipient.userId));
+}
+
 function inAppDedupeKey(eventDedupeKey: string, userId: string) {
   return `${eventDedupeKey}:user:${userId}`;
 }
@@ -298,7 +337,10 @@ export async function dispatchNotification(
       throw new Error("Notification actionUrl must be an internal relative URL");
     }
 
-    const recipients = await resolveRecipients(input);
+    const recipients = await applyNotificationPreferences(
+      await resolveRecipients(input),
+      input.preferenceCategory,
+    );
     const now = new Date();
     const scheduledFor = input.scheduledFor ?? now;
     const scheduled = isScheduledForFuture(scheduledFor, now);

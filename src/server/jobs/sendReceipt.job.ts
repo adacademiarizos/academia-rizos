@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { sendPaymentReceiptEmail } from "@/lib/mail";
+import { NotificationEventService } from "@/server/services/notification-event-service";
 
 import type { MaintenanceJobResult } from "./types";
 
@@ -12,6 +12,26 @@ function resolvePaymentConcept(type: "APPOINTMENT" | "COURSE" | "PAYMENT_LINK") 
     default:
       return "Pago";
   }
+}
+
+function formatPaymentAmount(amountCents: number, currency: string) {
+  return `${(amountCents / 100).toFixed(2)} ${currency}`;
+}
+
+function resolveReceiptActionUrl(payment: {
+  type: "APPOINTMENT" | "COURSE" | "PAYMENT_LINK";
+  courseId: string | null;
+  paymentLinkId: string | null;
+}) {
+  if (payment.type === "COURSE" && payment.courseId) {
+    return `/courses/${payment.courseId}`;
+  }
+
+  if (payment.type === "PAYMENT_LINK" && payment.paymentLinkId) {
+    return `/pay/${payment.paymentLinkId}`;
+  }
+
+  return "/booking";
 }
 
 export async function sendReceiptJob(): Promise<MaintenanceJobResult> {
@@ -32,7 +52,8 @@ export async function sendReceiptJob(): Promise<MaintenanceJobResult> {
       amountCents: true,
       currency: true,
       payerEmail: true,
-      stripePaymentIntentId: true,
+      courseId: true,
+      paymentLinkId: true,
     },
   });
 
@@ -45,27 +66,31 @@ export async function sendReceiptJob(): Promise<MaintenanceJobResult> {
     }
 
     try {
-      await sendPaymentReceiptEmail({
-        to: payment.payerEmail,
+      const result = await NotificationEventService.paymentReceipt({
         paymentId: payment.id,
-        amountCents: payment.amountCents,
-        currency: payment.currency,
         concept: resolvePaymentConcept(payment.type),
-        stripePaymentIntentId: payment.stripePaymentIntentId ?? undefined,
+        amountLabel: formatPaymentAmount(payment.amountCents, payment.currency),
+        payerEmail: payment.payerEmail,
+        actionUrl: resolveReceiptActionUrl(payment),
       });
 
-      await db.payment.update({
-        where: { id: payment.id },
-        data: {
-          receiptEmailSentAt: new Date(),
-          receiptToEmail: payment.payerEmail,
-        },
-      });
+      if (!result.queued) {
+        errors.push(
+          `Failed to queue receipt for payment ${payment.id}: ${result.error ?? "Unknown notification queue error"}`,
+        );
+        continue;
+      }
 
       processed += 1;
+
+      if (!result.markerRecorded) {
+        errors.push(
+          `Receipt outbox marker was not recorded for payment ${payment.id}: ${result.error ?? "Unknown marker error"}`,
+        );
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      errors.push(`Failed to send receipt for payment ${payment.id}: ${message}`);
+      errors.push(`Failed to queue receipt for payment ${payment.id}: ${message}`);
     }
   }
 

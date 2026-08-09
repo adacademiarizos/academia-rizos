@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authorizeCourseAccessByModuleId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { db } from '@/lib/db'
+import { NotificationService } from '@/server/services/notification-service'
 
 async function autoCreatePendingCertificate(userId: string, courseId: string) {
   const totalModules = await db.module.count({ where: { courseId } })
@@ -26,7 +27,7 @@ async function autoCreatePendingCertificate(userId: string, courseId: string) {
   if (existing) return
 
   const certCode = `PEND-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
-  await db.certificate.create({
+  const certificate = await db.certificate.create({
     data: {
       code: certCode,
       courseId,
@@ -34,6 +35,12 @@ async function autoCreatePendingCertificate(userId: string, courseId: string) {
       valid: false,
       pdfUrl: null,
     },
+  })
+
+  await NotificationService.triggerOnCertificatePendingReview({
+    certificateId: certificate.id,
+    userId,
+    courseId,
   })
 }
 
@@ -112,7 +119,7 @@ export async function POST(
     })
 
     if (completed) {
-      autoCreatePendingCertificate(access.user.id, access.courseId).catch((error) => {
+      await autoCreatePendingCertificate(access.user.id, access.courseId).catch((error) => {
         console.error('Auto-certificate check failed:', error)
       })
       // A module is only an intermediate milestone. The final exam/certificate

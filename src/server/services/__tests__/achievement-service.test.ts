@@ -29,12 +29,24 @@ jest.mock('@/lib/db', () => ({
   },
 }))
 
+jest.mock('@/server/services/notification-event-service', () => ({
+  NotificationEventService: {
+    achievementEarned: jest.fn(),
+  },
+}))
+
+import { NotificationEventService } from '@/server/services/notification-event-service'
+
 describe('AchievementService', () => {
   const mockUserId = 'user-123'
+  const achievementNotifications = NotificationEventService as unknown as {
+    achievementEarned: jest.Mock
+  }
 
   beforeEach(() => {
     jest.clearAllMocks()
     jest.useRealTimers()
+    achievementNotifications.achievementEarned.mockResolvedValue(undefined)
   })
 
   describe('checkAndAwardAchievements', () => {
@@ -60,6 +72,11 @@ describe('AchievementService', () => {
         })
       )
       expect(db.achievement.create).toHaveBeenCalled()
+      expect(achievementNotifications.achievementEarned).toHaveBeenCalledWith({
+        achievementId: 'ach-1',
+        userId: mockUserId,
+        achievementName: 'Primer paso',
+      })
     })
 
     it('should award FIVE_COURSES achievement', async () => {
@@ -155,6 +172,7 @@ describe('AchievementService', () => {
           type: 'FIRST_COURSE',
         })
       )
+      expect(achievementNotifications.achievementEarned).not.toHaveBeenCalled()
     })
   })
 

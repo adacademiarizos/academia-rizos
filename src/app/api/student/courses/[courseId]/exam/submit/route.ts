@@ -139,6 +139,9 @@ export async function POST(
       submissionId: submission.id,
       assessmentType: 'FINAL_EXAM',
       requiresReview: true,
+      // Re-submission updates the same record, so submittedAt distinguishes
+      // a new review request from the prior notification occurrence.
+      submissionVersion: submission.submittedAt.toISOString(),
     })
 
     return NextResponse.json({

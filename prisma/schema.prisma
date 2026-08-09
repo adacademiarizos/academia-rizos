@@ -95,6 +95,14 @@ enum NotificationDeliveryStatus {
   CANCELLED
 }
 
+// Only discretionary product/community notifications can be opted out of.
+// Payments, appointments, security and assessment events remain mandatory.
+enum NotificationPreferenceCategory {
+  COURSE_UPDATES
+  COMMUNITY
+  ACHIEVEMENTS
+}
+
 model User {
   id             String  @id @default(cuid())
   name           String?
@@ -132,6 +140,7 @@ model User {
   // Relations - ETAPA 5
   notifications          Notification[]
   notificationDeliveries NotificationDelivery[] @relation("NotificationDeliveryRecipient")
+  notificationPreferences NotificationPreference[]
   activities             UserActivity[]
   achievements           Achievement[]
 
@@ -306,6 +315,8 @@ model Payment {
   payerId    String?
   payerEmail String?
 
+  // Legacy marker: set when the receipt email is enqueued in NotificationDelivery,
+  // not when the email provider actually sends it.
   receiptEmailSentAt DateTime?
   receiptToEmail     String?
 
@@ -712,6 +723,22 @@ model NotificationDelivery {
   @@index([recipientUserId])
   @@index([status, scheduledFor])
   @@index([resourceType, resourceId, status])
+}
+
+// A missing row means enabled. Only an explicit opt-out is persisted, which
+// keeps the existing experience backward compatible for current users.
+model NotificationPreference {
+  id        String                         @id @default(cuid())
+  userId    String
+  category  NotificationPreferenceCategory
+  enabled   Boolean                        @default(true)
+  createdAt DateTime                       @default(now())
+  updatedAt DateTime                       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
+  @@index([userId])
 }
 
 model UserActivity {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { checkAdminAuth } from "@/lib/admin-auth";
-import { NotificationService } from "@/server/services/notification-service";
+import { NotificationEventService } from "@/server/services/notification-event-service";
 
 export const dynamic = "force-dynamic";
 
@@ -54,8 +54,10 @@ export async function PATCH(
       select: {
         id: true,
         status: true,
-        customerId: true,
-        staffId: true,
+        customerEmail: true,
+        updatedAt: true,
+        customer: { select: { id: true, email: true } },
+        staff: { select: { id: true, email: true } },
         service: { select: { name: true } },
       },
     });
@@ -63,21 +65,15 @@ export async function PATCH(
     if (current.status !== updated.status) {
       const serviceName = updated.service?.name ?? 'tu servicio';
 
-      if (updated.customerId) {
-        NotificationService.triggerOnAppointmentStatus(
-          updated.customerId,
-          updated.id,
-          updated.status,
-          serviceName
-        ).catch((err) => console.error('Customer appointment status notification failed:', err))
-      }
-
-      NotificationService.triggerOnAppointmentStatus(
-        updated.staffId,
-        updated.id,
-        updated.status,
-        serviceName
-      ).catch((err) => console.error('Staff appointment status notification failed:', err))
+      await NotificationEventService.appointmentStatusChanged({
+        appointmentId: updated.id,
+        status: updated.status,
+        serviceName,
+        transitionId: updated.updatedAt.toISOString(),
+        staff: updated.staff,
+        customer: updated.customer,
+        customerEmail: updated.customerEmail,
+      })
     }
 
     return NextResponse.json({ ok: true, data: updated });

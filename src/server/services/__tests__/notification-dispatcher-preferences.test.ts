@@ -108,8 +108,8 @@ describe("dispatchNotification preferences", () => {
 
   it("does not apply an opt-out to transactional events without a preference category", async () => {
     findPreferencesMock.mockResolvedValue([{ userId: "muted-user" }]);
-    const { preferenceCategory: _ignoredPreferenceCategory, ...transactionalBase } =
-      communityDispatchInput();
+    const { preferenceCategory, ...transactionalBase } = communityDispatchInput();
+    expect(preferenceCategory).toBe(NotificationPreferenceCategory.COMMUNITY);
 
     await expect(
       dispatchNotification({
