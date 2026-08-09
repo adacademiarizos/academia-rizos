@@ -48,6 +48,9 @@ const mockedNotifications = NotificationService as unknown as {
   triggerOnAssessmentSubmission: jest.Mock
 }
 
+const initialSubmittedAt = new Date('2026-08-09T12:00:00.000Z')
+const resubmittedAt = new Date('2026-08-09T12:30:00.000Z')
+
 describe('student final-exam submission notifications', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -61,7 +64,10 @@ describe('student final-exam submission notifications', () => {
     })
     mockedDb.courseAccess.findUnique.mockResolvedValue({ revokedAt: null })
     mockedDb.examSubmission.findUnique.mockResolvedValue(null)
-    mockedDb.examSubmission.create.mockResolvedValue({ id: 'submission-1' })
+    mockedDb.examSubmission.create.mockResolvedValue({
+      id: 'submission-1',
+      submittedAt: initialSubmittedAt,
+    })
     mockedNotifications.triggerOnAssessmentSubmission.mockResolvedValue(undefined)
   })
 
@@ -83,6 +89,44 @@ describe('student final-exam submission notifications', () => {
       submissionId: 'submission-1',
       assessmentType: 'FINAL_EXAM',
       requiresReview: true,
+      submissionVersion: initialSubmittedAt.toISOString(),
+    })
+  })
+
+  it('uses the refreshed submittedAt as the notification version when a final exam is re-submitted', async () => {
+    mockedDb.examSubmission.findUnique.mockResolvedValue({ id: 'submission-1' })
+    mockedDb.examSubmission.update.mockResolvedValue({
+      id: 'submission-1',
+      submittedAt: resubmittedAt,
+    })
+
+    const request = new Request('http://localhost/api/student/courses/course-1/exam/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ answers: {} }),
+    })
+
+    const response = await POST(request, {
+      params: Promise.resolve({ courseId: 'course-1' }),
+    })
+
+    expect(response.status).toBe(200)
+    expect(mockedDb.examSubmission.update).toHaveBeenCalledWith({
+      where: { id: 'submission-1' },
+      data: expect.objectContaining({
+        status: 'PENDING',
+        reviewedAt: null,
+        reviewNote: null,
+        submittedAt: expect.any(Date),
+      }),
+    })
+    expect(mockedNotifications.triggerOnAssessmentSubmission).toHaveBeenCalledWith({
+      userId: 'student-1',
+      courseId: 'course-1',
+      submissionId: 'submission-1',
+      assessmentType: 'FINAL_EXAM',
+      requiresReview: true,
+      submissionVersion: resubmittedAt.toISOString(),
     })
   })
 })
