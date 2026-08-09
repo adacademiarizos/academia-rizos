@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { getSafeNotificationActionUrl } from './notification-action-url'
 
 interface Notification {
   id: string
@@ -9,6 +11,9 @@ interface Notification {
   message: string
   isRead: boolean
   createdAt: string
+  actionUrl?: string | null
+  priority?: string | number | null
+  readAt?: string | null
 }
 
 function getIcon(type: string) {
@@ -71,12 +76,38 @@ export function NotificationsList() {
     }
   }
 
-  const handleMarkAsRead = async (notificationId: string) => {
+  const markNotificationAsRead = async (notificationId: string, keepalive = false) => {
+    setNotifications((currentNotifications) =>
+      currentNotifications.map((notification) =>
+        notification.id === notificationId
+          ? { ...notification, isRead: true, readAt: notification.readAt ?? new Date().toISOString() }
+          : notification
+      )
+    )
+
     try {
-      await fetch(`/api/notifications/${notificationId}/read`, { method: 'POST' })
-      fetchNotifications()
+      const response = await fetch(`/api/notifications/${notificationId}/read`, {
+        method: 'POST',
+        keepalive,
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to mark notification as read')
+      }
     } catch (error) {
       console.error('Error marking notification as read:', error)
+      void fetchNotifications()
+    }
+  }
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    await markNotificationAsRead(notificationId)
+    void fetchNotifications()
+  }
+
+  const handleActionActivation = (notification: Notification) => {
+    if (!notification.isRead) {
+      void markNotificationAsRead(notification.id, true)
     }
   }
 
@@ -146,46 +177,61 @@ export function NotificationsList() {
         </div>
       ) : (
         <div className="space-y-3">
-          {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className={`p-4 rounded-2xl border transition ${
-                notification.isRead
-                  ? 'bg-white/5 border-zinc-800'
-                  : 'bg-ap-copper/10 border-ap-copper/30'
-              }`}
-            >
-              <div className="flex items-start gap-4">
-                {!notification.isRead && (
-                  <span className="mt-2 w-2 h-2 rounded-full bg-ap-copper flex-shrink-0" />
-                )}
-                <span className="text-xl flex-shrink-0">{getIcon(notification.type)}</span>
-                <div className="flex-1 min-w-0">
-                  <h3 className={`font-semibold text-sm ${notification.isRead ? 'text-white/70' : 'text-white'}`}>
-                    {notification.title}
-                  </h3>
-                  <p className="text-white/50 text-sm mt-0.5">{notification.message}</p>
-                  <p className="text-xs text-white/30 mt-1.5">
-                    {new Date(notification.createdAt).toLocaleDateString('es-ES', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
+          {notifications.map((notification) => {
+            const actionUrl = getSafeNotificationActionUrl(notification.actionUrl)
+
+            return (
+              <div
+                key={notification.id}
+                className={`p-4 rounded-2xl border transition ${
+                  notification.isRead
+                    ? 'bg-white/5 border-zinc-800'
+                    : 'bg-ap-copper/10 border-ap-copper/30'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  {!notification.isRead && (
+                    <span className="mt-2 w-2 h-2 rounded-full bg-ap-copper flex-shrink-0" />
+                  )}
+                  <span className="text-xl flex-shrink-0">{getIcon(notification.type)}</span>
+                  <div className="flex-1 min-w-0">
+                    <h3 className={`font-semibold text-sm ${notification.isRead ? 'text-white/70' : 'text-white'}`}>
+                      {notification.title}
+                    </h3>
+                    <p className="text-white/50 text-sm mt-0.5">{notification.message}</p>
+                    <p className="text-xs text-white/30 mt-1.5">
+                      {new Date(notification.createdAt).toLocaleDateString('es-ES', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                    {actionUrl && (
+                      <Link
+                        href={actionUrl}
+                        onClick={() => handleActionActivation(notification)}
+                        className="mt-2 inline-flex items-center gap-1 rounded-lg border border-ap-copper/40 bg-ap-copper/10 px-2.5 py-1 text-xs font-semibold text-ap-copper transition hover:border-ap-copper/70 hover:bg-ap-copper/20 hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ap-copper focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F1C19]"
+                        aria-label={`Ver detalle: ${notification.title}`}
+                      >
+                        Ver detalle
+                        <span aria-hidden="true">→</span>
+                      </Link>
+                    )}
+                  </div>
+                  {!notification.isRead && (
+                    <button
+                      onClick={() => handleMarkAsRead(notification.id)}
+                      className="text-xs text-ap-copper hover:text-orange-400 whitespace-nowrap mt-1 transition flex-shrink-0"
+                    >
+                      Marcar como leída
+                    </button>
+                  )}
                 </div>
-                {!notification.isRead && (
-                  <button
-                    onClick={() => handleMarkAsRead(notification.id)}
-                    className="text-xs text-ap-copper hover:text-orange-400 whitespace-nowrap mt-1 transition flex-shrink-0"
-                  >
-                    Marcar como leída
-                  </button>
-                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
