@@ -204,6 +204,45 @@ describe("processStripeEvent", () => {
     expect(NotificationEventService.paymentException).not.toHaveBeenCalled();
   });
 
+  it("does not grant course access or record conversion again for a repeated paid checkout", async () => {
+    db.payment.findUnique.mockResolvedValue({
+      id: "pay_1",
+      type: "COURSE",
+      status: "PAID",
+      stripePaymentIntentId: "pi_1",
+      payerId: "user_1",
+      payerEmail: "student@example.com",
+      metadata: { analyticsSessionId: "sess_1", userId: "user_1" },
+    });
+    db.payment.findUniqueOrThrow.mockResolvedValue(makePaymentContext());
+
+    const tasks = await processStripeEvent({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_1",
+          amount_total: 15000,
+          currency: "eur",
+          payment_intent: "pi_1",
+          customer_details: { email: "student@example.com" },
+          metadata: { type: "COURSE", courseId: "course_1", userId: "user_1" },
+        },
+      },
+    } as any);
+
+    expect(CourseService.createCourseAccess).not.toHaveBeenCalled();
+    expect(tasks).toHaveLength(1);
+
+    await runDeferredTasks(tasks);
+
+    expect(db.conversionEvent.create).not.toHaveBeenCalled();
+    // Delivery retries are still handed to the semantic service, whose outbox
+    // dedupe key makes repeated checkout notifications safe.
+    expect(NotificationEventService.paymentReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentId: "pay_1" })
+    );
+  });
+
   it("notifies only the paid payment-link creator without a normal admin alert", async () => {
     db.payment.findUniqueOrThrow.mockResolvedValue(
       makePaymentContext({
