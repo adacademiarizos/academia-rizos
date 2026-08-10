@@ -59,7 +59,7 @@ export async function POST(
 
     const style = await db.moduleStyle.findUnique({
       where: { id: styleId },
-      select: { id: true, moduleId: true },
+      select: { id: true, courseId: true },
     })
 
     if (!style) {
@@ -73,7 +73,6 @@ export async function POST(
     const lesson = await db.lesson.create({
       data: {
         styleId,
-        moduleId: style.moduleId,
         order,
         title: data.title,
         description: data.description ?? null,

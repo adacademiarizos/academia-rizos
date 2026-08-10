@@ -43,15 +43,12 @@ async function verifyData() {
         title: true,
         videoUrl: true,
         transcript: true,
-        styles: {
+        lessons: {
           orderBy: { order: 'asc' },
           select: {
             id: true,
             order: true,
-            name: true,
-            slug: true,
-            isActive: true,
-            _count: { select: { lessons: true } },
+            title: true,
           },
         },
       }
@@ -145,13 +142,13 @@ async function verifyData() {
       console.log(`   ✅ All courses have modules`)
     }
 
-    // Check all modules have at least one style
-    const modulesWithoutStyles = modules.filter(m => m.styles.length === 0)
-    if (modulesWithoutStyles.length > 0) {
-      console.log(`   ERROR: ${modulesWithoutStyles.length} module(s) missing styles`)
+    // Modules and styles are independent course branches. Modules may have direct lessons only.
+    const modulesWithoutLessons = modules.filter(m => m.lessons.length === 0)
+    if (modulesWithoutLessons.length > 0) {
+      console.log(`   ERROR: ${modulesWithoutLessons.length} module(s) missing lessons`)
       isValid = false
     } else {
-      console.log(`   OK: All modules have at least one style`)
+      console.log(`   OK: All modules have at least one direct lesson`)
     }
 
     // Check all modules have video URLs
@@ -189,7 +186,7 @@ async function verifyData() {
       console.log(`   GET /api/courses/${firstCourse.id}/modules`)
       const firstModule = modules.find(m => m.courseId === firstCourse.id)
       if (firstModule) {
-        console.log(`   GET /api/student/modules/${firstModule.id}/styles`)
+        console.log(`   GET /api/student/modules/${firstModule.id}/lessons`)
       }
     }
 

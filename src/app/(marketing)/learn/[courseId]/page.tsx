@@ -19,6 +19,13 @@ interface Module {
   completed?: boolean;
 }
 
+interface Style {
+  id: string;
+  name: string;
+  description: string | null;
+  lessons: Array<{ id: string }>;
+}
+
 interface CourseTestItem {
   id: string;
   title: string;
@@ -41,6 +48,7 @@ interface Certificate {
 interface DashboardData {
   course: Course;
   modules: Module[];
+  styles: Style[];
   progress: number;
   allModulesCompleted: boolean;
   courseTests: CourseTestItem[];
@@ -81,6 +89,15 @@ export default function LearningDashboard() {
           // The legacy percentage remains a temporary display fallback.
         }
 
+        // Styles are a course-level branch, independent from modules.
+        let styles: Style[] = [];
+        try {
+          const stylesResponse = await fetch(`/api/student/courses/${courseId}/styles`);
+          if (stylesResponse.ok) styles = (await stylesResponse.json()).data || [];
+        } catch {
+          // Styles are optional, so a temporary loading failure should not block the course.
+        }
+
         // Fetch course tests
         let courseTests: CourseTestItem[] = [];
         try {
@@ -108,6 +125,7 @@ export default function LearningDashboard() {
         setData({
           course: courseData.data,
           modules: modulesData.data.modules,
+          styles,
           progress: learningProgress.percentage,
           allModulesCompleted: learningProgress.finalEligible,
           courseTests,
@@ -243,6 +261,23 @@ export default function LearningDashboard() {
               </Link>
             ))}
 
+            {data.styles.map((style) => (
+              <Link key={style.id} href={`/learn/${courseId}/styles/${style.id}`}>
+                <div className="group cursor-pointer rounded-2xl border border-zinc-700 bg-white/5 p-6 transition hover:border-ap-copper hover:bg-white/10">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-ap-olive/20 font-bold text-ap-olive">✦</div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs uppercase tracking-wider text-zinc-500">Estilo</p>
+                      <h3 className="text-lg font-semibold text-ap-ivory transition group-hover:text-ap-copper">{style.name}</h3>
+                      <p className="mt-1 text-sm text-zinc-400">{style.description || `${style.lessons.length} lección${style.lessons.length === 1 ? '' : 'es'}`}</p>
+                    </div>
+                    <span className="text-sm text-zinc-400">{style.lessons.length} lección{style.lessons.length === 1 ? '' : 'es'}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+
+            <LearningResourcesPanel scope="COURSE" scopeId={courseId} title="Recursos generales del curso" />
             <LearningAssessmentPanel scope="COURSE" scopeId={courseId} courseId={courseId} title="Evaluaciones del curso" />
 
             {/* Legacy course tests remain available only during migration rollout. */}

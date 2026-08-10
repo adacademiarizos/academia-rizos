@@ -53,15 +53,6 @@ interface Lesson {
   styleName?: string;
 }
 
-interface ModuleStyle {
-  id: string;
-  order: number;
-  name: string;
-  slug: string;
-  description: string | null;
-  lessons: Lesson[];
-}
-
 export default function ModulePlayer() {
   const params = useParams();
   const router = useRouter();
@@ -78,7 +69,6 @@ export default function ModulePlayer() {
   const [tests] = useState<any[]>([]);
   const [resources] = useState<ModuleResource[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [styles, setStyles] = useState<ModuleStyle[]>([]);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const [activeTestId, setActiveTestId] = useState<string | null>(null);
 
@@ -115,25 +105,12 @@ export default function ModulePlayer() {
           previousModuleId: previousModule?.id,
         });
 
-        // Fetch styles with nested lessons for this module. Fall back to legacy flat lessons.
-        const stylesRes = await fetch(`/api/student/modules/${moduleId}/styles`);
-        if (stylesRes.ok) {
-          const stylesData = await stylesRes.json();
-          const fetchedStyles: ModuleStyle[] = stylesData.data || [];
-          const fetchedLessons = fetchedStyles.flatMap((style) =>
-            style.lessons.map((lesson) => ({ ...lesson, styleName: style.name }))
-          );
-          setStyles(fetchedStyles);
+        const lessonsRes = await fetch(`/api/student/modules/${moduleId}/lessons`);
+        if (lessonsRes.ok) {
+          const lessonsData = await lessonsRes.json();
+          const fetchedLessons: Lesson[] = lessonsData.data || [];
           setLessons(fetchedLessons);
           if (fetchedLessons.length > 0) setActiveLessonId(fetchedLessons[0].id);
-        } else {
-          const lessonsRes = await fetch(`/api/student/modules/${moduleId}/lessons`);
-          if (lessonsRes.ok) {
-            const lessonsData = await lessonsRes.json();
-            const fetchedLessons: Lesson[] = lessonsData.data || [];
-            setLessons(fetchedLessons);
-            if (fetchedLessons.length > 0) setActiveLessonId(fetchedLessons[0].id);
-          }
         }
 
       } catch (err) {
@@ -209,7 +186,6 @@ export default function ModulePlayer() {
   const { module, courseId: cId, courseName } = data;
   const hasLessons = lessons.length > 0;
   const activeLesson = lessons.find((l) => l.id === activeLessonId);
-  const activeStyle = styles.find((style) => style.lessons.some((lesson) => lesson.id === activeLessonId));
 
   const videoSrc = hasLessons
     ? (activeLesson?.videoFileUrl || activeLesson?.videoUrl || "")
@@ -257,12 +233,7 @@ export default function ModulePlayer() {
                   Lecciones
                 </h3>
                 <div className="space-y-1">
-                  {(styles.length > 0 ? styles : [{ id: "legacy", name: "General", lessons } as ModuleStyle]).map((style) => (
-                    <div key={style.id} className="space-y-1">
-                      <div className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ap-copper/80">
-                        {style.name}
-                      </div>
-                      {style.lessons.map((lesson) => {
+                  {lessons.map((lesson) => {
                         const isActive = lesson.id === activeLessonId;
                         const hasVideo = !!(lesson.videoFileUrl || lesson.videoUrl);
                         return (
@@ -285,8 +256,6 @@ export default function ModulePlayer() {
                           </button>
                         );
                       })}
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
@@ -501,7 +470,6 @@ export default function ModulePlayer() {
                   </div>
                 )}
               </div>
-              {activeStyle && <div className="space-y-4"><LearningResourcesPanel scope="STYLE" scopeId={activeStyle.id} title={`Recursos: ${activeStyle.name}`} /><LearningAssessmentPanel scope="STYLE" scopeId={activeStyle.id} courseId={courseId} title={`Evaluaciones: ${activeStyle.name}`} /></div>}
               {activeLesson && <div className="space-y-4"><LearningResourcesPanel scope="LESSON" scopeId={activeLesson.id} title="Recursos de la lección" /><LearningAssessmentPanel scope="LESSON" scopeId={activeLesson.id} courseId={courseId} title="Evaluaciones de la lección" /></div>}
             </>
           )}

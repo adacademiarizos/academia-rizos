@@ -130,16 +130,6 @@ export async function POST(
       },
     })
 
-    await db.moduleStyle.create({
-      data: {
-        moduleId: courseModule.id,
-        order: 0,
-        name: 'General',
-        slug: 'general',
-        description: 'Contenido general de la seccion.',
-      },
-    })
-
     // Create any resources passed at creation time (temp-uploaded files)
     if (data.resources && data.resources.length > 0) {
       await db.moduleResource.createMany({

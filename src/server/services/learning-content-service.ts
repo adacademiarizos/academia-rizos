@@ -124,18 +124,24 @@ export async function resolveScopeTarget(ref: ScopeRef): Promise<ScopeTarget> {
     case LearningScope.STYLE: {
       const style = await db.moduleStyle.findUnique({
         where: { id: ref.scopeId },
-        select: { id: true, module: { select: { courseId: true } } },
+        select: { id: true, courseId: true },
       })
       if (!style) throw new LearningContentError('El estilo no existe.', 404, 'SCOPE_NOT_FOUND')
-      return { ...ref, courseId: style.module.courseId }
+      return { ...ref, courseId: style.courseId }
     }
     case LearningScope.LESSON: {
       const lesson = await db.lesson.findUnique({
         where: { id: ref.scopeId },
-        select: { id: true, module: { select: { courseId: true } } },
+        select: {
+          id: true,
+          module: { select: { courseId: true } },
+          style: { select: { courseId: true } },
+        },
       })
       if (!lesson) throw new LearningContentError('La lección no existe.', 404, 'SCOPE_NOT_FOUND')
-      return { ...ref, courseId: lesson.module.courseId }
+      const courseId = lesson.module?.courseId ?? lesson.style?.courseId
+      if (!courseId) throw new LearningContentError('La lección no tiene un curso válido.', 500, 'INVALID_LESSON_SCOPE')
+      return { ...ref, courseId }
     }
   }
 }
@@ -338,12 +344,12 @@ export async function getCourseLearningProgress(userId: string, courseId: string
         orderBy: { order: 'asc' },
         select: {
           id: true,
-          styles: {
-            orderBy: { order: 'asc' },
-            select: { id: true, lessons: { orderBy: { order: 'asc' }, select: { id: true } } },
-          },
-          lessons: { select: { id: true, styleId: true } },
+          lessons: { select: { id: true } },
         },
+      },
+      styles: {
+        orderBy: { order: 'asc' },
+        select: { id: true, lessons: { orderBy: { order: 'asc' }, select: { id: true } } },
       },
     },
   })
@@ -355,8 +361,11 @@ export async function getCourseLearningProgress(userId: string, courseId: string
       select: { id: true, scope: true, moduleId: true, styleId: true, lessonId: true, isRequired: true, isFinalExam: true },
     }).then(async (courseAssessments) => {
       const moduleIds = course.modules.map((module) => module.id)
-      const styleIds = course.modules.flatMap((module) => module.styles.map((style) => style.id))
-      const lessonIds = course.modules.flatMap((module) => module.lessons.map((lesson) => lesson.id))
+      const styleIds = course.styles.map((style) => style.id)
+      const lessonIds = [
+        ...course.modules.flatMap((module) => module.lessons.map((lesson) => lesson.id)),
+        ...course.styles.flatMap((style) => style.lessons.map((lesson) => lesson.id)),
+      ]
       const child = await db.assessment.findMany({
         where: {
           OR: [
@@ -370,7 +379,10 @@ export async function getCourseLearningProgress(userId: string, courseId: string
       return [...courseAssessments, ...child]
     }),
     db.lessonProgress.findMany({
-      where: { userId, lesson: { module: { courseId } } },
+      where: {
+        userId,
+        lesson: { OR: [{ module: { courseId } }, { style: { courseId } }] },
+      },
       select: { lessonId: true },
     }),
   ])
@@ -395,23 +407,22 @@ export async function getCourseLearningProgress(userId: string, courseId: string
     }
   }
 
-  const allLessons = course.modules.flatMap((module) => module.lessons)
+  const allLessons = [
+    ...course.modules.flatMap((module) => module.lessons),
+    ...course.styles.flatMap((style) => style.lessons),
+  ]
   const lessons = allLessons.map((lesson) => ({
     id: lesson.id,
     completed: completedLessonIds.has(lesson.id) && (requiredByLesson.get(lesson.id) ?? []).every((id) => passed.has(id)),
   }))
   const lessonCompleted = new Map(lessons.map((lesson) => [lesson.id, lesson.completed]))
-  const styles = course.modules.flatMap((module) => module.styles.map((style) => {
+  const styles = course.styles.map((style) => {
     const styleLessons = style.lessons.map((lesson) => lesson.id)
     const complete = styleLessons.every((lessonId) => lessonCompleted.get(lessonId)) && (requiredByStyle.get(style.id) ?? []).every((id) => passed.has(id))
-    return { id: style.id, moduleId: module.id, completed: complete }
-  }))
-  const stylesByModule = new Map<string, boolean[]>()
-  for (const style of styles) stylesByModule.set(style.moduleId, [...(stylesByModule.get(style.moduleId) ?? []), style.completed])
+    return { id: style.id, completed: complete }
+  })
   const modules = course.modules.map((module) => {
-    const styleStates = stylesByModule.get(module.id) ?? []
-    const directLessons = module.lessons.filter((lesson) => !module.styles.some((style) => style.id === lesson.styleId))
-    const completed = styleStates.every(Boolean) && directLessons.every((lesson) => lessonCompleted.get(lesson.id)) && (requiredByModule.get(module.id) ?? []).every((id) => passed.has(id))
+    const completed = module.lessons.every((lesson) => lessonCompleted.get(lesson.id)) && (requiredByModule.get(module.id) ?? []).every((id) => passed.has(id))
     return { id: module.id, completed }
   })
   const allLessonsCompleted = lessons.length > 0 && lessons.every((lesson) => lesson.completed)
@@ -472,10 +483,9 @@ export async function getStudentAssessment(assessmentId: string, userId: string)
     availableByScope = lessons.length > 0 && lessons.every((lesson) => completed.get(lesson.id))
   }
   if (assessment.scope === LearningScope.MODULE && assessment.moduleId) {
-    const moduleStyles = progress.styles.filter((style) => style.moduleId === assessment.moduleId)
     const moduleLessons = await db.lesson.findMany({ where: { moduleId: assessment.moduleId }, select: { id: true } })
     const completed = new Map(progress.lessons.map((lesson) => [lesson.id, lesson.completed]))
-    availableByScope = moduleStyles.every((style) => style.completed) && moduleLessons.length > 0 && moduleLessons.every((lesson) => completed.get(lesson.id))
+    availableByScope = moduleLessons.length > 0 && moduleLessons.every((lesson) => completed.get(lesson.id))
   }
   if (assessment.isFinalExam) availableByScope = progress.finalEligible
   // A pending manual attempt must always be reviewed before a new submit.

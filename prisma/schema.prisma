@@ -392,6 +392,7 @@ model Course {
   courseTests       CourseTest[]
   learningResources LearningResource[]
   assessments       Assessment[]
+  styles            ModuleStyle[]
   access            CourseAccess[]
   test              Test?
   exam              CourseExam?
@@ -426,7 +427,6 @@ model Module {
   assessments       Assessment[]
   submissions       ModuleSubmission[]
   lessons           Lesson[]
-  styles            ModuleStyle[]
 
   likes    Like[]
   comments Comment[]
@@ -437,7 +437,7 @@ model Module {
 
 model ModuleStyle {
   id          String  @id @default(cuid())
-  moduleId    String
+  courseId    String
   order       Int
   name        String
   slug        String
@@ -447,22 +447,21 @@ model ModuleStyle {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  module            Module             @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  course            Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessons           Lesson[]
   learningResources LearningResource[]
   assessments       Assessment[]
 
-  @@unique([moduleId, slug])
-  @@unique([moduleId, order])
-  @@index([moduleId])
-  @@index([moduleId, order])
+  @@unique([courseId, slug])
+  @@unique([courseId, order])
+  @@index([courseId])
+  @@index([courseId, order])
 }
 
 model Lesson {
   id           String  @id @default(cuid())
-  styleId      String
-  // Legacy denormalized field kept so old module-scoped APIs can remain stable.
-  moduleId     String
+  styleId      String?
+  moduleId     String?
   order        Int
   title        String
   description  String?
@@ -473,13 +472,12 @@ model Lesson {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  style             ModuleStyle        @relation(fields: [styleId], references: [id], onDelete: Cascade)
-  module            Module             @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  style             ModuleStyle?       @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  module            Module?            @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   progress          LessonProgress[]
   learningResources LearningResource[]
   assessments       Assessment[]
 
-  @@unique([styleId, order])
   @@index([styleId])
   @@index([moduleId])
 }
