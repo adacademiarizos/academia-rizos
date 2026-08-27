@@ -4,17 +4,48 @@
  */
 
 import { db } from '@/lib/db'
-import { Prisma } from '@prisma/client'
 
 const VALID_GRANULARITY = ['day', 'week', 'month'] as const
 
 type DateRange = { from: Date; to: Date }
+type AnalyticsScope = 'all' | 'academy'
 
 export class MarketingAnalyticsService {
   /**
    * Overview metrics: total views, sessions, conversions, conversion rate, revenue
    */
-  static async getOverviewMetrics({ from, to }: DateRange) {
+  static async getOverviewMetrics({ from, to }: DateRange, scope: AnalyticsScope = 'all') {
+    if (scope === 'academy') {
+      const [pageViewStats, coursePayments] = await Promise.all([
+        db.$queryRaw<[{ total: bigint; sessions: bigint }]>`
+          SELECT
+            COUNT(*)::bigint AS total,
+            COUNT(DISTINCT "sessionId")::bigint AS sessions
+          FROM "PageView"
+          WHERE "createdAt" >= ${from} AND "createdAt" <= ${to}
+        `,
+        db.payment.aggregate({
+          where: {
+            type: 'COURSE',
+            status: 'PAID',
+            paidAt: { gte: from, lte: to },
+          },
+          _count: { _all: true },
+          _sum: { amountCents: true },
+        }),
+      ])
+
+      const totalViews = Number(pageViewStats[0]?.total ?? 0)
+      const uniqueSessions = Number(pageViewStats[0]?.sessions ?? 0)
+      const totalConversions = coursePayments._count._all
+      const totalRevenueCents = coursePayments._sum.amountCents ?? 0
+      const conversionRate = uniqueSessions > 0
+        ? Math.round((totalConversions / uniqueSessions) * 10000) / 100
+        : 0
+
+      return { totalViews, uniqueSessions, totalConversions, conversionRate, totalRevenueCents }
+    }
+
     const [pageViewStats, conversionStats] = await Promise.all([
       db.$queryRaw<[{ total: bigint; sessions: bigint }]>`
         SELECT
@@ -218,7 +249,7 @@ export class MarketingAnalyticsService {
   /**
    * Conversion funnel: visitors -> course page -> checkout -> purchase
    */
-  static async getConversionFunnel({ from, to }: DateRange) {
+  static async getConversionFunnel({ from, to }: DateRange, scope: AnalyticsScope = 'all') {
     const [
       totalVisitors,
       coursePageVisitors,
@@ -237,13 +268,17 @@ export class MarketingAnalyticsService {
         WHERE "createdAt" >= ${from} AND "createdAt" <= ${to}
           AND "path" LIKE '/courses/%'
       `,
-      db.conversionEvent.count({
-        where: { type: 'COURSE_PURCHASE', createdAt: { gte: from, lte: to } },
+      db.payment.count({
+        where: {
+          type: 'COURSE',
+          status: 'PAID',
+          paidAt: { gte: from, lte: to },
+        },
       }),
-      db.conversionEvent.count({
+      scope === 'academy' ? Promise.resolve(0) : db.conversionEvent.count({
         where: { type: 'BOOKING', createdAt: { gte: from, lte: to } },
       }),
-      db.conversionEvent.count({
+      scope === 'academy' ? Promise.resolve(0) : db.conversionEvent.count({
         where: { type: 'REGISTRATION', createdAt: { gte: from, lte: to } },
       }),
     ])
@@ -330,52 +365,56 @@ export class MarketingAnalyticsService {
     })
 
     // Get course page views
-    const pageViews = await db.$queryRaw<Array<{ path: string; views: bigint; sessions: bigint }>>`
+    const pageViews = await db.$queryRaw<Array<{ course_id: string; views: bigint; sessions: bigint }>>`
       SELECT
-        "path",
+        split_part("path", '/', 3) AS course_id,
         COUNT(*)::bigint AS views,
         COUNT(DISTINCT "sessionId")::bigint AS sessions
       FROM "PageView"
       WHERE "createdAt" >= ${from} AND "createdAt" <= ${to}
         AND "path" LIKE '/courses/%'
-      GROUP BY "path"
-    `
-
-    // Get course conversions
-    const conversions = await db.$queryRaw<Array<{ course_id: string; count: bigint; revenue: bigint }>>`
-      SELECT
-        "metadata"->>'courseId' AS course_id,
-        COUNT(*)::bigint AS count,
-        COALESCE(SUM("amountCents"), 0)::bigint AS revenue
-      FROM "ConversionEvent"
-      WHERE "createdAt" >= ${from} AND "createdAt" <= ${to}
-        AND "type" = 'COURSE_PURCHASE'
-        AND "metadata"->>'courseId' IS NOT NULL
       GROUP BY course_id
     `
 
-    // Aggregate page views per courseId (a course can have sub-paths like /courses/abc/lesson/1)
+    // Payments are the financial source of truth. Keep currencies separate rather
+    // than adding amounts that cannot be compared safely.
+    const payments = await db.$queryRaw<Array<{ course_id: string; currency: string; count: bigint; revenue: bigint }>>`
+      SELECT
+        "courseId" AS course_id,
+        "currency" AS currency,
+        COUNT(*)::bigint AS count,
+        COALESCE(SUM("amountCents"), 0)::bigint AS revenue
+      FROM "Payment"
+      WHERE "type" = 'COURSE'
+        AND "status" = 'PAID'
+        AND "paidAt" >= ${from} AND "paidAt" <= ${to}
+        AND "courseId" IS NOT NULL
+      GROUP BY "courseId", "currency"
+    `
+
+    // The query groups by course ID, so one session is not counted twice when
+    // it sees both a course overview and one of its nested pages.
     const viewMap = new Map<string, { views: number; sessions: number }>()
     for (const pv of pageViews) {
-      const courseId = pv.path.replace('/courses/', '').split('/')[0]
-      const existing = viewMap.get(courseId)
-      if (existing) {
-        existing.views += Number(pv.views)
-        existing.sessions += Number(pv.sessions)
-      } else {
-        viewMap.set(courseId, { views: Number(pv.views), sessions: Number(pv.sessions) })
-      }
+      viewMap.set(pv.course_id, { views: Number(pv.views), sessions: Number(pv.sessions) })
     }
 
-    const convMap = new Map(
-      conversions.map((c) => [c.course_id, { count: Number(c.count), revenue: Number(c.revenue) }])
-    )
+    const paymentsByCourse = new Map<string, Array<{ currency: string; purchases: number; amountCents: number }>>()
+    for (const payment of payments) {
+      const entries = paymentsByCourse.get(payment.course_id) ?? []
+      entries.push({
+        currency: payment.currency,
+        purchases: Number(payment.count),
+        amountCents: Number(payment.revenue),
+      })
+      paymentsByCourse.set(payment.course_id, entries)
+    }
 
     return courses.map((course) => {
       const views = viewMap.get(course.id)?.views ?? 0
       const sessions = viewMap.get(course.id)?.sessions ?? 0
-      const purchases = convMap.get(course.id)?.count ?? 0
-      const revenueCents = convMap.get(course.id)?.revenue ?? 0
+      const revenue = paymentsByCourse.get(course.id) ?? []
+      const purchases = revenue.reduce((total, item) => total + item.purchases, 0)
 
       return {
         courseId: course.id,
@@ -383,7 +422,7 @@ export class MarketingAnalyticsService {
         pageViews: views,
         uniqueVisitors: sessions,
         purchases,
-        revenueCents,
+        revenue,
         conversionRate: sessions > 0
           ? Math.round((purchases / sessions) * 10000) / 100
           : 0,

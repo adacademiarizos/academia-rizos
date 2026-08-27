@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 
 const PRESETS = [
@@ -11,39 +12,58 @@ const PRESETS = [
   { label: 'Todo', days: 365 },
 ]
 
-function formatDate(d: Date) {
-  return d.toISOString().split('T')[0]
+function formatDate(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+
+  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? ''
+  return `${part('year')}-${part('month')}-${part('day')}`
 }
 
-function getPresetRange(preset: (typeof PRESETS)[number]) {
-  const now = new Date()
+function shiftDateKey(dateKey: string, days: number) {
+  const date = new Date(`${dateKey}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+function getPresetRange(preset: (typeof PRESETS)[number], to: string) {
   if (preset.days === -1) {
-    // This month
+    const [year, month] = to.split('-').map(Number)
     return {
-      from: formatDate(new Date(now.getFullYear(), now.getMonth(), 1)),
-      to: formatDate(now),
+      from: `${year}-${String(month).padStart(2, '0')}-01`,
+      to,
     }
   }
   if (preset.days === -2) {
-    // Last month
-    const firstLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-    const lastLastMonth = new Date(now.getFullYear(), now.getMonth(), 0)
+    const [year, month] = to.split('-').map(Number)
+    const firstThisMonth = new Date(Date.UTC(year, month - 1, 1))
+    const lastLastMonth = new Date(firstThisMonth)
+    lastLastMonth.setUTCDate(0)
     return {
-      from: formatDate(firstLastMonth),
-      to: formatDate(lastLastMonth),
+      from: `${lastLastMonth.getUTCFullYear()}-${String(lastLastMonth.getUTCMonth() + 1).padStart(2, '0')}-01`,
+      to: lastLastMonth.toISOString().slice(0, 10),
     }
   }
   return {
-    from: formatDate(new Date(Date.now() - preset.days * 24 * 60 * 60 * 1000)),
-    to: formatDate(now),
+    from: shiftDateKey(to, -(preset.days - 1)),
+    to,
   }
 }
 
 export function useDateRange() {
   const searchParams = useSearchParams()
-  const from = searchParams.get('from') || formatDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
-  const to = searchParams.get('to') || formatDate(new Date())
-  return { from, to }
+  const [defaultRange] = useState(() => {
+    const to = formatDate(new Date())
+    return { from: shiftDateKey(to, -29), to }
+  })
+
+  const from = searchParams.get('from') || defaultRange.from
+  const to = searchParams.get('to') || defaultRange.to
+  return { from, to, isReady: true }
 }
 
 export function DateRangePicker() {
@@ -51,11 +71,10 @@ export function DateRangePicker() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const currentFrom = searchParams.get('from') || ''
-  const currentTo = searchParams.get('to') || ''
+  const { from: currentFrom, to: currentTo } = useDateRange()
 
   function setRange(from: string, to: string) {
-    const params = new URLSearchParams()
+    const params = new URLSearchParams(searchParams.toString())
     params.set('from', from)
     params.set('to', to)
     router.push(`${pathname}?${params.toString()}`)
@@ -64,7 +83,7 @@ export function DateRangePicker() {
   return (
     <div className="flex flex-wrap items-center gap-2">
       {PRESETS.map((preset) => {
-        const range = getPresetRange(preset)
+        const range = getPresetRange(preset, currentTo)
         const active = currentFrom === range.from && currentTo === range.to
         return (
           <button
@@ -83,15 +102,17 @@ export function DateRangePicker() {
       <div className="flex items-center gap-2 ml-2">
         <input
           type="date"
-          value={currentFrom || formatDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))}
-          onChange={(e) => setRange(e.target.value, currentTo || formatDate(new Date()))}
+          value={currentFrom}
+          max={currentTo}
+          onChange={(e) => setRange(e.target.value, currentTo)}
           className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-xs text-white/70 [color-scheme:dark]"
         />
         <span className="text-white/30 text-xs">—</span>
         <input
           type="date"
-          value={currentTo || formatDate(new Date())}
-          onChange={(e) => setRange(currentFrom || formatDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)), e.target.value)}
+          value={currentTo}
+          min={currentFrom}
+          onChange={(e) => setRange(currentFrom, e.target.value)}
           className="rounded-lg bg-white/5 border border-white/10 px-2 py-1.5 text-xs text-white/70 [color-scheme:dark]"
         />
       </div>

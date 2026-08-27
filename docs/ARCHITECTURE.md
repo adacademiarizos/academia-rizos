@@ -56,7 +56,7 @@ Todas las rutas están protegidas server-side. Solo usuarios con `role = ADMIN` 
 
 | Ruta | Descripción |
 |------|-------------|
-| `/admin` | Overview con métricas generales |
+| `/admin` | Overview ejecutivo de website y academia |
 | `/admin/services` | CRUD de servicios |
 | `/admin/staff` | Staff y precios por servicio |
 | `/admin/appointments` | Gestión de citas |
@@ -72,6 +72,17 @@ Todas las rutas están protegidas server-side. Solo usuarios con `role = ADMIN` 
 | `/admin/settings` | Configuración de comisiones |
 | `/admin/manuales` | Hub de manuales (admin + staff) |
 | `/admin/manual` | Manual del administrador |
+
+#### Overview ejecutivo de website + academia
+
+`/admin` está diseñado para la primera decisión administrativa, no como inventario de analíticas. Muestra un único rango de fechas (30 días por defecto, con 7, 90 o selección manual), comparado contra el intervalo anterior de igual duración.
+
+- Resultado: facturación bruta de cursos por moneda, compras confirmadas, conversión a compra y alumnos activos.
+- Recorrido: sesiones únicas → sesiones que ven un curso → compras confirmadas.
+- Salud académica: retención de cohortes maduras, progreso, tiempo a certificación, ranking de cursos y revisiones que bloquean certificados.
+- Citas, pagos de salón y links de pago no forman parte de este overview; siguen en sus flujos específicos.
+
+`AdminExecutiveOverviewService` agrupa las consultas de negocio en servidor. El período se valida mediante `src/lib/analytics/date-range.ts`, que interpreta el día completo en la zona `ANALYTICS_TIME_ZONE` (por defecto `Europe/Madrid`). Las rutas de analítica conservan `from`, `to` y `scope=academy` al profundizar.
 
 ### Rutas compartidas (todos los roles)
 `src/app/(dashboard)/`
@@ -147,6 +158,7 @@ Payment
   type: APPOINTMENT | COURSE | PAYMENT_LINK
   status: REQUIRES_PAYMENT | PROCESSING | PAID | FAILED | ...
   amountCents, currency
+  paidAt? (momento de confirmación, usado para analíticas)
   stripeCheckoutSessionId?, stripePaymentIntentId?
 
 WebhookEvent
@@ -240,7 +252,7 @@ Settings        — feePercent, feeFixedCents, defaultCurrency
 ```
 1. Cliente va a /learn/[courseId] → clic en Comprar
 2. GET /api/courses/[courseId]/checkout — crea Stripe session
-3. Stripe webhook → crea o reactiva CourseAccess
+3. Stripe webhook → confirma `Payment.paidAt`, atribuye el evento y crea o reactiva `CourseAccess` en una misma transacción
 4. Stripe webhook intenta enviar recibo inmediatamente
 5. Vercel Cron `send-receipts` reintenta cualquier recibo pendiente
 6. Si el pago se reembolsa o se pierde una disputa, el webhook marca Payment(REFUNDED) y revoca CourseAccess.revokedAt
@@ -274,7 +286,7 @@ Settings        — feePercent, feeFixedCents, defaultCurrency
 
 - **Autenticación**: NextAuth con Google OAuth + credenciales (bcrypt).
 - **Autorización**: verificada en cada Server Component y API route vía `getServerSession()`.
-- **Webhooks Stripe**: verificados con `stripe.webhooks.constructEvent()` y el secret del endpoint.
+- **Webhooks Stripe**: verificados con `stripe.webhooks.constructEvent()` y el secret del endpoint. La confirmación usa `Payment.paidAt` y `ConversionEvent.paymentId` único para que una reentrega no duplique ingresos, atribución ni acceso académico.
 - **Uploads**: validación de tipo MIME y tamaño antes de subir a R2.
 - **Variables sensibles**: nunca en el cliente (prefijo `NEXT_PUBLIC_` solo para las necesarias).
 
