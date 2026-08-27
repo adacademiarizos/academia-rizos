@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authorizeCourseAccessByModuleId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { db } from '@/lib/db'
+import { NotificationService } from '@/server/services/notification-service'
 
 async function autoCreatePendingCertificate(userId: string, courseId: string) {
   const totalModules = await db.module.count({ where: { courseId } })
