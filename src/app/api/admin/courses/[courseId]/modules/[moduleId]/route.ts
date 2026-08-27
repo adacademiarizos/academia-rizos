@@ -47,11 +47,11 @@ export async function PUT(
     }
 
     // Verify module exists and belongs to course
-    const module = await db.module.findUnique({
+    const mod = await db.module.findUnique({
       where: { id: moduleId },
     })
 
-    if (!module || module.courseId !== courseId) {
+    if (!mod || mod.courseId !== courseId) {
       return NextResponse.json(
         { success: false, error: 'Module not found' },
         { status: 404 }
@@ -116,11 +116,11 @@ export async function DELETE(
     }
 
     // Verify module exists and belongs to course
-    const module = await db.module.findUnique({
+    const mod = await db.module.findUnique({
       where: { id: moduleId },
     })
 
-    if (!module || module.courseId !== courseId) {
+    if (!mod || mod.courseId !== courseId) {
       return NextResponse.json(
         { success: false, error: 'Module not found' },
         { status: 404 }

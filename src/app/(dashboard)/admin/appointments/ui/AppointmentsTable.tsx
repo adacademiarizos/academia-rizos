@@ -565,7 +565,7 @@ export default function AppointmentsTable({
                   {/* notas */}
                   {r.notes && (
                     <div className="rounded-xl bg-white/5 px-3 py-2">
-                      <p className="text-xs text-white/50 italic">"{r.notes}"</p>
+                      <p className="text-xs text-white/50 italic">&ldquo;{r.notes}&rdquo;</p>
                     </div>
                   )}
                 </div>

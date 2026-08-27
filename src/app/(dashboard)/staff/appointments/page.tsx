@@ -206,7 +206,7 @@ export default function StaffAppointmentsPage() {
                   {/* Notas */}
                   {appt.notes && (
                     <div className="sm:col-span-2 rounded-xl bg-white/5 px-3 py-2">
-                      <p className="text-xs text-white/50 italic">"{appt.notes}"</p>
+                      <p className="text-xs text-white/50 italic">&ldquo;{appt.notes}&rdquo;</p>
                     </div>
                   )}
                 </div>

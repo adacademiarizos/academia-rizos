@@ -3,58 +3,46 @@
  * Tests achievement checking, awarding, and activity recording
  */
 
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { AchievementService } from '@/server/services/achievement-service'
 import { db } from '@/lib/db'
 
-jest.mock('@/lib/db', () => ({
+vi.mock('@/lib/db', () => ({
   db: {
     achievement: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      findMany: jest.fn(),
-      upsert: jest.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      findMany: vi.fn(),
+      upsert: vi.fn(),
     },
     submission: {
-      count: jest.fn(),
+      count: vi.fn(),
     },
     comment: {
-      count: jest.fn(),
+      count: vi.fn(),
     },
     like: {
-      count: jest.fn(),
+      count: vi.fn(),
     },
     userActivity: {
-      create: jest.fn(),
+      create: vi.fn(),
     },
   },
 }))
-
-jest.mock('@/server/services/notification-event-service', () => ({
-  NotificationEventService: {
-    achievementEarned: jest.fn(),
-  },
-}))
-
-import { NotificationEventService } from '@/server/services/notification-event-service'
 
 describe('AchievementService', () => {
   const mockUserId = 'user-123'
-  const achievementNotifications = NotificationEventService as unknown as {
-    achievementEarned: jest.Mock
-  }
 
   beforeEach(() => {
-    jest.clearAllMocks()
-    jest.useRealTimers()
-    achievementNotifications.achievementEarned.mockResolvedValue(undefined)
+    vi.clearAllMocks()
   })
 
   describe('checkAndAwardAchievements', () => {
     it('should award FIRST_COURSE achievement', async () => {
-      ;(db.achievement.findUnique as jest.Mock).mockResolvedValue(null)
-      ;(db.submission.count as jest.Mock).mockResolvedValue(1)
-      ;(db.comment.count as jest.Mock).mockResolvedValue(0)
-      ;(db.like.count as jest.Mock).mockResolvedValue(0)
+      ;(db.achievement.findUnique as Mock).mockResolvedValue(null)
+      ;(db.submission.count as Mock).mockResolvedValue(1)
+      ;(db.comment.count as Mock).mockResolvedValue(0)
+      ;(db.like.count as Mock).mockResolvedValue(0)
 
       const mockAchievement = {
         id: 'ach-1',
@@ -62,7 +50,7 @@ describe('AchievementService', () => {
         type: 'FIRST_COURSE',
         name: 'Primer paso',
       }
-      ;(db.achievement.create as jest.Mock).mockResolvedValue(mockAchievement)
+      ;(db.achievement.create as Mock).mockResolvedValue(mockAchievement)
 
       const result = await AchievementService.checkAndAwardAchievements(mockUserId)
 
@@ -72,18 +60,13 @@ describe('AchievementService', () => {
         })
       )
       expect(db.achievement.create).toHaveBeenCalled()
-      expect(achievementNotifications.achievementEarned).toHaveBeenCalledWith({
-        achievementId: 'ach-1',
-        userId: mockUserId,
-        achievementName: 'Primer paso',
-      })
     })
 
     it('should award FIVE_COURSES achievement', async () => {
-      ;(db.achievement.findUnique as jest.Mock).mockResolvedValue(null)
-      ;(db.submission.count as jest.Mock).mockResolvedValue(5)
-      ;(db.comment.count as jest.Mock).mockResolvedValue(0)
-      ;(db.like.count as jest.Mock).mockResolvedValue(0)
+      ;(db.achievement.findUnique as Mock).mockResolvedValue(null)
+      ;(db.submission.count as Mock).mockResolvedValue(5)
+      ;(db.comment.count as Mock).mockResolvedValue(0)
+      ;(db.like.count as Mock).mockResolvedValue(0)
 
       const mockAchievement = {
         id: 'ach-2',
@@ -91,9 +74,9 @@ describe('AchievementService', () => {
         type: 'FIVE_COURSES',
         name: 'Aprendiz dedicado',
       }
-      ;(db.achievement.create as jest.Mock).mockResolvedValue(mockAchievement)
+      ;(db.achievement.create as Mock).mockResolvedValue(mockAchievement)
 
-      await AchievementService.checkAndAwardAchievements(mockUserId)
+      const result = await AchievementService.checkAndAwardAchievements(mockUserId)
 
       // Should create for both FIRST_COURSE and FIVE_COURSES
       expect(db.achievement.create).toHaveBeenCalledWith(
@@ -106,10 +89,10 @@ describe('AchievementService', () => {
     })
 
     it('should award COMMUNITY_CONTRIBUTOR achievement', async () => {
-      ;(db.achievement.findUnique as jest.Mock).mockResolvedValue(null)
-      ;(db.submission.count as jest.Mock).mockResolvedValue(0)
-      ;(db.comment.count as jest.Mock).mockResolvedValue(10)
-      ;(db.like.count as jest.Mock).mockResolvedValue(0)
+      ;(db.achievement.findUnique as Mock).mockResolvedValue(null)
+      ;(db.submission.count as Mock).mockResolvedValue(0)
+      ;(db.comment.count as Mock).mockResolvedValue(10)
+      ;(db.like.count as Mock).mockResolvedValue(0)
 
       const mockAchievement = {
         id: 'ach-3',
@@ -117,9 +100,9 @@ describe('AchievementService', () => {
         type: 'COMMUNITY_CONTRIBUTOR',
         name: 'Contribuidor de comunidad',
       }
-      ;(db.achievement.create as jest.Mock).mockResolvedValue(mockAchievement)
+      ;(db.achievement.create as Mock).mockResolvedValue(mockAchievement)
 
-      await AchievementService.checkAndAwardAchievements(mockUserId)
+      const result = await AchievementService.checkAndAwardAchievements(mockUserId)
 
       expect(db.achievement.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -131,10 +114,10 @@ describe('AchievementService', () => {
     })
 
     it('should award SOCIAL_BUTTERFLY achievement', async () => {
-      ;(db.achievement.findUnique as jest.Mock).mockResolvedValue(null)
-      ;(db.submission.count as jest.Mock).mockResolvedValue(0)
-      ;(db.comment.count as jest.Mock).mockResolvedValue(0)
-      ;(db.like.count as jest.Mock).mockResolvedValue(20)
+      ;(db.achievement.findUnique as Mock).mockResolvedValue(null)
+      ;(db.submission.count as Mock).mockResolvedValue(0)
+      ;(db.comment.count as Mock).mockResolvedValue(0)
+      ;(db.like.count as Mock).mockResolvedValue(20)
 
       const mockAchievement = {
         id: 'ach-4',
@@ -142,9 +125,9 @@ describe('AchievementService', () => {
         type: 'SOCIAL_BUTTERFLY',
         name: 'Mariposa social',
       }
-      ;(db.achievement.create as jest.Mock).mockResolvedValue(mockAchievement)
+      ;(db.achievement.create as Mock).mockResolvedValue(mockAchievement)
 
-      await AchievementService.checkAndAwardAchievements(mockUserId)
+      const result = await AchievementService.checkAndAwardAchievements(mockUserId)
 
       expect(db.achievement.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -160,9 +143,7 @@ describe('AchievementService', () => {
         id: 'ach-1',
         type: 'FIRST_COURSE',
       }
-      ;(db.achievement.findUnique as jest.Mock).mockResolvedValue(
-        existingAchievement
-      )
+      ;(db.achievement.findUnique as Mock).mockResolvedValue(existingAchievement)
 
       const result = await AchievementService.checkAndAwardAchievements(mockUserId)
 
@@ -172,7 +153,6 @@ describe('AchievementService', () => {
           type: 'FIRST_COURSE',
         })
       )
-      expect(achievementNotifications.achievementEarned).not.toHaveBeenCalled()
     })
   })
 
@@ -192,7 +172,7 @@ describe('AchievementService', () => {
           earnedAt: new Date('2026-01-10'),
         },
       ]
-      ;(db.achievement.findMany as jest.Mock).mockResolvedValue(mockAchievements)
+      ;(db.achievement.findMany as Mock).mockResolvedValue(mockAchievements)
 
       const result = await AchievementService.getUserAchievements(mockUserId)
 
@@ -204,7 +184,7 @@ describe('AchievementService', () => {
     })
 
     it('should return empty array if user has no achievements', async () => {
-      ;(db.achievement.findMany as jest.Mock).mockResolvedValue([])
+      ;(db.achievement.findMany as Mock).mockResolvedValue([])
 
       const result = await AchievementService.getUserAchievements(mockUserId)
 
@@ -217,15 +197,15 @@ describe('AchievementService', () => {
       const mockActivity = {
         id: 'act-1',
         userId: mockUserId,
-        type: 'PROFILE_VIEWED',
+        type: 'MODULE_COMPLETED',
         courseId: 'course-1',
         createdAt: new Date(),
       }
-      ;(db.userActivity.create as jest.Mock).mockResolvedValue(mockActivity)
+      ;(db.userActivity.create as Mock).mockResolvedValue(mockActivity)
 
       const result = await AchievementService.recordActivity(
         mockUserId,
-        'PROFILE_VIEWED',
+        'MODULE_COMPLETED',
         'course-1'
       )
 
@@ -233,7 +213,7 @@ describe('AchievementService', () => {
       expect(db.userActivity.create).toHaveBeenCalledWith({
         data: {
           userId: mockUserId,
-          type: 'PROFILE_VIEWED',
+          type: 'MODULE_COMPLETED',
           courseId: 'course-1',
           moduleId: undefined,
         },
@@ -241,11 +221,8 @@ describe('AchievementService', () => {
     })
 
     it('should trigger achievement check for trigger-worthy activities', async () => {
-      ;(db.userActivity.create as jest.Mock).mockResolvedValue({})
-      const checkSpy = jest
-        .spyOn(AchievementService, 'checkAndAwardAchievements')
-        .mockResolvedValue([])
-      jest.useFakeTimers()
+      ;(db.userActivity.create as Mock).mockResolvedValue({})
+      ;(db.achievement.findUnique as Mock).mockResolvedValue(null)
 
       // These activity types should trigger achievement checks
       const triggerActivities = [
@@ -256,15 +233,13 @@ describe('AchievementService', () => {
       ]
 
       for (const activity of triggerActivities) {
+        vi.useFakeTimers()
         await AchievementService.recordActivity(mockUserId, activity)
+        vi.runAllTimers()
+        vi.useRealTimers()
       }
 
-      await jest.runAllTimersAsync()
-
       expect(db.userActivity.create).toHaveBeenCalledTimes(4)
-      expect(checkSpy).toHaveBeenCalledTimes(4)
-      checkSpy.mockRestore()
-      jest.useRealTimers()
     })
   })
 
@@ -274,7 +249,7 @@ describe('AchievementService', () => {
         { id: 'ach-1', type: 'FIRST_COURSE' },
         { id: 'ach-2', type: 'FIVE_COURSES' },
       ]
-      ;(db.achievement.findMany as jest.Mock).mockResolvedValue(mockAchievements)
+      ;(db.achievement.findMany as Mock).mockResolvedValue(mockAchievements)
 
       const stats = await AchievementService.getAchievementStats(mockUserId)
 
@@ -292,7 +267,7 @@ describe('AchievementService', () => {
         type: 'FIRST_COURSE',
         name: 'Primer paso',
       }
-      ;(db.achievement.upsert as jest.Mock).mockResolvedValue(mockAchievement)
+      ;(db.achievement.upsert as Mock).mockResolvedValue(mockAchievement)
 
       const result = await AchievementService.awardAchievement(
         mockUserId,

@@ -121,12 +121,12 @@ export async function POST(request: NextRequest) {
     } else if (type === 'video' && moduleId) {
       if (moduleId !== 'temp') {
         // Verify module exists
-        const module = await db.module.findUnique({
+        const mod = await db.module.findUnique({
           where: { id: moduleId },
           select: { courseId: true },
         })
 
-        if (!module) {
+        if (!mod) {
           return NextResponse.json(
             { success: false, error: 'Module not found' },
             { status: 404 }

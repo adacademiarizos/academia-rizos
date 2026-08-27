@@ -16,8 +16,12 @@ import {
 
 export default function AudiencePage() {
   const searchParams = useSearchParams()
-  const from = searchParams.get('from') || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const to = searchParams.get('to') || new Date().toISOString().split('T')[0]
+  const [defaultRange] = useState(() => ({
+    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    to: new Date().toISOString().split('T')[0],
+  }))
+  const from = searchParams.get('from') || defaultRange.from
+  const to = searchParams.get('to') || defaultRange.to
 
   const [devices, setDevices] = useState<any>(null)
   const [geo, setGeo] = useState<any[]>([])

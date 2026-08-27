@@ -8,15 +8,20 @@
     "build": "prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
+    "test:db:setup": "tsx scripts/setup-test-db.mjs",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "seed": "prisma db seed",
+    "sync:testimonials": "tsx scripts/sync-testimonials.ts",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "test": "jest --runInBand",
-    "test:qa": "jest --runInBand",
-    "seed": "prisma db seed",
     "setup:preview": "tsx scripts/setup-preview-environment.ts",
-    "sync:testimonials": "tsx scripts/sync-testimonials.ts",
     "cron:fixtures": "tsx scripts/prepare-cron-fixtures.ts",
-    "cron:test": "tsx scripts/test-cron.ts"
+    "cron:test": "tsx scripts/test-cron.ts",
+    "test:qa": "vitest run"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -51,28 +56,26 @@
     "react-hook-form": "^7.71.1",
     "recharts": "^3.8.0",
     "resend": "^6.9.1",
-    "sonner": "^2.0.8",
     "stripe": "^20.3.0",
     "tailwind-merge": "^3.4.0",
     "uvcanvas": "^0.3.0",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "sonner": "^2.0.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/fluent-ffmpeg": "^2.1.28",
-    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.8",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "jest": "^30.4.2",
-    "jest-environment-node": "^30.4.1",
     "puppeteer": "^24.37.5",
     "tailwindcss": "^4",
-    "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }
