@@ -4,23 +4,36 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { authorizeCourseAccessByModuleId, toAccessDeniedResponse } from '@/lib/course-access-control'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ moduleId: string }> }
 ) {
   try {
-    const { moduleId } = await params
-    const access = await authorizeCourseAccessByModuleId(moduleId, {
-      allowAdmin: true,
-      requireActiveAccess: true,
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const user = await db.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true },
     })
 
-    if (!access.ok) {
-      return toAccessDeniedResponse(access)
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
     }
+
+    const { moduleId } = await params
 
     const resources = await db.moduleResource.findMany({
       where: { moduleId },

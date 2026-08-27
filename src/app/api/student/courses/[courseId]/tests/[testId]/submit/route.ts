@@ -1,11 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authorizeCourseAccessByCourseId, toAccessDeniedResponse } from '@/lib/course-access-control'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { z } from 'zod'
 import { db } from '@/lib/db'
+import { isCourseAccessActive } from '@/lib/course-access'
 
 const SubmitSchema = z.object({
-  answers: z.record(z.string(), z.string()),
+  answers: z.record(z.string(), z.string()), // questionId -> answer (JSON string or plain text or URL)
 })
+
+async function requireStudent(courseId: string) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.email) return null
+  const user = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true, role: true } })
+  if (!user) return null
+  const access = await db.courseAccess.findUnique({
+    where: { userId_courseId: { userId: user.id, courseId } },
+    select: { accessUntil: true, revokedAt: true },
+  })
+  if (!isCourseAccessActive(access)) return null
+  return user
+}
 
 export async function POST(
   req: NextRequest,
@@ -13,28 +28,21 @@ export async function POST(
 ) {
   try {
     const { courseId, testId } = await params
-    const access = await authorizeCourseAccessByCourseId(courseId, {
-      allowAdmin: false,
-      requireActiveAccess: true,
-    })
-
-    if (!access.ok) {
-      return toAccessDeniedResponse(access)
-    }
+    const user = await requireStudent(courseId)
+    if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
     const test = await db.courseTest.findUnique({
       where: { id: testId },
       include: { questions: true },
     })
-
     if (!test || test.courseId !== courseId) {
       return NextResponse.json({ success: false, error: 'Test not found' }, { status: 404 })
     }
 
+    // Check attempt limit
     const attemptCount = await db.courseTestSubmission.count({
-      where: { courseTestId: testId, userId: access.user.id },
+      where: { courseTestId: testId, userId: user.id },
     })
-
     if (test.maxAttempts > 0 && attemptCount >= test.maxAttempts) {
       return NextResponse.json({ success: false, error: 'Maximum attempts reached' }, { status: 400 })
     }
@@ -42,8 +50,9 @@ export async function POST(
     const body = await req.json()
     const { answers } = SubmitSchema.parse(body)
 
-    const mcQuestions = test.questions.filter((question) => question.type === 'MULTIPLE_CHOICE')
-    const nonMcQuestions = test.questions.filter((question) => question.type !== 'MULTIPLE_CHOICE')
+    // Grade MC questions
+    const mcQuestions = test.questions.filter((q) => q.type === 'MULTIPLE_CHOICE')
+    const nonMcQuestions = test.questions.filter((q) => q.type !== 'MULTIPLE_CHOICE')
 
     let correctCount = 0
     const questionResults: Array<{ questionId: string; answer: string; isCorrect: boolean | null }> = []
@@ -53,32 +62,36 @@ export async function POST(
       let isCorrect: boolean | null = null
 
       if (question.type === 'MULTIPLE_CHOICE') {
-        const config = question.config as Record<string, any>
-        const correctAnswer = config.correctAnswer ?? config.options?.[config.correctIndex ?? 0] ?? ''
+        const cfg = question.config as Record<string, any>
+        const correctAnswer = cfg.correctAnswer ?? cfg.options?.[cfg.correctIndex ?? 0] ?? ''
         isCorrect = answer === correctAnswer
         if (isCorrect) correctCount++
       }
+      // WRITTEN and FILE_UPLOAD remain null (manual review)
 
       questionResults.push({ questionId: question.id, answer, isCorrect })
     }
 
+    // Compute MC score
     let score: number | null = null
     let isPassed = false
 
     if (mcQuestions.length > 0) {
-      score = (correctCount / mcQuestions.length) * 100
-      isPassed = score >= test.passingScore
+      score = mcQuestions.length > 0 ? (correctCount / mcQuestions.length) * 100 : null
+      isPassed = score !== null && score >= test.passingScore
     }
 
+    // If there are non-MC questions OR this is a final exam, keep submission PENDING
     const hasManualReview = nonMcQuestions.length > 0
     const isFinalExam = test.isFinalExam
-    const status = hasManualReview || isFinalExam ? 'PENDING' : isPassed ? 'APPROVED' : 'PENDING'
+    const status = (hasManualReview || isFinalExam) ? 'PENDING' : (isPassed ? 'APPROVED' : 'PENDING')
 
+    // Create submission + answers in a transaction
     const submission = await db.$transaction(async (tx) => {
-      const createdSubmission = await tx.courseTestSubmission.create({
+      const sub = await tx.courseTestSubmission.create({
         data: {
           courseTestId: testId,
-          userId: access.user.id,
+          userId: user.id,
           score,
           isPassed: !(hasManualReview || isFinalExam) && isPassed,
           attemptNumber: attemptCount + 1,
@@ -87,20 +100,20 @@ export async function POST(
       })
 
       await Promise.all(
-        questionResults.map((result) =>
+        questionResults.map((r) =>
           tx.questionSubmission.create({
             data: {
-              questionId: result.questionId,
-              courseTestSubmissionId: createdSubmission.id,
-              userId: access.user.id,
-              answer: result.answer,
-              isCorrect: result.isCorrect,
+              questionId: r.questionId,
+              courseTestSubmissionId: sub.id,
+              userId: user.id,
+              answer: r.answer,
+              isCorrect: r.isCorrect,
             },
           })
         )
       )
 
-      return createdSubmission
+      return sub
     })
 
     return NextResponse.json({

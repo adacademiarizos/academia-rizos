@@ -8,8 +8,6 @@ import { CommentsSection } from "@/app/components/CommentsSection";
 import ModuleTestSubmission from "@/app/components/ModuleTestSubmission";
 import { ChatWidget } from "@/app/components/ChatWidget";
 import { CourseAIAssistant } from "@/app/components/CourseAIAssistant";
-import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
-import { useCourseAccess } from "@/app/components/useCourseAccess";
 
 interface Module {
   id: string;
@@ -41,23 +39,12 @@ interface ModuleResource {
 
 interface Lesson {
   id: string;
-  styleId?: string;
   order: number;
   title: string;
   description: string | null;
   videoUrl: string | null;
   videoFileUrl: string | null;
   transcript: string | null;
-  styleName?: string;
-}
-
-interface ModuleStyle {
-  id: string;
-  order: number;
-  name: string;
-  slug: string;
-  description: string | null;
-  lessons: Lesson[];
 }
 
 export default function ModulePlayer() {
@@ -65,7 +52,6 @@ export default function ModulePlayer() {
   const router = useRouter();
   const courseId = params.courseId as string;
   const moduleId = params.moduleId as string;
-  const access = useCourseAccess(courseId);
 
   const [data, setData] = useState<ModulePageData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,16 +61,11 @@ export default function ModulePlayer() {
   const [tests, setTests] = useState<any[]>([]);
   const [resources, setResources] = useState<ModuleResource[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [styles, setStyles] = useState<ModuleStyle[]>([]);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const [activeTestId, setActiveTestId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchModule = async () => {
-      if (access.loading || !access.hasAccess) {
-        return;
-      }
-
       try {
         const modulesResponse = await fetch(`/api/courses/${courseId}/modules`);
         if (!modulesResponse.ok) throw new Error("Failed to fetch modules");
@@ -112,25 +93,13 @@ export default function ModulePlayer() {
           previousModuleId: previousModule?.id,
         });
 
-        // Fetch styles with nested lessons for this module. Fall back to legacy flat lessons.
-        const stylesRes = await fetch(`/api/student/modules/${moduleId}/styles`);
-        if (stylesRes.ok) {
-          const stylesData = await stylesRes.json();
-          const fetchedStyles: ModuleStyle[] = stylesData.data || [];
-          const fetchedLessons = fetchedStyles.flatMap((style) =>
-            style.lessons.map((lesson) => ({ ...lesson, styleName: style.name }))
-          );
-          setStyles(fetchedStyles);
+        // Fetch lessons for this module
+        const lessonsRes = await fetch(`/api/student/modules/${moduleId}/lessons`);
+        if (lessonsRes.ok) {
+          const lessonsData = await lessonsRes.json();
+          const fetchedLessons: Lesson[] = lessonsData.data || [];
           setLessons(fetchedLessons);
           if (fetchedLessons.length > 0) setActiveLessonId(fetchedLessons[0].id);
-        } else {
-          const lessonsRes = await fetch(`/api/student/modules/${moduleId}/lessons`);
-          if (lessonsRes.ok) {
-            const lessonsData = await lessonsRes.json();
-            const fetchedLessons: Lesson[] = lessonsData.data || [];
-            setLessons(fetchedLessons);
-            if (fetchedLessons.length > 0) setActiveLessonId(fetchedLessons[0].id);
-          }
         }
 
         // Fetch tests for this module
@@ -154,7 +123,7 @@ export default function ModulePlayer() {
     };
 
     fetchModule();
-  }, [access.hasAccess, access.loading, courseId, moduleId]);
+  }, [courseId, moduleId]);
 
   const handleMarkComplete = async () => {
     if (!data) return;
@@ -184,7 +153,7 @@ export default function ModulePlayer() {
     }
   };
 
-  if (access.loading || (access.hasAccess && loading)) {
+  if (loading) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-ap-ink via-ap-ink to-black px-6 py-8">
         <div className="text-center text-ap-ivory">Cargando módulo...</div>
@@ -192,22 +161,12 @@ export default function ModulePlayer() {
     );
   }
 
-  if (access.reason) {
-    return (
-      <ProtectedAccessNotice
-        reason={access.reason}
-        from={`/learn/${courseId}/modules/${moduleId}`}
-        showSignIn={access.reason === "SIGN_IN_REQUIRED"}
-      />
-    );
-  }
-
-  if (access.error || error || !data) {
+  if (error || !data) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-ap-ink via-ap-ink to-black px-6 py-8">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-2xl font-bold text-ap-ivory mb-4">Error</h1>
-          <p className="text-zinc-300 mb-8">{access.error || error}</p>
+          <p className="text-zinc-300 mb-8">{error}</p>
           <Link href={`/learn/${courseId}`} className="text-ap-copper hover:underline">
             ← Volver al curso
           </Link>
@@ -266,36 +225,29 @@ export default function ModulePlayer() {
                   Lecciones
                 </h3>
                 <div className="space-y-1">
-                  {(styles.length > 0 ? styles : [{ id: "legacy", name: "General", lessons } as ModuleStyle]).map((style) => (
-                    <div key={style.id} className="space-y-1">
-                      <div className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ap-copper/80">
-                        {style.name}
-                      </div>
-                      {style.lessons.map((lesson) => {
-                        const isActive = lesson.id === activeLessonId;
-                        const hasVideo = !!(lesson.videoFileUrl || lesson.videoUrl);
-                        return (
-                          <button
-                            key={lesson.id}
-                            onClick={() => { setActiveLessonId(lesson.id); setActiveTestId(null); }}
-                            className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-start gap-3 ${
-                              isActive
-                                ? "bg-ap-copper/15 border border-ap-copper/30 text-ap-ivory"
-                                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
-                            }`}
-                          >
-                            <span className={`mt-0.5 text-xs font-bold shrink-0 w-5 text-center ${isActive ? "text-ap-copper" : "text-zinc-600"}`}>
-                              {lesson.order + 1}
-                            </span>
-                            <span className="flex-1 text-sm leading-snug">{lesson.title}</span>
-                            {hasVideo && (
-                              <span className="shrink-0 mt-0.5 text-xs text-zinc-600">▶</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
+                  {lessons.map((lesson) => {
+                    const isActive = lesson.id === activeLessonId;
+                    const hasVideo = !!(lesson.videoFileUrl || lesson.videoUrl);
+                    return (
+                      <button
+                        key={lesson.id}
+                        onClick={() => { setActiveLessonId(lesson.id); setActiveTestId(null); }}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-start gap-3 ${
+                          isActive
+                            ? "bg-ap-copper/15 border border-ap-copper/30 text-ap-ivory"
+                            : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
+                        }`}
+                      >
+                        <span className={`mt-0.5 text-xs font-bold shrink-0 w-5 text-center ${isActive ? "text-ap-copper" : "text-zinc-600"}`}>
+                          {lesson.order + 1}
+                        </span>
+                        <span className="flex-1 text-sm leading-snug">{lesson.title}</span>
+                        {hasVideo && (
+                          <span className="shrink-0 mt-0.5 text-xs text-zinc-600">▶</span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}

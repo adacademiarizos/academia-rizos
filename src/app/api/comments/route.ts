@@ -4,11 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  authorizeCourseAccessByCourseId,
-  authorizeCourseAccessByModuleId,
-  toAccessDeniedResponse,
-} from '@/lib/course-access-control'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
+import { db } from '@/lib/db'
 import { CommunityService } from '@/server/services/community-service'
 import { NotificationService } from '@/server/services/notification-service'
 import { AchievementService } from '@/server/services/achievement-service'
@@ -17,6 +15,7 @@ import { createCommentSchema } from '@/validators/academy'
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
+    const targetType = searchParams.get('targetType') as 'COURSE' | 'MODULE' | null
     const courseId = searchParams.get('courseId') || undefined
     const moduleId = searchParams.get('moduleId') || undefined
     const limitParam = searchParams.get('limit') || '20'
@@ -32,17 +31,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    if (moduleId) {
-      const access = await authorizeCourseAccessByModuleId(moduleId, {
-        allowAdmin: true,
-        requireActiveAccess: true,
-      })
-
-      if (!access.ok) {
-        return toAccessDeniedResponse(access)
-      }
-    }
-
+    // Get comments
     const result = await CommunityService.getComments(courseId, moduleId, limit, offset)
 
     return NextResponse.json({
@@ -64,6 +53,29 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized - please sign in' },
+        { status: 401 }
+      )
+    }
+
+    // Get user from database
+    const user = await db.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true },
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // Parse and validate request body
     const body = await request.json()
     const validation = createCommentSchema.safeParse(body)
 
@@ -75,34 +87,23 @@ export async function POST(request: NextRequest) {
     }
 
     const { targetType, body: commentBody, courseId, moduleId } = validation.data
-    const access =
-      targetType === 'MODULE' && moduleId
-        ? await authorizeCourseAccessByModuleId(moduleId, {
-            allowAdmin: true,
-            requireActiveAccess: true,
-          })
-        : await authorizeCourseAccessByCourseId(courseId ?? '', {
-            allowAdmin: true,
-            requireActiveAccess: true,
-          })
 
-    if (!access.ok) {
-      return toAccessDeniedResponse(access)
-    }
-
+    // Create comment
     const comment = await CommunityService.createComment(
-      access.user.id,
+      user.id,
       targetType,
       commentBody,
       courseId,
       moduleId
     )
 
+    // Trigger notifications and activity recording
     const targetId = courseId || moduleId || ''
     await Promise.all([
-      NotificationService.triggerOnComment(access.user.id, comment.id, targetType, targetId),
-      AchievementService.recordActivity(access.user.id, 'COMMENT_POSTED', courseId, moduleId),
+      NotificationService.triggerOnComment(user.id, comment.id, targetType, targetId),
+      AchievementService.recordActivity(user.id, 'COMMENT_POSTED', courseId, moduleId),
     ]).catch((error) => {
+      // Don't fail the request if notifications fail
       console.error('Error with notifications/achievements:', error)
     })
 

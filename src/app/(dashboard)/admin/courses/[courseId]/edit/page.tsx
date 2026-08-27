@@ -64,25 +64,12 @@ interface UploadedResource {
 
 interface Lesson {
   id: string
-  styleId: string
   order: number
   title: string
   description: string | null
   videoUrl: string | null
   videoFileUrl: string | null
   transcript: string | null
-  styleName?: string
-}
-
-interface ModuleStyle {
-  id: string
-  moduleId: string
-  order: number
-  name: string
-  slug: string
-  description: string | null
-  isActive: boolean
-  lessons: Lesson[]
 }
 
 export default function CourseEditPage() {
@@ -132,13 +119,8 @@ export default function CourseEditPage() {
   const [newModuleResources, setNewModuleResources] = useState<UploadedResource[]>([])
   // Module lessons state
   const [moduleLessons, setModuleLessons] = useState<Record<string, Lesson[]>>({})
-  const [moduleStyles, setModuleStyles] = useState<Record<string, ModuleStyle[]>>({})
-  const [showStyleForm, setShowStyleForm] = useState(false)
-  const [styleForm, setStyleForm] = useState({ name: '', description: '' })
-  const [editingStyleId, setEditingStyleId] = useState<string | null>(null)
-  const [editStyleForms, setEditStyleForms] = useState<Record<string, { name: string; description: string; isActive: boolean }>>({})
   const [showLessonForms, setShowLessonForms] = useState<Record<string, boolean>>({})
-  const [lessonForm, setLessonForm] = useState({ title: '', description: '', videoUrl: '', styleId: '' })
+  const [lessonForm, setLessonForm] = useState({ title: '', description: '', videoUrl: '' })
   const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null)
   const [editLessonForms, setEditLessonForms] = useState<Record<string, { title: string; description: string; videoUrl: string; transcript: string }>>({})
   const [showVideoUploadLessonNew, setShowVideoUploadLessonNew] = useState(false)
@@ -333,7 +315,7 @@ export default function CourseEditPage() {
     setExpandedTestId(null)
     fetchModuleTests(module.id)
     fetchModuleResources(module.id)
-    fetchModuleStyles(module.id)
+    fetchModuleLessons(module.id)
   }
 
   const handleSaveModuleChanges = async () => {
@@ -689,107 +671,25 @@ export default function CourseEditPage() {
 
   // ── Module lessons functions ───────────────────────────────────────────────
 
-  const fetchModuleStyles = async (moduleId: string) => {
+  const fetchModuleLessons = async (moduleId: string) => {
     try {
-      const res = await fetch(`/api/admin/modules/${moduleId}/styles`)
+      const res = await fetch(`/api/admin/modules/${moduleId}/lessons`)
       if (res.ok) {
         const data = await res.json()
-        const styles: ModuleStyle[] = data.data || []
-        setModuleStyles((prev) => ({ ...prev, [moduleId]: styles }))
-        setModuleLessons((prev) => ({
-          ...prev,
-          [moduleId]: styles.flatMap((style) =>
-            (style.lessons || []).map((lesson) => ({ ...lesson, styleName: style.name }))
-          ),
-        }))
+        setModuleLessons((prev) => ({ ...prev, [moduleId]: data.data || [] }))
       }
     } catch (err) {
-      console.error('Error fetching styles:', err)
+      console.error('Error fetching lessons:', err)
     }
   }
 
-  const handleCreateStyle = async (moduleId: string) => {
-    if (!styleForm.name.trim()) {
-      alert('El nombre del estilo es requerido')
-      return
-    }
-    try {
-      const res = await fetch(`/api/admin/modules/${moduleId}/styles`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: styleForm.name,
-          description: styleForm.description || null,
-        }),
-      })
-      if (res.ok) {
-        setStyleForm({ name: '', description: '' })
-        setShowStyleForm(false)
-        fetchModuleStyles(moduleId)
-      } else {
-        const d = await res.json()
-        alert(d.error || 'Error al crear el estilo')
-      }
-    } catch {
-      alert('Error al crear el estilo')
-    }
-  }
-
-  const handleSaveStyle = async (moduleId: string, styleId: string) => {
-    const form = editStyleForms[styleId]
-    if (!form?.name?.trim()) {
-      alert('El nombre del estilo es requerido')
-      return
-    }
-    try {
-      const res = await fetch(`/api/admin/modules/${moduleId}/styles/${styleId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description || null,
-          isActive: form.isActive,
-        }),
-      })
-      if (res.ok) {
-        setEditingStyleId(null)
-        fetchModuleStyles(moduleId)
-      } else {
-        const d = await res.json()
-        alert(d.error || 'Error al guardar el estilo')
-      }
-    } catch {
-      alert('Error al guardar el estilo')
-    }
-  }
-
-  const handleDeleteStyle = async (moduleId: string, styleId: string) => {
-    if (!confirm('Eliminar este estilo tambien eliminara sus lecciones. ¿Continuar?')) return
-    try {
-      const res = await fetch(`/api/admin/modules/${moduleId}/styles/${styleId}`, { method: 'DELETE' })
-      if (res.ok) {
-        if (editingStyleId === styleId) setEditingStyleId(null)
-        fetchModuleStyles(moduleId)
-      } else {
-        const d = await res.json()
-        alert(d.error || 'Error al eliminar el estilo')
-      }
-    } catch {
-      alert('Error al eliminar el estilo')
-    }
-  }
-
-  const handleCreateLesson = async (moduleId: string, styleId: string) => {
+  const handleCreateLesson = async (moduleId: string) => {
     if (!lessonForm.title.trim()) {
       alert('El título de la lección es requerido')
       return
     }
-    if (!styleId) {
-      alert('Selecciona un estilo para esta lecciÃ³n')
-      return
-    }
     try {
-      const res = await fetch(`/api/admin/styles/${styleId}/lessons`, {
+      const res = await fetch(`/api/admin/modules/${moduleId}/lessons`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -799,10 +699,10 @@ export default function CourseEditPage() {
         }),
       })
       if (res.ok) {
-        setLessonForm({ title: '', description: '', videoUrl: '', styleId: '' })
+        setLessonForm({ title: '', description: '', videoUrl: '' })
         setShowVideoUploadLessonNew(false)
-        setShowLessonForms((prev) => ({ ...prev, [styleId]: false }))
-        fetchModuleStyles(moduleId)
+        setShowLessonForms((prev) => ({ ...prev, [moduleId]: false }))
+        fetchModuleLessons(moduleId)
       } else {
         const d = await res.json()
         alert(d.error || 'Error al crear la lección')
@@ -812,13 +712,13 @@ export default function CourseEditPage() {
     }
   }
 
-  const handleDeleteLesson = async (moduleId: string, styleId: string, lessonId: string) => {
+  const handleDeleteLesson = async (moduleId: string, lessonId: string) => {
     if (!confirm('¿Eliminar esta lección?')) return
     try {
-      const res = await fetch(`/api/admin/styles/${styleId}/lessons/${lessonId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/modules/${moduleId}/lessons/${lessonId}`, { method: 'DELETE' })
       if (res.ok) {
         if (expandedLessonId === lessonId) setExpandedLessonId(null)
-        fetchModuleStyles(moduleId)
+        fetchModuleLessons(moduleId)
       } else {
         alert('Error al eliminar la lección')
       }
@@ -827,14 +727,14 @@ export default function CourseEditPage() {
     }
   }
 
-  const handleSaveLesson = async (moduleId: string, styleId: string, lessonId: string) => {
+  const handleSaveLesson = async (moduleId: string, lessonId: string) => {
     const form = editLessonForms[lessonId]
     if (!form?.title?.trim()) {
       alert('El título es requerido')
       return
     }
     try {
-      const res = await fetch(`/api/admin/styles/${styleId}/lessons/${lessonId}`, {
+      const res = await fetch(`/api/admin/modules/${moduleId}/lessons/${lessonId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -846,7 +746,7 @@ export default function CourseEditPage() {
       })
       if (res.ok) {
         setExpandedLessonId(null)
-        fetchModuleStyles(moduleId)
+        fetchModuleLessons(moduleId)
       } else {
         alert('Error al guardar la lección')
       }
@@ -1290,148 +1190,6 @@ export default function CourseEditPage() {
                             />
                           </div>
 
-                          {/* Estilos del Modulo */}
-                          <div className="border-t border-white/10 pt-4">
-                            <div className="flex justify-between items-center mb-3">
-                              <label className="block text-sm font-medium text-white/70">
-                                Estilos de la seccion
-                              </label>
-                              <button
-                                onClick={() => {
-                                  setShowStyleForm(!showStyleForm)
-                                  setStyleForm({ name: '', description: '' })
-                                }}
-                                className="text-xs px-3 py-1 bg-white/10 text-white/80 rounded-lg hover:bg-white/15 transition"
-                              >
-                                {showStyleForm ? 'Cancelar' : '+ Nuevo Estilo'}
-                              </button>
-                            </div>
-
-                            {showStyleForm && (
-                              <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-3 space-y-3">
-                                <input
-                                  type="text"
-                                  placeholder="Ej: Rizos, Lacio, Ondulado"
-                                  value={styleForm.name}
-                                  onChange={(e) => setStyleForm({ ...styleForm, name: e.target.value })}
-                                  className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-lg px-3 py-2 text-sm outline-none focus:border-ap-copper/50 transition"
-                                />
-                                <textarea
-                                  placeholder="Descripcion opcional"
-                                  value={styleForm.description}
-                                  onChange={(e) => setStyleForm({ ...styleForm, description: e.target.value })}
-                                  rows={2}
-                                  className="w-full bg-white/10 border border-white/20 text-white placeholder:text-white/40 rounded-lg px-3 py-2 text-sm outline-none focus:border-ap-copper/50 transition"
-                                />
-                                <button
-                                  onClick={() => handleCreateStyle(editingModuleId!)}
-                                  className="w-full px-3 py-2 bg-ap-copper text-white rounded-lg text-sm hover:bg-orange-700 transition font-medium"
-                                >
-                                  Crear Estilo
-                                </button>
-                              </div>
-                            )}
-
-                            <div className="space-y-2">
-                              {(moduleStyles[editingModuleId!] || []).length === 0 ? (
-                                <p className="text-sm text-white/40 italic">Sin estilos. Crea uno para organizar las lecciones.</p>
-                              ) : (
-                                (moduleStyles[editingModuleId!] || []).map((style) => (
-                                  <div key={style.id} className="border border-white/10 rounded-xl p-3 bg-white/5">
-                                    {editingStyleId === style.id ? (
-                                      <div className="space-y-2">
-                                        <input
-                                          type="text"
-                                          value={editStyleForms[style.id]?.name || ''}
-                                          onChange={(e) => setEditStyleForms((prev) => ({
-                                            ...prev,
-                                            [style.id]: { ...prev[style.id], name: e.target.value },
-                                          }))}
-                                          className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-2 py-1.5 text-sm outline-none focus:border-ap-copper/50 transition"
-                                        />
-                                        <textarea
-                                          value={editStyleForms[style.id]?.description || ''}
-                                          onChange={(e) => setEditStyleForms((prev) => ({
-                                            ...prev,
-                                            [style.id]: { ...prev[style.id], description: e.target.value },
-                                          }))}
-                                          rows={2}
-                                          className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-2 py-1.5 text-sm outline-none focus:border-ap-copper/50 transition"
-                                        />
-                                        <label className="flex items-center gap-2 text-xs text-white/60">
-                                          <input
-                                            type="checkbox"
-                                            checked={!!editStyleForms[style.id]?.isActive}
-                                            onChange={(e) => setEditStyleForms((prev) => ({
-                                              ...prev,
-                                              [style.id]: { ...prev[style.id], isActive: e.target.checked },
-                                            }))}
-                                          />
-                                          Visible para estudiantes
-                                        </label>
-                                        <div className="flex gap-2">
-                                          <button
-                                            onClick={() => handleSaveStyle(editingModuleId!, style.id)}
-                                            className="flex-1 px-3 py-1.5 bg-ap-copper text-white rounded-lg text-xs hover:bg-orange-700 transition"
-                                          >
-                                            Guardar
-                                          </button>
-                                          <button
-                                            onClick={() => setEditingStyleId(null)}
-                                            className="px-3 py-1.5 bg-white/10 text-white/70 rounded-lg text-xs hover:bg-white/15 transition"
-                                          >
-                                            Cancelar
-                                          </button>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <div className="flex items-start justify-between gap-3">
-                                        <div>
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium text-white/80">{style.name}</span>
-                                            {!style.isActive && (
-                                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/40">Oculto</span>
-                                            )}
-                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-ap-copper/10 text-ap-copper">
-                                              {style.lessons.length} leccion{style.lessons.length === 1 ? '' : 'es'}
-                                            </span>
-                                          </div>
-                                          {style.description && (
-                                            <p className="text-xs text-white/40 mt-1">{style.description}</p>
-                                          )}
-                                        </div>
-                                        <div className="flex gap-2 shrink-0">
-                                          <button
-                                            onClick={() => {
-                                              setEditingStyleId(style.id)
-                                              setEditStyleForms((prev) => ({
-                                                ...prev,
-                                                [style.id]: {
-                                                  name: style.name,
-                                                  description: style.description || '',
-                                                  isActive: style.isActive,
-                                                },
-                                              }))
-                                            }}
-                                            className="text-xs text-ap-copper hover:text-orange-400 transition"
-                                          >
-                                            Editar
-                                          </button>
-                                          <button
-                                            onClick={() => handleDeleteStyle(editingModuleId!, style.id)}
-                                            className="text-xs text-red-400 hover:text-red-300 transition"
-                                          >
-                                            Eliminar
-                                          </button>
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))
-                              )}
-                            </div>
-                          </div>
-
                           {/* Lecciones del Módulo */}
                           <div className="border-t border-white/10 pt-4">
                             <div className="flex justify-between items-center mb-3">
@@ -1441,12 +1199,7 @@ export default function CourseEditPage() {
                               <button
                                 onClick={() => {
                                   setShowLessonForms((prev) => ({ ...prev, [editingModuleId!]: !prev[editingModuleId!] }))
-                                  setLessonForm({
-                                    title: '',
-                                    description: '',
-                                    videoUrl: '',
-                                    styleId: moduleStyles[editingModuleId!]?.[0]?.id || '',
-                                  })
+                                  setLessonForm({ title: '', description: '', videoUrl: '' })
                                   setShowVideoUploadLessonNew(false)
                                 }}
                                 className="text-xs px-3 py-1 bg-ap-copper text-white rounded-lg hover:bg-orange-700 transition"
@@ -1458,18 +1211,6 @@ export default function CourseEditPage() {
                             {/* Create Lesson Form */}
                             {showLessonForms[editingModuleId!] && (
                               <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-3 space-y-3">
-                                <select
-                                  value={lessonForm.styleId}
-                                  onChange={(e) => setLessonForm({ ...lessonForm, styleId: e.target.value })}
-                                  className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-ap-copper/50 transition"
-                                >
-                                  <option value="">Selecciona un estilo</option>
-                                  {(moduleStyles[editingModuleId!] || []).map((style) => (
-                                    <option key={style.id} value={style.id} className="bg-ap-ink">
-                                      {style.name}
-                                    </option>
-                                  ))}
-                                </select>
                                 <input
                                   type="text"
                                   placeholder="Título de la lección"
@@ -1512,7 +1253,7 @@ export default function CourseEditPage() {
                                   />
                                 )}
                                 <button
-                                  onClick={() => handleCreateLesson(editingModuleId!, lessonForm.styleId)}
+                                  onClick={() => handleCreateLesson(editingModuleId!)}
                                   className="w-full px-3 py-2 bg-ap-copper text-white rounded-lg text-sm hover:bg-orange-700 transition font-medium"
                                 >
                                   Crear Lección
@@ -1549,15 +1290,12 @@ export default function CourseEditPage() {
                                         className="flex-1 text-left text-sm font-medium text-white/80 hover:text-ap-copper transition"
                                       >
                                         {expandedLessonId === lesson.id ? '▼' : '▶'} {li + 1}. {lesson.title}
-                                        {lesson.styleName && (
-                                          <span className="ml-2 text-xs text-ap-copper font-normal">{lesson.styleName}</span>
-                                        )}
                                         {(lesson.videoFileUrl || lesson.videoUrl) && (
                                           <span className="ml-2 text-xs text-green-400 font-normal">✓ video</span>
                                         )}
                                       </button>
                                       <button
-                                        onClick={() => handleDeleteLesson(editingModuleId!, lesson.styleId, lesson.id)}
+                                        onClick={() => handleDeleteLesson(editingModuleId!, lesson.id)}
                                         className="text-xs text-red-400 hover:text-red-300 ml-2 transition"
                                       >
                                         Eliminar
@@ -1646,7 +1384,7 @@ export default function CourseEditPage() {
                                         </div>
                                         <div className="flex gap-2">
                                           <button
-                                            onClick={() => handleSaveLesson(editingModuleId!, lesson.styleId, lesson.id)}
+                                            onClick={() => handleSaveLesson(editingModuleId!, lesson.id)}
                                             className="flex-1 px-3 py-1.5 bg-ap-copper text-white rounded-lg text-xs hover:bg-orange-700 transition font-medium"
                                           >
                                             Guardar

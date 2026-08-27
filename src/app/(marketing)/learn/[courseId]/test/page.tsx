@@ -3,8 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
-import { useCourseAccess } from "@/app/components/useCourseAccess";
 
 interface TestQuestion {
   id: string;
@@ -30,7 +28,6 @@ export default function TestPage() {
   const params = useParams();
   const router = useRouter();
   const courseId = params.courseId as string;
-  const access = useCourseAccess(courseId);
 
   const [testData, setTestData] = useState<TestData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,10 +38,6 @@ export default function TestPage() {
 
   useEffect(() => {
     const fetchTest = async () => {
-      if (access.loading || !access.hasAccess) {
-        return;
-      }
-
       try {
         const response = await fetch(`/api/courses/${courseId}/test`);
         if (!response.ok) throw new Error("Failed to fetch test");
@@ -65,7 +58,7 @@ export default function TestPage() {
     };
 
     fetchTest();
-  }, [access.hasAccess, access.loading, courseId]);
+  }, [courseId]);
 
   const handleInputChange = (
     questionId: string,
@@ -146,7 +139,7 @@ export default function TestPage() {
     }
   };
 
-  if (access.loading || (access.hasAccess && loading)) {
+  if (loading) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-ap-ink via-ap-ink to-black px-6 py-8">
         <div className="text-center text-ap-ivory">Cargando examen...</div>
@@ -154,31 +147,7 @@ export default function TestPage() {
     );
   }
 
-  if (access.reason) {
-    return (
-      <ProtectedAccessNotice
-        reason={access.reason}
-        from={`/learn/${courseId}/test`}
-        showSignIn={access.reason === "SIGN_IN_REQUIRED"}
-      />
-    );
-  }
-
-  if (access.error) {
-    return (
-      <main className="min-h-screen bg-gradient-to-br from-ap-ink via-ap-ink to-black px-6 py-8">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-2xl font-bold text-ap-ivory mb-4">Error</h1>
-          <p className="text-zinc-300 mb-8">{access.error}</p>
-          <Link href={`/learn/${courseId}`} className="text-ap-copper hover:underline">
-            â† Volver al curso
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
-  if (access.error || error || !testData) {
+  if (error || !testData) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-ap-ink via-ap-ink to-black px-6 py-8">
         <div className="max-w-2xl mx-auto">

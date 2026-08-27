@@ -36,25 +36,7 @@ async function verifyData() {
     // 2. Check Modules
     console.log('2️⃣ MODULES')
     const modules = await prisma.module.findMany({
-      select: {
-        id: true,
-        courseId: true,
-        order: true,
-        title: true,
-        videoUrl: true,
-        transcript: true,
-        styles: {
-          orderBy: { order: 'asc' },
-          select: {
-            id: true,
-            order: true,
-            name: true,
-            slug: true,
-            isActive: true,
-            _count: { select: { lessons: true } },
-          },
-        },
-      }
+      select: { courseId: true, order: true, title: true, videoUrl: true, transcript: true }
     })
 
     console.log(`   ✅ Total modules: ${modules.length}\n`)
@@ -108,8 +90,6 @@ async function verifyData() {
     const userCount = await prisma.user.count()
     const appointmentCount = await prisma.appointment.count()
     const paymentCount = await prisma.payment.count()
-    const styleCount = await prisma.moduleStyle.count()
-    const lessonCount = await prisma.lesson.count()
 
     console.log(`   👥 Users: ${userCount}`)
     console.log(`   📅 Appointments: ${appointmentCount}`)
@@ -118,9 +98,6 @@ async function verifyData() {
     console.log(`   🎬 Modules: ${modules.length}`)
     console.log(`   📄 Resources: ${resources.length}`)
     console.log(`   ✅ Tests: ${tests.length}`)
-
-    console.log(`   Styles: ${styleCount}`)
-    console.log(`   Lessons: ${lessonCount}`)
 
     // 6. Validation Checks
     console.log('\n6️⃣ VALIDATION CHECKS')
@@ -143,15 +120,6 @@ async function verifyData() {
       isValid = false
     } else {
       console.log(`   ✅ All courses have modules`)
-    }
-
-    // Check all modules have at least one style
-    const modulesWithoutStyles = modules.filter(m => m.styles.length === 0)
-    if (modulesWithoutStyles.length > 0) {
-      console.log(`   ERROR: ${modulesWithoutStyles.length} module(s) missing styles`)
-      isValid = false
-    } else {
-      console.log(`   OK: All modules have at least one style`)
     }
 
     // Check all modules have video URLs
@@ -187,10 +155,6 @@ async function verifyData() {
       console.log(`   GET /api/courses`)
       console.log(`   GET /api/courses/${firstCourse.id}`)
       console.log(`   GET /api/courses/${firstCourse.id}/modules`)
-      const firstModule = modules.find(m => m.courseId === firstCourse.id)
-      if (firstModule) {
-        console.log(`   GET /api/student/modules/${firstModule.id}/styles`)
-      }
     }
 
   } catch (error) {

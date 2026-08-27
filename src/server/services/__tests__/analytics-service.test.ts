@@ -35,13 +35,6 @@ jest.mock('@/lib/db', () => ({
     achievement: {
       findMany: jest.fn(),
     },
-    comment: {
-      count: jest.fn(),
-      findMany: jest.fn(),
-    },
-    like: {
-      count: jest.fn(),
-    },
   },
 }))
 

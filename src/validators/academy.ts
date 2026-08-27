@@ -26,32 +26,6 @@ export const createModuleSchema = z.object({
 
 export const updateModuleSchema = createModuleSchema.partial().omit({ courseId: true })
 
-// Module Style Validators
-
-export const createModuleStyleSchema = z.object({
-  moduleId: z.string().cuid(),
-  name: z.string().min(1, 'Name is required').max(120),
-  description: z.string().optional().nullable(),
-  order: z.number().int().min(0).optional(),
-  isActive: z.boolean().optional(),
-})
-
-export const updateModuleStyleSchema = createModuleStyleSchema.partial().omit({ moduleId: true })
-
-// Lesson Validators
-
-export const createLessonSchema = z.object({
-  styleId: z.string().cuid(),
-  title: z.string().min(1, 'Title is required').max(255),
-  description: z.string().optional().nullable(),
-  videoUrl: z.string().url().optional().or(z.literal('')),
-  videoFileUrl: z.string().url().optional().or(z.literal('')),
-  transcript: z.string().optional().nullable(),
-  order: z.number().int().min(0).optional(),
-})
-
-export const updateLessonSchema = createLessonSchema.partial().omit({ styleId: true })
-
 // Resource Validators
 
 export const uploadResourceSchema = z.object({
@@ -153,10 +127,6 @@ export type CreateCourseInput = z.infer<typeof createCourseSchema>
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>
 export type CreateModuleInput = z.infer<typeof createModuleSchema>
 export type UpdateModuleInput = z.infer<typeof updateModuleSchema>
-export type CreateModuleStyleInput = z.infer<typeof createModuleStyleSchema>
-export type UpdateModuleStyleInput = z.infer<typeof updateModuleStyleSchema>
-export type CreateLessonInput = z.infer<typeof createLessonSchema>
-export type UpdateLessonInput = z.infer<typeof updateLessonSchema>
 export type UploadResourceInput = z.infer<typeof uploadResourceSchema>
 export type CreateTestInput = z.infer<typeof createTestSchema>
 export type SubmitTestInput = z.infer<typeof submitTestSchema>

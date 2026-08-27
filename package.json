@@ -11,9 +11,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "test": "jest --runInBand",
-    "test:qa": "jest --runInBand",
     "seed": "prisma db seed",
-    "setup:preview": "tsx scripts/setup-preview-environment.ts",
     "sync:testimonials": "tsx scripts/sync-testimonials.ts",
     "cron:fixtures": "tsx scripts/prepare-cron-fixtures.ts",
     "cron:test": "tsx scripts/test-cron.ts"
@@ -66,7 +64,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "jest": "^30.4.2",
-    "jest-environment-node": "^30.4.1",
     "puppeteer": "^24.37.5",
     "tailwindcss": "^4",
     "ts-jest": "^29.4.11",

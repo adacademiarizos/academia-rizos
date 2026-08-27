@@ -117,7 +117,6 @@ export function ChatWidget({ courseId }: ChatWidgetProps) {
       if (pendingImage) {
         const fd = new FormData()
         fd.append('file', pendingImage)
-        fd.append('roomId', roomId)
         const r = await fetch('/api/chat/images', { method: 'POST', body: fd })
         const d = await r.json()
         if (!r.ok) { setError(d.error || 'Error al subir imagen'); setSending(false); return }

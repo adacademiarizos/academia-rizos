@@ -395,7 +395,6 @@ model Module {
   tests       ModuleTest[]
   submissions ModuleSubmission[]
   lessons     Lesson[]
-  styles      ModuleStyle[]
 
   likes    Like[]
   comments Comment[]
@@ -404,31 +403,8 @@ model Module {
   @@index([courseId])
 }
 
-model ModuleStyle {
-  id          String  @id @default(cuid())
-  moduleId    String
-  order       Int
-  name        String
-  slug        String
-  description String?
-  isActive    Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  module  Module   @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  lessons Lesson[]
-
-  @@unique([moduleId, slug])
-  @@unique([moduleId, order])
-  @@index([moduleId])
-  @@index([moduleId, order])
-}
-
 model Lesson {
   id           String  @id @default(cuid())
-  styleId      String
-  // Legacy denormalized field kept so old module-scoped APIs can remain stable.
   moduleId     String
   order        Int
   title        String
@@ -440,11 +416,9 @@ model Lesson {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  style  ModuleStyle @relation(fields: [styleId], references: [id], onDelete: Cascade)
-  module Module      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
-  @@unique([styleId, order])
-  @@index([styleId])
+  @@unique([moduleId, order])
   @@index([moduleId])
 }
 
@@ -900,32 +874,32 @@ model AboutFounderContent {
 }
 
 model ContactContent {
-  id                 String   @id // "ACADEMIA" | "SALON"
-  sectionKicker      String   @default("Contacto")
-  sectionTitle       String   @default("Estamos aqui para ti")
-  sectionDescription String   @default("Puedes contactarnos a traves de nuestras redes sociales, por correo electronico o visitar nuestro estudio fisico.")
-  instagramUrl       String   @default("https://www.instagram.com/elizabeth.rizos")
-  instagramHandle    String   @default("@elizabeth.rizos")
-  tiktokUrl          String   @default("https://www.tiktok.com/@elizabeth.rizos")
-  tiktokHandle       String   @default("@elizabeth.rizos")
-  facebookUrl        String   @default("https://www.facebook.com/elizabethrizos")
-  facebookHandle     String   @default("elizabeth rizos")
-  whatsappUrl        String   @default("https://wa.me/34600000000")
-  whatsappLabel      String   @default("Escribenos directamente")
-  emailPrimaryLabel  String   @default("Consultas generales")
-  emailPrimary       String   @default("hola@apoteosicas.com")
+  id                  String   @id // "ACADEMIA" | "SALON"
+  sectionKicker       String   @default("Contacto")
+  sectionTitle        String   @default("Estamos aqui para ti")
+  sectionDescription  String   @default("Puedes contactarnos a traves de nuestras redes sociales, por correo electronico o visitar nuestro estudio fisico.")
+  instagramUrl        String   @default("https://www.instagram.com/elizabeth.rizos")
+  instagramHandle     String   @default("@elizabeth.rizos")
+  tiktokUrl           String   @default("https://www.tiktok.com/@elizabeth.rizos")
+  tiktokHandle        String   @default("@elizabeth.rizos")
+  facebookUrl         String   @default("https://www.facebook.com/elizabethrizos")
+  facebookHandle      String   @default("elizabeth rizos")
+  whatsappUrl         String   @default("https://wa.me/34600000000")
+  whatsappLabel       String   @default("Escribenos directamente")
+  emailPrimaryLabel   String   @default("Consultas generales")
+  emailPrimary        String   @default("hola@apoteosicas.com")
   emailSecondaryLabel String   @default("Academia y cursos")
-  emailSecondary     String   @default("academia@apoteosicas.com")
-  actionLabel        String   @default("Reservar cita online")
-  actionHref         String   @default("/booking")
-  locationTitle      String   @default("Nuestro Estudio")
-  address            String   @default("Calle Ejemplo, 123\\n28001 Madrid, Espana")
-  scheduleLine1      String   @default("Lunes - Viernes: 10:00 - 20:00")
-  scheduleLine2      String   @default("Sabado: 10:00 - 15:00")
-  scheduleLine3      String   @default("Domingo: Cerrado")
-  mapsUrl            String   @default("https://maps.google.com")
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  emailSecondary      String   @default("academia@apoteosicas.com")
+  actionLabel         String   @default("Reservar cita online")
+  actionHref          String   @default("/booking")
+  locationTitle       String   @default("Nuestro Estudio")
+  address             String   @default("Calle Ejemplo, 123\\n28001 Madrid, Espana")
+  scheduleLine1       String   @default("Lunes - Viernes: 10:00 - 20:00")
+  scheduleLine2       String   @default("Sabado: 10:00 - 15:00")
+  scheduleLine3       String   @default("Domingo: Cerrado")
+  mapsUrl             String   @default("https://maps.google.com")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model ResultImage {

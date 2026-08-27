@@ -4,11 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import {
-  authorizeCourseAccessByCourseId,
-  authorizeCourseAccessByModuleId,
-  toAccessDeniedResponse,
-} from '@/lib/course-access-control'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
+import { db } from '@/lib/db'
 import { CommunityService } from '@/server/services/community-service'
 import { NotificationService } from '@/server/services/notification-service'
 import { AchievementService } from '@/server/services/achievement-service'
@@ -16,6 +14,29 @@ import { createLikeSchema } from '@/validators/academy'
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized - please sign in' },
+        { status: 401 }
+      )
+    }
+
+    // Get user from database
+    const user = await db.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true },
+    })
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      )
+    }
+
+    // Parse and validate request body
     const body = await request.json()
     const validation = createLikeSchema.safeParse(body)
 
@@ -27,29 +48,18 @@ export async function POST(request: NextRequest) {
     }
 
     const { targetType, courseId, moduleId } = validation.data
-    const access =
-      targetType === 'MODULE' && moduleId
-        ? await authorizeCourseAccessByModuleId(moduleId, {
-            allowAdmin: true,
-            requireActiveAccess: true,
-          })
-        : await authorizeCourseAccessByCourseId(courseId ?? '', {
-            allowAdmin: true,
-            requireActiveAccess: true,
-          })
 
-    if (!access.ok) {
-      return toAccessDeniedResponse(access)
-    }
+    // Toggle like
+    const result = await CommunityService.toggleLike(user.id, targetType, courseId, moduleId)
 
-    const result = await CommunityService.toggleLike(access.user.id, targetType, courseId, moduleId)
-
+    // If like was just created (not deleted), trigger notifications and activity
     if (result.liked) {
       const targetId = courseId || moduleId || ''
       await Promise.all([
-        NotificationService.triggerOnLike(access.user.id, targetType, targetId),
-        AchievementService.recordActivity(access.user.id, 'LIKE', courseId, moduleId),
+        NotificationService.triggerOnLike(user.id, targetType, targetId),
+        AchievementService.recordActivity(user.id, 'LIKE', courseId, moduleId),
       ]).catch((error) => {
+        // Don't fail the request if notifications fail
         console.error('Error with notifications/achievements:', error)
       })
     }
