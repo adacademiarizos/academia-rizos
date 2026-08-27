@@ -22,7 +22,7 @@ async function main() {
     where: { valid: true, pdfUrl: { not: null } },
     include: {
       user:   { select: { name: true, email: true } },
-      course: { select: { title: true } },
+      course: { select: { title: true, certificateSlogan: true } },
     },
   })
 
@@ -34,14 +34,20 @@ async function main() {
   for (const cert of certs) {
     const userName   = cert.user.name  ?? cert.user.email ?? 'Estudiante'
     const courseName = cert.course.title
+    const certificateSlogan = cert.course.certificateSlogan?.trim()
     const label      = `[${cert.code}] ${userName} — ${courseName}`
 
     try {
       process.stdout.write(`  Regenerating ${label} ... `)
 
+      if (!certificateSlogan) {
+        throw new Error('Course has no certificate slogan')
+      }
+
       const pdfBuffer = await generateCertificatePdf({
         userName,
         courseName,
+        certificateSlogan,
         code:     cert.code,
         issuedAt: cert.issuedAt,
       })
