@@ -8,6 +8,9 @@ import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 import { NotificationEventService } from '@/server/services/notification-event-service'
+import { sendAdminAlertEmail } from '@/lib/mail'
+import { NotificationService } from '@/server/services/notification-service'
+import { hasCompletedDeletionForEmail } from '@/server/services/gdpr-service'
 
 const RegisterSchema = z.object({
   name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -33,6 +36,13 @@ export async function POST(request: NextRequest) {
 
     const { name, email: rawEmail, password } = validation.data
     const email = rawEmail.toLowerCase().trim()
+
+    if (await hasCompletedDeletionForEmail(email)) {
+      return NextResponse.json(
+        { success: false, message: 'No se puede reutilizar este email para una nueva cuenta' },
+        { status: 403 }
+      )
+    }
 
     // Check if user already exists
     const existingUser = await db.user.findUnique({
@@ -84,6 +94,21 @@ export async function POST(request: NextRequest) {
     // Registration is an optional, low-priority in-app operational signal.
     // Its delivery must never make a successfully-created account fail.
     await NotificationEventService.userRegistered(user.id, 'contraseña')
+
+    const admins = await db.user.findMany({ where: { role: 'ADMIN' }, select: { email: true } }).catch(() => [])
+    const adminEmails = admins.map((admin: { email: string }) => admin.email)
+    if (adminEmails.length > 0) {
+      sendAdminAlertEmail({
+        to: adminEmails,
+        subject: `Nuevo registro - ${user.name}`,
+        title: 'Nuevo usuario registrado',
+        rows: [['Nombre', user.name ?? '-'], ['Email', user.email], ['Fecha', new Date().toLocaleDateString('es-ES', { dateStyle: 'long' })]],
+      }).catch((error: unknown) => console.error('[mail] admin new-user notification error', error))
+    }
+    NotificationService.notifyAllAdmins({
+      type: 'NEW_USER', title: 'Nuevo usuario registrado',
+      message: `${user.name ?? user.email} se ha registrado en la plataforma`, relatedId: user.id,
+    }).catch((error: unknown) => console.error('[notif] admin new-user notification error', error))
 
     return NextResponse.json(
       {

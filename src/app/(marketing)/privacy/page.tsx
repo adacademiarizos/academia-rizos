@@ -1,163 +1,268 @@
-import { Metadata } from "next";
+import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Política de Privacidad — Apoteósicas by Elizabeth Rizos",
-  description: "Política de privacidad de la plataforma Apoteósicas by Elizabeth Rizos. Información sobre el tratamiento de tus datos personales.",
+  title: "Politica de Privacidad - Apoteosicas by Elizabeth Rizos",
+  description:
+    "Informacion sobre el tratamiento, conservacion y eliminacion de datos personales en Apoteosicas by Elizabeth Rizos.",
 };
 
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen bg-ap-bg">
-      <section className="max-w-3xl mx-auto px-6 py-16">
-        {/* Header */}
+      <section className="mx-auto max-w-3xl px-6 py-16">
         <div className="mb-10">
-          <Link href="/" className="text-sm text-ap-copper hover:underline mb-6 inline-block">
-            ← Volver al inicio
+          <Link
+            href="/"
+            className="mb-6 inline-block text-sm text-ap-copper hover:underline"
+          >
+            {"<-"} Volver al inicio
           </Link>
-          <p className="text-xs font-semibold tracking-wider text-ap-copper uppercase mb-2">Legal</p>
-          <h1 className="text-4xl font-bold text-ap-ivory">Política de Privacidad</h1>
-          <p className="mt-3 text-white/50 text-sm">Última actualización: febrero de 2026</p>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ap-copper">
+            Legal
+          </p>
+          <h1 className="text-4xl font-bold text-ap-ivory">
+            Politica de Privacidad
+          </h1>
+          <p className="mt-3 text-sm text-white/50">
+            Ultima actualizacion: julio de 2026
+          </p>
         </div>
 
         <div className="prose prose-invert prose-sm max-w-none space-y-8 text-white/70">
-
-          {/* 1 */}
           <section>
-            <h2 className="text-xl font-semibold text-ap-ivory mb-3">1. Responsable del tratamiento</h2>
+            <h2 className="mb-3 text-xl font-semibold text-ap-ivory">
+              1. Responsable del tratamiento
+            </h2>
             <p>
-              La responsable del tratamiento de tus datos es Elizabeth Rizos, titular de la plataforma
-              <strong className="text-ap-ivory"> Apoteósicas by Elizabeth Rizos</strong>, con domicilio en Madrid, España.
+              La responsable del tratamiento de tus datos es Elizabeth Rizos,
+              titular de la plataforma{" "}
+              <strong className="text-ap-ivory">
+                Apoteosicas by Elizabeth Rizos
+              </strong>
+              .
             </p>
             <p className="mt-2">
-              Para cualquier consulta sobre el tratamiento de tus datos personales, puedes contactarnos en:
-              <a href="mailto:hola@apoteosicas.com" className="text-ap-copper hover:underline ml-1">hola@apoteosicas.com</a>
+              Para consultas sobre privacidad o ejercicio de derechos puedes
+              escribir a{" "}
+              <a
+                href="mailto:hola@apoteosicas.com"
+                className="text-ap-copper hover:underline"
+              >
+                hola@apoteosicas.com
+              </a>
+              .
             </p>
           </section>
 
-          {/* 2 */}
           <section>
-            <h2 className="text-xl font-semibold text-ap-ivory mb-3">2. Datos que recopilamos</h2>
-            <p>Al utilizar nuestra plataforma, podemos recopilar los siguientes datos:</p>
-            <ul className="mt-3 space-y-2 list-disc list-inside">
-              <li><strong className="text-ap-ivory">Datos de registro:</strong> nombre, dirección de correo electrónico y contraseña cifrada.</li>
-              <li><strong className="text-ap-ivory">Datos de reservas:</strong> nombre, correo electrónico, servicio solicitado, fecha y hora de la cita.</li>
-              <li><strong className="text-ap-ivory">Datos de compra:</strong> información de pago procesada de forma segura a través de Stripe. No almacenamos datos de tarjetas de crédito.</li>
-              <li><strong className="text-ap-ivory">Datos de uso académico:</strong> progreso en cursos, resultados de evaluaciones, certificados emitidos.</li>
-              <li><strong className="text-ap-ivory">Datos técnicos:</strong> dirección IP, tipo de navegador, páginas visitadas y tiempo de sesión, recopilados de forma anónima con fines estadísticos.</li>
-              <li><strong className="text-ap-ivory">Contenido generado:</strong> comentarios, preguntas y mensajes enviados en la plataforma.</li>
+            <h2 className="mb-3 text-xl font-semibold text-ap-ivory">
+              2. Datos que recopilamos
+            </h2>
+            <ul className="mt-3 list-inside list-disc space-y-2">
+              <li>
+                <strong className="text-ap-ivory">Datos de cuenta:</strong> nombre,
+                email, avatar y contrasena cifrada cuando te registras con
+                credenciales.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Datos de reservas:</strong>{" "}
+                nombre, email, telefono, servicio, fecha y notas de la cita.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Datos de compra:</strong>{" "}
+                importes, estados de pago y metadatos operativos procesados a
+                traves de Stripe. No almacenamos datos completos de tarjetas.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Datos academicos:</strong>{" "}
+                progreso, evaluaciones, certificados, comentarios y mensajes en la
+                plataforma.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Datos tecnicos:</strong>{" "}
+                informacion de sesion, navegador y uso de paginas para fines de
+                seguridad, medicion y mejora del servicio.
+              </li>
             </ul>
           </section>
 
-          {/* 3 */}
           <section>
-            <h2 className="text-xl font-semibold text-ap-ivory mb-3">3. Finalidad del tratamiento</h2>
-            <p>Tratamos tus datos personales con las siguientes finalidades:</p>
-            <ul className="mt-3 space-y-2 list-disc list-inside">
-              <li>Gestionar tu cuenta y acceso a la plataforma.</li>
-              <li>Procesar reservas de citas y gestionar pagos.</li>
-              <li>Otorgar acceso a cursos adquiridos y hacer seguimiento de tu progreso formativo.</li>
-              <li>Emitir certificados de finalización de cursos.</li>
-              <li>Enviarte comunicaciones relacionadas con tus compras, citas y actividad en la plataforma.</li>
-              <li>Informarte sobre nuevos cursos y servicios disponibles, si has dado tu consentimiento.</li>
-              <li>Cumplir con obligaciones legales y fiscales.</li>
+            <h2 className="mb-3 text-xl font-semibold text-ap-ivory">
+              3. Finalidades del tratamiento
+            </h2>
+            <ul className="mt-3 list-inside list-disc space-y-2">
+              <li>Gestionar tu cuenta y autenticar tu acceso.</li>
+              <li>Procesar reservas, cobros y recibos asociados.</li>
+              <li>Prestar acceso a cursos, comunidad y certificaciones.</li>
+              <li>Atender incidencias, soporte y comunicaciones operativas.</li>
+              <li>Cumplir obligaciones legales, fiscales y contables.</li>
             </ul>
           </section>
 
-          {/* 4 */}
           <section>
-            <h2 className="text-xl font-semibold text-ap-ivory mb-3">4. Base legal del tratamiento</h2>
-            <p>El tratamiento de tus datos se basa en:</p>
-            <ul className="mt-3 space-y-2 list-disc list-inside">
-              <li><strong className="text-ap-ivory">Ejecución de un contrato:</strong> para prestarte los servicios contratados (cursos, reservas de citas).</li>
-              <li><strong className="text-ap-ivory">Consentimiento:</strong> para el envío de comunicaciones comerciales y el uso de cookies no esenciales.</li>
-              <li><strong className="text-ap-ivory">Interés legítimo:</strong> para mantener la seguridad de la plataforma y mejorar nuestros servicios.</li>
-              <li><strong className="text-ap-ivory">Cumplimiento de obligaciones legales:</strong> para la conservación de registros contables y fiscales.</li>
+            <h2 className="mb-3 text-xl font-semibold text-ap-ivory">
+              4. Base legal
+            </h2>
+            <ul className="mt-3 list-inside list-disc space-y-2">
+              <li>
+                <strong className="text-ap-ivory">Ejecucion contractual:</strong>{" "}
+                para impartir cursos, gestionar citas y procesar pagos.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Consentimiento:</strong> cuando
+                aceptas comunicaciones comerciales o subes contenido opcional.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Interes legitimo:</strong> para
+                seguridad, prevencion de abuso y mejora del servicio.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Obligacion legal:</strong> para
+                conservar la informacion exigida por normativa contable o fiscal.
+              </li>
             </ul>
           </section>
 
-          {/* 5 */}
           <section>
-            <h2 className="text-xl font-semibold text-ap-ivory mb-3">5. Destinatarios de los datos</h2>
-            <p>Tus datos podrán ser comunicados a los siguientes terceros:</p>
-            <ul className="mt-3 space-y-2 list-disc list-inside">
-              <li><strong className="text-ap-ivory">Stripe:</strong> procesador de pagos. Consulta su política en <a href="https://stripe.com/es/privacy" target="_blank" rel="noopener noreferrer" className="text-ap-copper hover:underline">stripe.com/es/privacy</a>.</li>
-              <li><strong className="text-ap-ivory">Google:</strong> para autenticación mediante Google OAuth y servicios de correo. Consulta su política en <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-ap-copper hover:underline">policies.google.com/privacy</a>.</li>
-              <li><strong className="text-ap-ivory">Cloudflare R2:</strong> almacenamiento de archivos (recursos del curso, imágenes). Los datos se almacenan de forma segura.</li>
-              <li><strong className="text-ap-ivory">Vercel:</strong> proveedor de infraestructura de alojamiento web.</li>
-            </ul>
-            <p className="mt-3">No vendemos tus datos a terceros. Solo compartimos los datos estrictamente necesarios para prestarte el servicio.</p>
-          </section>
-
-          {/* 6 */}
-          <section>
-            <h2 className="text-xl font-semibold text-ap-ivory mb-3">6. Conservación de los datos</h2>
-            <p>Conservamos tus datos durante el tiempo necesario para cumplir con las finalidades para las que fueron recabados:</p>
-            <ul className="mt-3 space-y-2 list-disc list-inside">
-              <li>Datos de cuenta: mientras tengas una cuenta activa y hasta 3 años después de la baja.</li>
-              <li>Datos de reservas y pagos: 5 años, conforme a las obligaciones fiscales y contables.</li>
-              <li>Certificados: conservados de forma permanente para permitir su verificación.</li>
-              <li>Datos de comunicaciones comerciales: hasta que retires tu consentimiento.</li>
-            </ul>
-          </section>
-
-          {/* 7 */}
-          <section>
-            <h2 className="text-xl font-semibold text-ap-ivory mb-3">7. Tus derechos</h2>
-            <p>De acuerdo con el Reglamento General de Protección de Datos (RGPD), tienes derecho a:</p>
-            <ul className="mt-3 space-y-2 list-disc list-inside">
-              <li><strong className="text-ap-ivory">Acceso:</strong> obtener información sobre los datos personales que tratamos.</li>
-              <li><strong className="text-ap-ivory">Rectificación:</strong> corregir datos inexactos o incompletos.</li>
-              <li><strong className="text-ap-ivory">Supresión:</strong> solicitar la eliminación de tus datos cuando ya no sean necesarios.</li>
-              <li><strong className="text-ap-ivory">Oposición:</strong> oponerte al tratamiento de tus datos en determinadas circunstancias.</li>
-              <li><strong className="text-ap-ivory">Limitación:</strong> solicitar la limitación del tratamiento de tus datos.</li>
-              <li><strong className="text-ap-ivory">Portabilidad:</strong> recibir tus datos en un formato estructurado y de uso común.</li>
-              <li><strong className="text-ap-ivory">Retirar el consentimiento:</strong> en cualquier momento, sin afectar a la licitud del tratamiento previo.</li>
+            <h2 className="mb-3 text-xl font-semibold text-ap-ivory">
+              5. Destinatarios y encargados
+            </h2>
+            <ul className="mt-3 list-inside list-disc space-y-2">
+              <li>
+                <strong className="text-ap-ivory">Stripe:</strong> procesamiento de
+                pagos.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Google:</strong> autenticacion y
+                correo transaccional cuando aplica.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Cloudflare R2:</strong>{" "}
+                almacenamiento de archivos e imagenes subidas a la plataforma.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Vercel:</strong> infraestructura
+                de alojamiento y ejecucion de la aplicacion.
+              </li>
             </ul>
             <p className="mt-3">
-              Para ejercer tus derechos, envíanos un correo a
-              <a href="mailto:hola@apoteosicas.com" className="text-ap-copper hover:underline ml-1">hola@apoteosicas.com</a>.
-              También tienes derecho a presentar una reclamación ante la Agencia Española de Protección de Datos (AEPD) en{" "}
-              <a href="https://www.aepd.es" target="_blank" rel="noopener noreferrer" className="text-ap-copper hover:underline">www.aepd.es</a>.
+              No vendemos tus datos personales. Compartimos solo lo necesario para
+              operar la plataforma.
             </p>
           </section>
 
-          {/* 8 */}
           <section>
-            <h2 className="text-xl font-semibold text-ap-ivory mb-3">8. Seguridad de los datos</h2>
+            <h2 className="mb-3 text-xl font-semibold text-ap-ivory">
+              6. Conservacion de los datos
+            </h2>
+            <ul className="mt-3 list-inside list-disc space-y-2">
+              <li>
+                <strong className="text-ap-ivory">Cuenta de usuario:</strong>{" "}
+                mientras tu cuenta este activa. Si solicitas borrado, anonimizamos
+                el perfil y bloqueamos el acceso futuro con esas credenciales.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Reservas de invitados:</strong>{" "}
+                los datos personales de citas realizadas sin cuenta se anonimizan
+                automaticamente tras 24 meses desde la ultima interaccion relevante
+                del registro.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Pagos y contabilidad:</strong>{" "}
+                ciertos registros economicos pueden conservarse durante el plazo
+                legal aplicable, pero con minimizacion o desvinculacion de la
+                identidad cuando sea posible.
+              </li>
+              <li>
+                <strong className="text-ap-ivory">Certificados:</strong> podemos
+                conservar los identificadores necesarios para su verificacion
+                publica.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-xl font-semibold text-ap-ivory">
+              7. Derecho de supresion y gestion desde tu cuenta
+            </h2>
             <p>
-              Adoptamos medidas técnicas y organizativas adecuadas para proteger tus datos personales frente a
-              accesos no autorizados, pérdida, destrucción o alteración. Las contraseñas se almacenan cifradas
-              mediante algoritmos robustos (bcrypt) y los datos en tránsito se protegen mediante conexiones HTTPS.
+              Si tienes una cuenta registrada, puedes solicitar la eliminacion desde
+              el area{" "}
+              <strong className="text-ap-ivory">Mi cuenta</strong> dentro de la
+              plataforma. El sistema te pedira una confirmacion explicita mediante
+              contrasena o enlace por email, segun tu metodo de acceso.
+            </p>
+            <p className="mt-3">
+              Cuando la solicitud se procesa, anonimimizamos los datos personales
+              identificables y mantenemos solo aquellos registros que debamos
+              conservar por obligacion legal o para integridad historica del
+              servicio.
             </p>
           </section>
 
-          {/* 9 */}
           <section>
-            <h2 className="text-xl font-semibold text-ap-ivory mb-3">9. Cookies</h2>
-            <p>
-              Nuestra plataforma utiliza cookies técnicas estrictamente necesarias para el funcionamiento del servicio
-              (gestión de sesiones de autenticación). No utilizamos cookies de seguimiento o publicidad de terceros
-              sin tu consentimiento previo.
+            <h2 className="mb-3 text-xl font-semibold text-ap-ivory">
+              8. Resto de derechos RGPD
+            </h2>
+            <ul className="mt-3 list-inside list-disc space-y-2">
+              <li>Acceso a los datos que tratamos.</li>
+              <li>Rectificacion de datos inexactos.</li>
+              <li>Oposicion o limitacion del tratamiento en ciertos supuestos.</li>
+              <li>Portabilidad cuando resulte aplicable.</li>
+              <li>Retirada del consentimiento en tratamientos basados en el.</li>
+            </ul>
+            <p className="mt-3">
+              Tambien puedes presentar una reclamacion ante la AEPD en{" "}
+              <a
+                href="https://www.aepd.es"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-ap-copper hover:underline"
+              >
+                www.aepd.es
+              </a>
+              .
             </p>
           </section>
 
-          {/* 10 */}
           <section>
-            <h2 className="text-xl font-semibold text-ap-ivory mb-3">10. Cambios en esta política</h2>
+            <h2 className="mb-3 text-xl font-semibold text-ap-ivory">
+              9. Seguridad
+            </h2>
             <p>
-              Podemos actualizar esta política de privacidad periódicamente. Te notificaremos sobre cambios
-              significativos a través del correo electrónico asociado a tu cuenta o mediante un aviso destacado
-              en la plataforma. La fecha de la última actualización siempre aparecerá al inicio de este documento.
+              Aplicamos medidas tecnicas y organizativas razonables para proteger
+              la informacion personal. Entre ellas se incluyen cifrado de
+              contrasenas, conexiones HTTPS, controles de acceso y eliminacion o
+              anonimizado de archivos personales cuando dejan de ser necesarios.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="mb-3 text-xl font-semibold text-ap-ivory">
+              10. Cambios en esta politica
+            </h2>
+            <p>
+              Podemos actualizar esta politica para reflejar cambios legales,
+              operativos o del producto. La fecha de ultima actualizacion se muestra
+              al inicio de esta pagina.
             </p>
           </section>
         </div>
 
-        {/* Footer Links */}
-        <div className="mt-12 pt-8 border-t border-white/10 flex gap-6 text-sm text-white/40">
-          <Link href="/" className="hover:text-ap-copper transition">Inicio</Link>
-          <Link href="/terms" className="hover:text-ap-copper transition">Términos y Condiciones</Link>
-          <a href="mailto:hola@apoteosicas.com" className="hover:text-ap-copper transition">Contacto</a>
+        <div className="mt-12 flex gap-6 border-t border-white/10 pt-8 text-sm text-white/40">
+          <Link href="/" className="transition hover:text-ap-copper">
+            Inicio
+          </Link>
+          <Link href="/terms" className="transition hover:text-ap-copper">
+            Terminos y Condiciones
+          </Link>
+          <a
+            href="mailto:hola@apoteosicas.com"
+            className="transition hover:text-ap-copper"
+          >
+            Contacto
+          </a>
         </div>
       </section>
     </main>

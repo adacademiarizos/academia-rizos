@@ -1,4 +1,4 @@
-﻿import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { isSessionVersionStale } from "@/lib/password-reset";
 import { NotificationEventService } from "@/server/services/notification-event-service";
+import { hasCompletedDeletionForEmail } from "@/server/services/gdpr-service";;
 
 export const authOptions: NextAuthOptions = {
   secret: env.NEXTAUTH_SECRET,
@@ -31,7 +32,7 @@ export const authOptions: NextAuthOptions = {
         if (!email || !password) return null;
 
         const user = await db.user.findUnique({ where: { email } });
-        if (!user) return null;
+        if (!user || await hasCompletedDeletionForEmail(email)) return null;
 
         const passwordMatch = user.password
           ? await bcrypt.compare(password, user.password)
@@ -53,10 +54,12 @@ export const authOptions: NextAuthOptions = {
     async signIn({ user, account }) {
       if (account?.provider === "google" && user.email) {
         const normalizedEmail = user.email.toLowerCase();
+        if (await hasCompletedDeletionForEmail(normalizedEmail)) return false;
         const existingUser = await db.user.findUnique({
           where: { email: normalizedEmail },
-          select: { id: true },
+          select: { id: true, deletedAt: true },
         });
+        if (existingUser?.deletedAt) return false;
         const dbUser = await db.user.upsert({
           where: { email: normalizedEmail },
           create: {
@@ -84,10 +87,10 @@ export const authOptions: NextAuthOptions = {
 
       const dbUser = await db.user.findUnique({
         where: { email: token.email.toLowerCase() },
-        select: { id: true, role: true, sessionVersion: true },
+        select: { id: true, role: true, sessionVersion: true, deletedAt: true },
       });
 
-      if (!dbUser) {
+      if (!dbUser || (dbUser as { deletedAt?: Date | null }).deletedAt) {
         return { sessionInvalidated: true };
       }
 
@@ -98,11 +101,13 @@ export const authOptions: NextAuthOptions = {
       token.userId = dbUser.id;
       token.role = dbUser.role;
       token.sessionVersion = dbUser.sessionVersion;
+      token.deletedAt = null;
+      token.invalidated = false;
 
       return token;
     },
     async session({ session, token }) {
-      if (token.sessionInvalidated || !session.user) {
+      if (token.invalidated || token.sessionInvalidated || !session.user) {
         return {
           ...session,
           error: "SessionInvalidated",

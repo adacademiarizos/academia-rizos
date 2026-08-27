@@ -97,6 +97,13 @@ enum TestimonialType {
   ACADEMIA
 }
 
+enum DeletionRequestStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  FAILED
+}
+
 enum NotificationPriority {
   LOW
   NORMAL
@@ -134,6 +141,7 @@ model User {
   // Para arrancar con credenciales simples (MVP):
   password       String?
   sessionVersion Int     @default(0)
+  deletedAt      DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -175,6 +183,7 @@ model User {
   bugReports          BugReport[]
   paymentLinksCreated PaymentLink[]        @relation("PaymentLinkCreator")
   passwordResetTokens PasswordResetToken[]
+  deletionRequests  AccountDeletionRequest[]
 }
 
 model PasswordResetToken {
@@ -190,6 +199,23 @@ model PasswordResetToken {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model AccountDeletionRequest {
+  id            String                @id @default(cuid())
+  userId        String
+  requestedAt   DateTime              @default(now())
+  confirmedAt   DateTime?
+  completedAt   DateTime?
+  status        DeletionRequestStatus @default(PENDING)
+  reason        String?
+  originalEmail String?
+  errorDetail   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
 }
 
 model PasswordResetRequest {

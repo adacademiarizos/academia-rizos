@@ -1,16 +1,11 @@
-import "next-auth";
+import { DefaultSession } from "next-auth";
 import "next-auth/jwt";
 
 declare module "next-auth" {
   interface Session {
-    user?: {
-      id: string;
-      role: "ADMIN" | "STAFF" | "STUDENT";
-      name?: string | null;
-      email?: string | null;
-      image?: string | null;
-    };
+    user?: DefaultSession["user"] & { id: string; role: "ADMIN" | "STAFF" | "STUDENT" };
     error?: "SessionInvalidated";
+    invalidated?: boolean;
   }
 }
 
@@ -20,5 +15,7 @@ declare module "next-auth/jwt" {
     role?: "ADMIN" | "STAFF" | "STUDENT";
     sessionVersion?: number;
     sessionInvalidated?: boolean;
+    deletedAt?: string | null;
+    invalidated?: boolean;
   }
 }
