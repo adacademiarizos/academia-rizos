@@ -1,26 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { authorizeCourseAccessByCourseId, toAccessDeniedResponse } from '@/lib/course-access-control'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
+import { isCourseAccessActive } from '@/lib/course-access'
+
+async function requireStudent(courseId: string) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.email) return null
+  const user = await db.user.findUnique({ where: { email: session.user.email }, select: { id: true, role: true } })
+  if (!user) return null
+  const access = await db.courseAccess.findUnique({
+    where: { userId_courseId: { userId: user.id, courseId } },
+    select: { accessUntil: true, revokedAt: true },
+  })
+  if (!isCourseAccessActive(access)) return null
+  return user
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ courseId: string; testId: string }> }
 ) {
   try {
     const { courseId, testId } = await params
-    const access = await authorizeCourseAccessByCourseId(courseId, {
-      allowAdmin: true,
-      requireActiveAccess: true,
-    })
-
-    if (!access.ok) {
-      return toAccessDeniedResponse(access)
-    }
+    const user = await requireStudent(courseId)
+    if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
     const test = await db.courseTest.findUnique({
       where: { id: testId },
       select: { courseId: true },
     })
-
     if (!test || test.courseId !== courseId) {
       return NextResponse.json({ success: false, error: 'Test not found' }, { status: 404 })
     }
@@ -38,14 +47,14 @@ export async function GET(
       },
     })
 
-    const sanitized = questions.map((question) => {
-      if (question.type === 'MULTIPLE_CHOICE') {
-        const config = question.config as Record<string, unknown>
-        const { correctAnswer, correctIndex, ...rest } = config
-        return { ...question, config: rest }
+    // For MULTIPLE_CHOICE, strip the correct answer from config
+    const sanitized = questions.map((q) => {
+      if (q.type === 'MULTIPLE_CHOICE') {
+        const cfg = q.config as Record<string, any>
+        const { correctAnswer, correctIndex, ...rest } = cfg
+        return { ...q, config: rest }
       }
-
-      return question
+      return q
     })
 
     return NextResponse.json({ success: true, data: sanitized })

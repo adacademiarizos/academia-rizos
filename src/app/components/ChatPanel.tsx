@@ -149,7 +149,6 @@ export function ChatPanel({ roomId, title }: ChatPanelProps) {
         setUploadingImage(true)
         const fd = new FormData()
         fd.append('file', pendingImage)
-        fd.append('roomId', roomId)
         const uploadRes = await fetch('/api/chat/images', { method: 'POST', body: fd })
         const uploadData = await uploadRes.json()
         setUploadingImage(false)

@@ -118,7 +118,7 @@ export async function POST(
     const data = CreateModuleSchema.parse(body)
 
     // Create module
-    const courseModule = await db.module.create({
+    const module = await db.module.create({
       data: {
         courseId,
         order: data.order,
@@ -134,7 +134,7 @@ export async function POST(
     if (data.resources && data.resources.length > 0) {
       await db.moduleResource.createMany({
         data: data.resources.map((r, i) => ({
-          moduleId: courseModule.id,
+          moduleId: module.id,
           title: r.title,
           fileUrl: r.fileUrl,
           fileType: r.fileType,
@@ -147,7 +147,7 @@ export async function POST(
     return NextResponse.json(
       {
         success: true,
-        data: courseModule,
+        data: module,
       },
       { status: 201 }
     )

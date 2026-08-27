@@ -1,10 +1,13 @@
 /**
- * GET /api/chat/messages - List messages for a room
- * POST /api/chat/messages - Create a new chat message
+ * GET /api/chat/messages - List messages for a room (requires auth)
+ * POST /api/chat/messages - Create a new chat message (requires enrollment)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { authorizeChatRoomAccessByRoomId, toAccessDeniedResponse } from '@/lib/course-access-control'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
+import { db } from '@/lib/db'
+import { isCourseAccessActive } from '@/lib/course-access'
 import { CommunityService } from '@/server/services/community-service'
 import {
   CommunityInteractionValidationError,
@@ -13,6 +16,14 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Debes iniciar sesión para ver los mensajes' },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const roomId = searchParams.get('roomId')
     const limitParam = searchParams.get('limit') || '50'
@@ -25,17 +36,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const access = await authorizeChatRoomAccessByRoomId(roomId, {
-      allowAdmin: true,
-      requireActiveAccess: true,
-    })
-
-    if (!access.ok) {
-      return toAccessDeniedResponse(access)
-    }
-
     const limit = Math.min(Math.max(parseInt(limitParam), 1), 100)
     const offset = Math.max(parseInt(offsetParam), 0)
+
     const result = await CommunityService.getChatMessages(roomId, limit, offset)
 
     return NextResponse.json({
@@ -57,6 +60,23 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized - please sign in' },
+        { status: 401 }
+      )
+    }
+
+    const user = await db.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true, role: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
+    }
+
     const body = await request.json()
     const { roomId, body: messageBody, imageUrl } = body
 
@@ -78,13 +98,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const access = await authorizeChatRoomAccessByRoomId(roomId, {
-      allowAdmin: true,
-      requireActiveAccess: true,
-    })
+    // Verify the user has access to the room's course (admins bypass)
+    if (user.role !== 'ADMIN') {
+      const room = await db.chatRoom.findUnique({
+        where: { id: roomId },
+        select: { courseId: true, type: true },
+      })
 
-    if (!access.ok) {
-      return toAccessDeniedResponse(access)
+      if (!room) {
+        return NextResponse.json({ success: false, error: 'Sala no encontrada' }, { status: 404 })
+      }
+
+      // COURSE rooms require enrollment; COMMUNITY rooms just require auth
+      if (room.type === 'COURSE' && room.courseId) {
+        const access = await db.courseAccess.findUnique({
+          where: { userId_courseId: { userId: user.id, courseId: room.courseId } },
+          select: { accessUntil: true, revokedAt: true },
+        })
+
+        const hasAccess = isCourseAccessActive(access)
+
+        if (!hasAccess) {
+          return NextResponse.json(
+            { success: false, error: 'No tienes acceso a este chat' },
+            { status: 403 }
+          )
+        }
+      }
     }
 
     // Mention ids are embedded in visible canonical tokens. The service only
@@ -96,7 +136,7 @@ export async function POST(request: NextRequest) {
     })
 
     const message = await CommunityService.createChatMessage(
-      access.user.id,
+      user.id,
       roomId,
       messageBody || '',
       imageUrl || undefined
