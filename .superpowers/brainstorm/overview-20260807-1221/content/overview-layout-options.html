@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Opciones de overview</title>
+  <style>
+    :root { --bg:#151412; --panel:#201f1c; --line:#3e3b35; --text:#f6f0e8; --muted:#aaa49a; --lime:#b7c769; --orange:#d88a43; --blue:#7ca7f5; --red:#e17f72; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 86% 6%,#2d3822 0,transparent 28%),var(--bg); color:var(--text); font-family:Inter,ui-sans-serif,system-ui,sans-serif; }
+    main { max-width:1460px; margin:auto; padding:42px 30px 60px; }
+    h1 { margin:0; font-size:30px; letter-spacing:-.03em; } .intro { max-width:760px; color:var(--muted); margin:10px 0 30px; line-height:1.55; }
+    .options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px; }
+    .option { position:relative; border:1px solid var(--line); border-radius:18px; overflow:hidden; background:#1b1a17; cursor:pointer; transition:.18s ease; }
+    .option:hover, .option.selected { border-color:var(--lime); box-shadow:0 0 0 1px var(--lime),0 20px 45px #0006; transform:translateY(-2px); }
+    .badge { position:absolute; z-index:3; top:14px; right:14px; border-radius:999px; background:var(--lime); color:#1b1d13; padding:5px 9px; font-weight:800; font-size:10px; letter-spacing:.08em; }
+    .mockup { height:380px; background:#131210; padding:12px; transform-origin:top; overflow:hidden; }
+    .chrome { height:23px; display:flex; align-items:center; gap:5px; padding:0 3px; } .dot { width:6px;height:6px;border-radius:50%;background:#6a665d; }
+    .screen { border:1px solid #312f2a; background:#191815; min-height:328px; padding:14px; }
+    .eyebrow { color:#8b867e; font-size:7px; text-transform:uppercase; letter-spacing:.13em; } .title { margin-top:4px; font-size:13px; font-weight:750; } .caption { margin-top:3px; font-size:7px;color:#8e897f; }
+    .metric-row { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-top:13px; } .metric { border:1px solid #37342f; border-radius:7px; background:#211f1b; padding:8px; } .metric span { display:block;font-size:7px;color:#aaa49a; } .metric strong{display:block;margin-top:5px;font-size:13px;letter-spacing:-.04em}.up{color:var(--lime);font-size:7px;margin-top:3px}.orange{color:var(--orange)}.blue{color:var(--blue)}
+    .grid { margin-top:10px; display:grid; gap:8px; grid-template-columns:1.5fr 1fr; }.card { border:1px solid #37342f; border-radius:8px; background:#1e1d19; padding:9px; }.card h4{font-size:8px;margin:0;color:#ddd7cf}.card p{font-size:7px;color:#8f8980;margin:3px 0 0}
+    .chart { height:75px; margin-top:8px; display:flex;align-items:end;gap:5px;border-bottom:1px solid #413e38; padding:0 3px; }.bar{flex:1;border-radius:3px 3px 0 0;background:linear-gradient(#d4e47e,#788143)}.bar2{background:linear-gradient(#a0bfff,#496ca1)}.bar3{background:linear-gradient(#edb072,#925528)}
+    .rows{margin-top:8px}.row{display:flex;justify-content:space-between;border-top:1px solid #312e29;padding:6px 0;font-size:7px;color:#aaa49a}.row b{color:#f0ebe3}.pill{border-radius:999px;background:#2e3820;color:#c7d77a;padding:2px 5px;font-size:6px}.line{height:5px;border-radius:99px;background:#34312c;margin-top:5px;overflow:hidden}.line i{display:block;height:100%;background:var(--lime);border-radius:99px}.action{margin-top:8px;background:#2c291e;border:1px solid #605631;border-radius:7px;padding:6px 8px;font-size:7px;color:#d9d5bd}
+    .tabs{display:flex;gap:4px;margin-top:13px}.tab{font-size:7px;padding:5px 7px;border:1px solid #3b3832;border-radius:5px;color:#99948a}.tab.active{background:#e8efd0;color:#232519;border-color:#e8efd0;font-weight:700}.split{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.big-number{font-size:25px;font-weight:800;letter-spacing:-.07em;margin-top:8px}.stack{margin-top:10px;display:grid;gap:8px}.domain{padding:9px;border:1px solid #39362f;border-radius:8px;background:#1f1e1a}.domain-head{display:flex;justify-content:space-between;font-size:8px;font-weight:700}.domain-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:8px}.micro{background:#282622;border-radius:5px;padding:6px;font-size:7px;color:#9a958c}.micro b{display:block;color:#f4efe7;font-size:11px;margin-top:3px}
+    .copy { padding:16px 16px 18px; }.copy h2{font-size:16px;margin:0;letter-spacing:-.02em}.copy p{font-size:13px;line-height:1.5;color:#aaa49a;margin:7px 0 0}.trade{border-top:1px solid #38352f;margin-top:13px;padding-top:10px;font-size:12px;color:#d0cac1}.trade b{color:var(--text)}.tag{display:inline-block;margin-top:11px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#aaa49a}
+    @media(max-width:1000px){.options{grid-template-columns:1fr}.mockup{height:340px}}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Tres estructuras para un overview menos cargado</h1>
+    <p class="intro">Todas respetan el alcance <b>website + academia</b> y ponen el rendimiento primero. Haz clic en la que mejor refleje cómo quieres pensar el negocio al abrir el dashboard.</p>
+    <div class="options">
+      <article class="option" data-choice="a" onclick="toggleSelect(this)">
+        <span class="badge">Recomendada</span>
+        <div class="mockup"><div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen">
+          <div class="eyebrow">Overview · últimos 30 días</div><div class="title">El negocio crece, con una decisión pendiente</div><div class="caption">Actualizado hoy · comparado con el periodo anterior</div>
+          <div class="metric-row"><div class="metric"><span>Ingresos academia</span><strong>€8.240</strong><div class="up">↑ 18,2%</div></div><div class="metric"><span>Compras</span><strong>126</strong><div class="up">↑ 12,0%</div></div><div class="metric"><span>Conversión web</span><strong>3,8%</strong><div class="up">↑ 0,6 pp</div></div><div class="metric"><span>Alumnos activos</span><strong>92</strong><div class="up">↑ 8,3%</div></div></div>
+          <div class="grid"><div class="card"><h4>Rendimiento de adquisición</h4><p>Visitas → curso → compra</p><div class="chart"><i class="bar" style="height:29%"></i><i class="bar" style="height:44%"></i><i class="bar" style="height:39%"></i><i class="bar" style="height:60%"></i><i class="bar" style="height:48%"></i><i class="bar" style="height:75%"></i><i class="bar" style="height:67%"></i><i class="bar" style="height:90%"></i></div></div><div class="card"><h4>Salud de academia</h4><div class="rows"><div class="row"><span>Retención 30 días</span><b>64%</b></div><div class="row"><span>Certificación</span><b>21 días</b></div><div class="row"><span>Progreso de cursos</span><b>72%</b></div></div></div></div>
+          <div class="action"><span class="pill">3 pendientes</span> Revisiones de examen que pueden desbloquear certificados →</div>
+        </div></div>
+        <div class="copy"><h2>A. Resumen ejecutivo</h2><p>Cuatro KPIs de resultado, una lectura compartida de adquisición y salud académica, y una sola franja de acciones.</p><div class="trade"><b>Ventaja:</b> responde en segundos si el negocio va bien y qué revisar. <b>Coste:</b> los análisis detallados pasan a Analíticas.</div><span class="tag">Mejor para dirección diaria</span></div>
+      </article>
+      <article class="option" data-choice="b" onclick="toggleSelect(this)">
+        <div class="mockup"><div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen">
+          <div class="eyebrow">Centro de rendimiento</div><div class="title">Website y Academia</div><div class="tabs"><span class="tab active">Todo</span><span class="tab">Website</span><span class="tab">Academia</span></div>
+          <div class="split"><div class="card"><h4>Ingresos atribuidos</h4><div class="big-number">€8.240</div><div class="up">↑ 18,2% vs. periodo anterior</div><div class="chart"><i class="bar3" style="height:25%"></i><i class="bar3" style="height:38%"></i><i class="bar3" style="height:49%"></i><i class="bar3" style="height:65%"></i><i class="bar3" style="height:82%"></i></div></div><div class="card"><h4>Conversión total</h4><div class="big-number">3,8%</div><div class="up">↑ 0,6 pp</div><div class="chart"><i class="bar2" style="height:52%"></i><i class="bar2" style="height:66%"></i><i class="bar2" style="height:42%"></i><i class="bar2" style="height:78%"></i><i class="bar2" style="height:90%"></i></div></div></div>
+          <div class="card" style="margin-top:8px"><h4>Embudo de adquisición</h4><div class="rows"><div class="row"><span>Sesiones únicas</span><b>3.241</b></div><div class="row"><span>Vieron una página de curso</span><b>1.080 · 33%</b></div><div class="row"><span>Compraron un curso</span><b>126 · 3,8%</b></div></div></div>
+          <div class="metric-row"><div class="metric"><span>Alumnos activos</span><strong>92</strong></div><div class="metric"><span>Retención</span><strong>64%</strong></div><div class="metric"><span>Certificados</span><strong>18</strong></div><div class="metric"><span>Revisiones</span><strong class="orange">3</strong></div></div>
+        </div></div>
+        <div class="copy"><h2>B. Analítica concentrada</h2><p>Un KPI principal grande y tabs para alternar el foco; el overview se parece a una página de rendimiento.</p><div class="trade"><b>Ventaja:</b> ideal para analizar una dimensión con detalle. <b>Coste:</b> obliga a cambiar de contexto y oculta la relación web → academia.</div><span class="tag">Mejor para revisión semanal</span></div>
+      </article>
+      <article class="option" data-choice="c" onclick="toggleSelect(this)">
+        <div class="mockup"><div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i></div><div class="screen">
+          <div class="eyebrow">Panel de rendimiento</div><div class="title">Visión por dominio</div><div class="caption">Dos negocios bajo una sola administración</div>
+          <div class="stack"><div class="domain"><div class="domain-head"><span>01 · Website</span><span class="blue">↗ saludable</span></div><div class="domain-grid"><div class="micro">Visitas<b>5.940</b></div><div class="micro">Conversión<b>3,8%</b></div><div class="micro">Fuentes top<b>Instagram</b></div></div><div class="line"><i style="width:72%"></i></div></div>
+          <div class="domain"><div class="domain-head"><span>02 · Academia</span><span class="blue">↗ creciendo</span></div><div class="domain-grid"><div class="micro">Ingresos<b>€8.240</b></div><div class="micro">Activos<b>92</b></div><div class="micro">Retención<b>64%</b></div></div><div class="line"><i style="width:64%"></i></div></div>
+          <div class="domain"><div class="domain-head"><span>03 · Atención</span><span class="orange">3 revisiones</span></div><div class="domain-grid"><div class="micro">Exámenes<b>2</b></div><div class="micro">Tests<b>1</b></div><div class="micro">Bugs nuevos<b>0</b></div></div></div></div>
+        </div></div>
+        <div class="copy"><h2>C. Tres dominios apilados</h2><p>Website, academia y atención operativa tienen el mismo peso visual y métricas propias.</p><div class="trade"><b>Ventaja:</b> muy claro para responsables por área. <b>Coste:</b> fragmenta el resultado total y vuelve a crecer en altura.</div><span class="tag">Mejor para equipos por área</span></div>
+      </article>
+    </div>
+  </main>
+</body>
+</html>
