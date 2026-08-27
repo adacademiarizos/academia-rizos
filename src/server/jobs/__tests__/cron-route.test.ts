@@ -37,6 +37,7 @@ function createDeps(options: TestDepsOptions = {}) {
           "expire-access": async () => ({ processed: 0, errors: [] }),
           "issue-certificates": async () => ({ processed: 0, errors: [] }),
           "send-receipts": async () => ({ processed: 0, errors: [] }),
+          notifications: async () => ({ processed: 0, errors: [] }),
           ...options.jobs,
         }) as Record<MaintenanceJobKey, () => Promise<MaintenanceJobResult>>,
       log: (entry: MaintenanceExecutionLog) => {
@@ -188,6 +189,34 @@ test("runs the send-receipts job successfully", async () => {
   assert.equal(body.job, "send-receipts");
   assert.equal(body.status, "ok");
   assert.equal(body.processed, 4);
+  assert.equal(called, 1);
+  assert.equal(harness.syncCalls.length, 1);
+});
+
+test("runs the notifications job successfully", async () => {
+  let called = 0;
+  const harness = createDeps({
+    secret: "test-secret",
+    jobs: {
+      notifications: async () => {
+        called += 1;
+        return { processed: 5, errors: [] };
+      },
+    },
+  });
+
+  const response = await handleCronGet(
+    createRequest("notifications", "Bearer test-secret"),
+    createContext("notifications"),
+    harness.deps,
+  );
+
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.job, "notifications");
+  assert.equal(body.status, "ok");
+  assert.equal(body.processed, 5);
   assert.equal(called, 1);
   assert.equal(harness.syncCalls.length, 1);
 });

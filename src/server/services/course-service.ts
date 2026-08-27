@@ -5,7 +5,11 @@
 import { db } from '@/lib/db'
 import { addStripeFees } from '@/lib/fees'
 import { buildActiveCourseAccessWhere, isCourseAccessActive } from '@/lib/course-access'
-import type { Course, Module } from '@prisma/client'
+import { cancelScheduledNotificationDeliveries } from '@/server/services/notification-dispatcher'
+import { NotificationEventService } from '@/server/services/notification-event-service'
+import type { Prisma } from '@prisma/client'
+
+type CourseAccessClient = Pick<Prisma.TransactionClient, 'course' | 'courseAccess'>
 
 export class CourseService {
   /**
@@ -300,11 +304,11 @@ export class CourseService {
   /**
    * Create course access (after purchase)
    */
-  static async createCourseAccess(userId: string, courseId: string) {
+  static async createCourseAccess(userId: string, courseId: string, client: CourseAccessClient = db) {
     // Check course exists
-    const course = await db.course.findUnique({
+    const course = await client.course.findUnique({
       where: { id: courseId },
-      select: { rentalDays: true },
+      select: { rentalDays: true, title: true },
     })
 
     if (!course) {
@@ -312,7 +316,7 @@ export class CourseService {
     }
 
     // Check if already has access
-    const existing = await db.courseAccess.findUnique({
+    const existing = await client.courseAccess.findUnique({
       where: { userId_courseId: { userId, courseId } },
     })
 
@@ -327,13 +331,25 @@ export class CourseService {
         ? new Date(Date.now() + course.rentalDays * 24 * 60 * 60 * 1000)
         : null
 
-      return db.courseAccess.update({
+      await cancelScheduledNotificationDeliveries({
+        resource: { type: 'COURSE_ACCESS', id: existing.id },
+      })
+
+      const access = await client.courseAccess.update({
         where: { id: existing.id },
         data: {
           accessUntil: newAccessUntil,
           revokedAt: null,
         },
       })
+      await NotificationEventService.courseAccessGranted({
+        accessId: access.id,
+        userId,
+        courseId,
+        courseTitle: course.title,
+        accessUntil: access.accessUntil,
+      })
+      return access
     }
 
     // Create new access
@@ -341,7 +357,7 @@ export class CourseService {
       ? new Date(Date.now() + course.rentalDays * 24 * 60 * 60 * 1000)
       : null
 
-    return db.courseAccess.create({
+    const access = await client.courseAccess.create({
       data: {
         userId,
         courseId,
@@ -349,6 +365,14 @@ export class CourseService {
         revokedAt: null,
       },
     })
+    await NotificationEventService.courseAccessGranted({
+      accessId: access.id,
+      userId,
+      courseId,
+      courseTitle: course.title,
+      accessUntil: access.accessUntil,
+    })
+    return access
   }
 
   /**
@@ -361,15 +385,28 @@ export class CourseService {
         courseId,
         ...buildActiveCourseAccessWhere(),
       },
+      include: {
+        course: { select: { title: true } },
+      },
     })
 
     if (!activeAccess) {
       return null
     }
 
-    return db.courseAccess.update({
+    const access = await db.courseAccess.update({
       where: { id: activeAccess.id },
       data: { revokedAt: new Date() },
     })
+    await cancelScheduledNotificationDeliveries({
+      resource: { type: 'COURSE_ACCESS', id: activeAccess.id },
+    })
+    await NotificationEventService.courseAccessRevoked({
+      accessId: activeAccess.id,
+      userId,
+      courseId,
+      courseTitle: activeAccess.course.title,
+    })
+    return access
   }
 }

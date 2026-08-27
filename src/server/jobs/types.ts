@@ -1,7 +1,8 @@
 export type MaintenanceJobKey =
   | "expire-access"
   | "issue-certificates"
-  | "send-receipts";
+  | "send-receipts"
+  | "notifications";
 
 export type MaintenanceJobResult = {
   processed: number;

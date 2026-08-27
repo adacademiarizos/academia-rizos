@@ -80,12 +80,17 @@ export async function POST(req: Request) {
 
     const deferredTasks = await processStripeEvent(event);
 
+    // Complete the durable side effects (notably NotificationDelivery upserts)
+    // before marking the Stripe event processed. Every task isolates its own
+    // failure, so an email/outbox issue never reverts a payment; if the
+    // process dies first, Stripe can retry and recipient-scoped dedupe keeps
+    // the event idempotent.
+    await Promise.allSettled(deferredTasks.map((task) => task()));
+
     await db.webhookEvent.update({
       where: { stripeEventId: event.id },
       data: { processedAt: new Date() },
     });
-
-    await Promise.allSettled(deferredTasks.map((task) => task()));
 
     return NextResponse.json({ ok: true });
   } catch (err: any) {

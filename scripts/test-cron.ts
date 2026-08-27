@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-const ALL_JOBS = ["expire-access", "issue-certificates", "send-receipts"] as const;
+const ALL_JOBS = ["expire-access", "issue-certificates", "send-receipts", "notifications"] as const;
 
 type JobName = (typeof ALL_JOBS)[number];
 

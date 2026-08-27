@@ -10,7 +10,6 @@ import {
   toAccessDeniedResponse,
 } from '@/lib/course-access-control'
 import { CommunityService } from '@/server/services/community-service'
-import { NotificationService } from '@/server/services/notification-service'
 import { AchievementService } from '@/server/services/achievement-service'
 import { createLikeSchema } from '@/validators/academy'
 
@@ -45,12 +44,10 @@ export async function POST(request: NextRequest) {
     const result = await CommunityService.toggleLike(access.user.id, targetType, courseId, moduleId)
 
     if (result.liked) {
-      const targetId = courseId || moduleId || ''
-      await Promise.all([
-        NotificationService.triggerOnLike(access.user.id, targetType, targetId),
-        AchievementService.recordActivity(access.user.id, 'LIKE', courseId, moduleId),
-      ]).catch((error) => {
-        console.error('Error with notifications/achievements:', error)
+      // Likes remain an activity signal only. They intentionally never create
+      // a recipient notification, avoiding noisy one-to-one social alerts.
+      await AchievementService.recordActivity(access.user.id, 'LIKE', courseId, moduleId).catch((error) => {
+        console.error('Error recording like activity:', error)
       })
     }
 

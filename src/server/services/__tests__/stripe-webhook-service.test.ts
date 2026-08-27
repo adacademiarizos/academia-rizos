@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 
 const db = {
-  user: { findMany: jest.fn() },
   payment: {
     findUnique: jest.fn(),
     findFirst: jest.fn(),
@@ -14,12 +13,6 @@ const db = {
   conversionEvent: { create: jest.fn() },
 };
 
-const sendAdminAlertEmail = jest.fn();
-const sendAppointmentCancelledEmail = jest.fn();
-const sendAppointmentConfirmationEmail = jest.fn();
-const sendAppointmentNotificationEmail = jest.fn();
-const sendPaymentFailedEmail = jest.fn();
-const sendPaymentReceiptEmail = jest.fn();
 const stripeChargesRetrieve = jest.fn();
 
 const CourseService = {
@@ -27,10 +20,13 @@ const CourseService = {
   revokeCourseAccess: jest.fn(),
 };
 
-const NotificationService = {
-  notifyAllAdmins: jest.fn(),
-  createNotification: jest.fn(),
-  triggerOnCourseEnrollment: jest.fn(),
+const NotificationEventService = {
+  appointmentPaid: jest.fn(),
+  appointmentStatusChanged: jest.fn(),
+  paymentForPayer: jest.fn(),
+  paymentException: jest.fn(),
+  paymentLinkLifecycle: jest.fn(),
+  paymentReceipt: jest.fn(),
 };
 
 const AchievementService = {
@@ -46,16 +42,8 @@ jest.mock("@/lib/stripe", () => ({
     charges: { retrieve: stripeChargesRetrieve },
   },
 }));
-jest.mock("@/lib/mail", () => ({
-  sendAdminAlertEmail,
-  sendAppointmentCancelledEmail,
-  sendAppointmentConfirmationEmail,
-  sendAppointmentNotificationEmail,
-  sendPaymentFailedEmail,
-  sendPaymentReceiptEmail,
-}));
 jest.mock("@/server/services/course-service", () => ({ CourseService }));
-jest.mock("@/server/services/notification-service", () => ({ NotificationService }));
+jest.mock("@/server/services/notification-event-service", () => ({ NotificationEventService }));
 jest.mock("@/server/services/achievement-service", () => ({ AchievementService }));
 
 import { processStripeEvent } from "@/server/services/stripe-webhook-service";
@@ -94,27 +82,25 @@ describe("processStripeEvent", () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    db.user.findMany.mockResolvedValue([{ email: "admin@example.com" }]);
     db.payment.findUnique.mockResolvedValue(null);
     db.payment.findFirst.mockResolvedValue(null);
     db.payment.findUniqueOrThrow.mockResolvedValue(makePaymentContext());
     db.payment.create.mockResolvedValue({ id: "pay_1" });
     db.payment.update.mockResolvedValue({ id: "pay_1" });
     db.paymentLink.update.mockResolvedValue({});
-    db.appointment.update.mockResolvedValue({});
+    db.appointment.update.mockResolvedValue({
+      updatedAt: new Date("2026-07-01T12:00:00.000Z"),
+    });
     db.conversionEvent.create.mockResolvedValue({});
     CourseService.createCourseAccess.mockResolvedValue({});
     CourseService.revokeCourseAccess.mockResolvedValue({});
-    NotificationService.notifyAllAdmins.mockResolvedValue({});
-    NotificationService.createNotification.mockResolvedValue({});
-    NotificationService.triggerOnCourseEnrollment.mockResolvedValue({});
+    NotificationEventService.appointmentPaid.mockResolvedValue({});
+    NotificationEventService.appointmentStatusChanged.mockResolvedValue({});
+    NotificationEventService.paymentForPayer.mockResolvedValue({});
+    NotificationEventService.paymentException.mockResolvedValue({});
+    NotificationEventService.paymentLinkLifecycle.mockResolvedValue({});
+    NotificationEventService.paymentReceipt.mockResolvedValue({});
     AchievementService.recordActivity.mockResolvedValue({});
-    sendAdminAlertEmail.mockResolvedValue(undefined);
-    sendAppointmentCancelledEmail.mockResolvedValue(undefined);
-    sendAppointmentConfirmationEmail.mockResolvedValue(undefined);
-    sendAppointmentNotificationEmail.mockResolvedValue(undefined);
-    sendPaymentFailedEmail.mockResolvedValue(undefined);
-    sendPaymentReceiptEmail.mockResolvedValue(undefined);
     stripeChargesRetrieve.mockResolvedValue({ payment_intent: "pi_1" });
   });
 
@@ -137,7 +123,7 @@ describe("processStripeEvent", () => {
           endAt: new Date("2026-07-05T11:00:00Z"),
           notes: null,
           service: { name: "Corte" },
-          staff: { name: "Eli", email: "staff@example.com" },
+          staff: { id: "staff_1", name: "Eli", email: "staff@example.com" },
         },
       })
     );
@@ -154,11 +140,157 @@ describe("processStripeEvent", () => {
     expect(db.appointment.update).toHaveBeenCalledWith({
       where: { id: "appt_1" },
       data: { status: "CANCELLED" },
+      select: { updatedAt: true },
     });
-    expect(tasks).toHaveLength(0);
+    await runDeferredTasks(tasks);
+    expect(NotificationEventService.appointmentStatusChanged).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appointmentId: "appt_1",
+        status: "CANCELLED",
+        serviceName: "Corte",
+        transitionId: "2026-07-01T12:00:00.000Z",
+        staff: expect.objectContaining({ id: "staff_1" }),
+      })
+    );
   });
 
-  it("marks failed payment intents as FAILED and queues customer/admin notifications", async () => {
+  it("notifies assigned staff once when a paid appointment is confirmed", async () => {
+    db.payment.findUniqueOrThrow.mockResolvedValue(
+      makePaymentContext({
+        type: "APPOINTMENT",
+        appointmentId: "appt_1",
+        courseId: null,
+        appointment: {
+          id: "appt_1",
+          status: "PENDING",
+          customerId: "user_1",
+          customerName: "Ada",
+          customerEmail: "student@example.com",
+          startAt: new Date("2026-07-05T10:00:00Z"),
+          endAt: new Date("2026-07-05T11:00:00Z"),
+          notes: null,
+          service: { name: "Corte" },
+          staff: { id: "staff_1", name: "Eli", email: "staff@example.com" },
+        },
+      })
+    );
+
+    const tasks = await processStripeEvent({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_1",
+          amount_total: 15000,
+          currency: "eur",
+          payment_intent: "pi_1",
+          customer_details: { email: "student@example.com" },
+          metadata: { type: "APPOINTMENT", appointmentId: "appt_1" },
+        },
+      },
+    } as any);
+
+    await runDeferredTasks(tasks);
+
+    expect(NotificationEventService.appointmentPaid).toHaveBeenCalledTimes(1);
+    expect(NotificationEventService.appointmentPaid).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appointmentId: "appt_1",
+        paymentId: "pay_1",
+        serviceName: "Corte",
+        customerName: "Ada",
+        staff: expect.objectContaining({ id: "staff_1" }),
+      })
+    );
+    expect(NotificationEventService.paymentException).not.toHaveBeenCalled();
+  });
+
+  it("does not grant course access or record conversion again for a repeated paid checkout", async () => {
+    db.payment.findUnique.mockResolvedValue({
+      id: "pay_1",
+      type: "COURSE",
+      status: "PAID",
+      stripePaymentIntentId: "pi_1",
+      payerId: "user_1",
+      payerEmail: "student@example.com",
+      metadata: { analyticsSessionId: "sess_1", userId: "user_1" },
+    });
+    db.payment.findUniqueOrThrow.mockResolvedValue(makePaymentContext());
+
+    const tasks = await processStripeEvent({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_1",
+          amount_total: 15000,
+          currency: "eur",
+          payment_intent: "pi_1",
+          customer_details: { email: "student@example.com" },
+          metadata: { type: "COURSE", courseId: "course_1", userId: "user_1" },
+        },
+      },
+    } as any);
+
+    expect(CourseService.createCourseAccess).not.toHaveBeenCalled();
+    expect(tasks).toHaveLength(1);
+
+    await runDeferredTasks(tasks);
+
+    expect(db.conversionEvent.create).not.toHaveBeenCalled();
+    // Delivery retries are still handed to the semantic service, whose outbox
+    // dedupe key makes repeated checkout notifications safe.
+    expect(NotificationEventService.paymentReceipt).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentId: "pay_1" })
+    );
+  });
+
+  it("notifies only the paid payment-link creator without a normal admin alert", async () => {
+    db.payment.findUniqueOrThrow.mockResolvedValue(
+      makePaymentContext({
+        type: "PAYMENT_LINK",
+        appointmentId: null,
+        courseId: null,
+        paymentLinkId: "link_1",
+        payerId: null,
+        paymentLink: {
+          id: "link_1",
+          title: "Saldo tratamiento",
+          status: "REQUIRES_PAYMENT",
+          createdById: "staff_1",
+        },
+      })
+    );
+
+    const tasks = await processStripeEvent({
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_1",
+          amount_total: 15000,
+          currency: "eur",
+          payment_intent: "pi_1",
+          customer_details: { email: "student@example.com" },
+          metadata: { type: "PAYMENT_LINK", paymentLinkId: "link_1" },
+        },
+      },
+    } as any);
+
+    await runDeferredTasks(tasks);
+
+    expect(NotificationEventService.paymentLinkLifecycle).toHaveBeenCalledTimes(1);
+    expect(NotificationEventService.paymentLinkLifecycle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "payment_link.paid",
+        paymentLinkId: "link_1",
+        paymentId: "pay_1",
+        title: "Saldo tratamiento",
+        amountLabel: "150.00 EUR",
+        createdById: "staff_1",
+      })
+    );
+    expect(NotificationEventService.paymentException).not.toHaveBeenCalled();
+  });
+
+  it("marks failed payment intents as FAILED and queues semantic payer/admin events", async () => {
     db.payment.findUnique.mockResolvedValue({
       id: "pay_1",
       status: "REQUIRES_PAYMENT",
@@ -199,9 +331,19 @@ describe("processStripeEvent", () => {
 
     await runDeferredTasks(tasks);
 
-    expect(sendPaymentFailedEmail).toHaveBeenCalled();
-    expect(NotificationService.notifyAllAdmins).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Pago fallido" })
+    expect(NotificationEventService.paymentForPayer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "payment.failed",
+        paymentId: "pay_1",
+        actionUrl: "/courses/course_1",
+      })
+    );
+    expect(NotificationEventService.paymentException).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "payment.failed",
+        paymentId: "pay_1",
+        title: "Pago fallido",
+      })
     );
   });
 
@@ -238,7 +380,7 @@ describe("processStripeEvent", () => {
     expect(tasks).toHaveLength(0);
   });
 
-  it("treats full course refunds as access revocations and notifies student/admins", async () => {
+  it("treats full course refunds as access revocations and queues semantic payer/admin events", async () => {
     db.payment.findUnique.mockResolvedValue({
       id: "pay_1",
       status: "PAID",
@@ -268,15 +410,18 @@ describe("processStripeEvent", () => {
 
     await runDeferredTasks(tasks);
 
-    expect(NotificationService.createNotification).toHaveBeenCalledWith(
+    expect(NotificationEventService.paymentForPayer).toHaveBeenCalledWith(
       expect.objectContaining({
-        userId: "user_1",
-        title: "Acceso revocado",
+        eventKey: "payment.refunded",
+        paymentId: "pay_1",
+        actionUrl: "/courses/course_1",
       })
     );
-    expect(sendAdminAlertEmail).toHaveBeenCalledWith(
+    expect(NotificationEventService.paymentException).toHaveBeenCalledWith(
       expect.objectContaining({
-        subject: expect.stringContaining("Pago reembolsado"),
+        eventKey: "payment.refunded",
+        paymentId: "pay_1",
+        title: "Acceso de curso revocado",
       })
     );
   });
@@ -306,13 +451,13 @@ describe("processStripeEvent", () => {
 
     await runDeferredTasks(tasks);
 
-    expect(sendAdminAlertEmail).toHaveBeenCalledWith(
+    expect(NotificationEventService.paymentException).toHaveBeenCalledWith(
       expect.objectContaining({
-        subject: expect.stringContaining("Disputa de pago"),
+        eventKey: "payment.dispute_created",
+        paymentId: "pay_1",
+        title: "Disputa de pago urgente",
+        priority: "URGENT",
       })
-    );
-    expect(NotificationService.notifyAllAdmins).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "DISPUTE" })
     );
   });
 
@@ -349,8 +494,19 @@ describe("processStripeEvent", () => {
 
     await runDeferredTasks(tasks);
 
-    expect(NotificationService.createNotification).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Acceso revocado" })
+    expect(NotificationEventService.paymentForPayer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "payment.refunded",
+        paymentId: "pay_1",
+      })
+    );
+    expect(NotificationEventService.paymentException).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "payment.dispute_closed",
+        paymentId: "pay_1",
+        title: "Disputa cerrada en contra",
+        priority: "URGENT",
+      })
     );
   });
 
@@ -392,8 +548,12 @@ describe("processStripeEvent", () => {
 
     await runDeferredTasks(tasks);
 
-    expect(NotificationService.notifyAllAdmins).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Disputa cerrada a favor" })
+    expect(NotificationEventService.paymentException).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: "payment.dispute_closed",
+        paymentId: "pay_1",
+        title: "Disputa cerrada a favor",
+      })
     );
   });
 });

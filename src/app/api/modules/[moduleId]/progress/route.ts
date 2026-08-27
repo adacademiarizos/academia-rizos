@@ -27,7 +27,7 @@ async function autoCreatePendingCertificate(userId: string, courseId: string) {
   if (existing) return
 
   const certCode = `PEND-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
-  await db.certificate.create({
+  const certificate = await db.certificate.create({
     data: {
       code: certCode,
       courseId,
@@ -35,6 +35,12 @@ async function autoCreatePendingCertificate(userId: string, courseId: string) {
       valid: false,
       pdfUrl: null,
     },
+  })
+
+  await NotificationService.triggerOnCertificatePendingReview({
+    certificateId: certificate.id,
+    userId,
+    courseId,
   })
 }
 
@@ -113,12 +119,11 @@ export async function POST(
     })
 
     if (completed) {
-      autoCreatePendingCertificate(access.user.id, access.courseId).catch((error) => {
+      await autoCreatePendingCertificate(access.user.id, access.courseId).catch((error) => {
         console.error('Auto-certificate check failed:', error)
       })
-      NotificationService.triggerOnCourseCompletion(access.user.id, access.courseId).catch((error) => {
-        console.error('Course completion notification failed:', error)
-      })
+      // A module is only an intermediate milestone. The final exam/certificate
+      // workflow is the sole owner of COURSE_COMPLETION notifications.
     }
 
     return NextResponse.json({

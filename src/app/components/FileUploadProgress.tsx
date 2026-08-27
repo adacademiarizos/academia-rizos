@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useId, useRef, useState } from 'react'
 
 interface FileUploadProgressProps {
   onUploadComplete: (file: UploadedFile) => void
@@ -8,6 +8,8 @@ interface FileUploadProgressProps {
   moduleId?: string
   lessonId?: string
   courseId?: string
+  /** Upload to storage but let the caller persist the learning resource. */
+  deferPersistence?: boolean
   accept?: string
   maxSize?: number // in MB
 }
@@ -33,6 +35,7 @@ export default function FileUploadProgress({
   moduleId,
   lessonId,
   courseId,
+  deferPersistence = false,
   accept,
   maxSize,
 }: FileUploadProgressProps) {
@@ -46,6 +49,7 @@ export default function FileUploadProgress({
   const [success, setSuccess] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputId = useId()
 
   const handleFileSelect = (file: File) => {
     setError(null)
@@ -94,6 +98,7 @@ export default function FileUploadProgress({
           moduleId,
           lessonId,
           courseId,
+          deferPersistence,
           fileName: selectedFile.name,
         }),
       })
@@ -140,6 +145,7 @@ export default function FileUploadProgress({
           moduleId,
           lessonId,
           courseId,
+          deferPersistence,
         }),
       })
 
@@ -196,30 +202,30 @@ export default function FileUploadProgress({
           accept={effectiveAccept}
           onChange={handleInputChange}
           className="hidden"
-          id="file-upload-input"
+          id={fileInputId}
         />
 
         {!selectedFile ? (
-          <label htmlFor="file-upload-input" className="cursor-pointer block">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="block w-full cursor-pointer text-inherit"
+          >
             <div className="text-3xl mb-2">
               {uploadType === 'video' ? '🎥' : '📁'}
             </div>
             <p className="text-sm text-white/50">
               Arrastrá un archivo o{' '}
-              <button
-                type="button"
-                className="text-[#c8cf94] hover:text-white transition underline"
-                onClick={() => fileInputRef.current?.click()}
-              >
+              <span className="text-[#c8cf94] transition underline hover:text-white">
                 seleccioná uno
-              </button>
+              </span>
             </p>
             <p className="text-xs text-white/25 mt-1">
               {uploadType === 'resource'
                 ? 'PDF, imágenes, Word, Excel, PPT, ZIP · máx ' + effectiveMaxSize + ' MB'
                 : 'MP4, WebM, MOV · máx ' + effectiveMaxSize + ' MB'}
             </p>
-          </label>
+          </button>
         ) : (
           <div className="flex flex-col items-center gap-2">
             <div className="text-2xl">{getFileIcon(selectedFile)}</div>

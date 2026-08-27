@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
+import { CommunityText } from '@/app/components/CommunityText'
+import { createCommunityMentionToken } from '@/lib/community-mentions'
 
 interface ChatMessage {
   id: string
@@ -86,6 +88,16 @@ export function ChatPanel({ roomId, title }: ChatPanelProps) {
     scrollToBottom(initialLoading)
   }, [messages, initialLoading, scrollToBottom])
 
+  useEffect(() => {
+    const messageId = window.location.hash.replace(/^#message-/, '')
+    if (!messageId) return
+
+    document.getElementById(`message-${messageId}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    })
+  }, [messages])
+
   const handleScroll = () => {
     const el = containerRef.current
     if (!el) return
@@ -110,6 +122,15 @@ export function ChatPanel({ roomId, title }: ChatPanelProps) {
     if (pendingImagePreview) URL.revokeObjectURL(pendingImagePreview)
     setPendingImagePreview(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const appendMention = (user: ChatMessage['user']) => {
+    const token = createCommunityMentionToken(user)
+
+    setText((current) => {
+      if (current.includes(`](${user.id})`)) return current
+      return `${current}${current.trimEnd() ? ' ' : ''}${token} `
+    })
   }
 
   const handleSend = async (e: React.FormEvent) => {
@@ -202,7 +223,7 @@ export function ChatPanel({ roomId, title }: ChatPanelProps) {
           messages.map((msg) => {
             const isOwn = msg.userId === (session?.user as any)?.id
             return (
-              <div key={msg.id} className={`flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
+              <div id={`message-${msg.id}`} key={msg.id} className={`scroll-mt-24 flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
                 <Avatar user={msg.user} />
                 <div className={`max-w-[75%] space-y-1 ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
                   <div className={`flex items-baseline gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
@@ -235,8 +256,17 @@ export function ChatPanel({ roomId, title }: ChatPanelProps) {
                           : 'bg-white/10 text-ap-ivory rounded-tl-sm'
                       }`}
                     >
-                      {msg.body}
+                      <CommunityText body={msg.body} />
                     </div>
+                  )}
+                  {!isOwn && session?.user && (
+                    <button
+                      type="button"
+                      onClick={() => appendMention(msg.user)}
+                      className="text-xs text-ap-copper hover:text-orange-400 transition"
+                    >
+                      Mencionar
+                    </button>
                   )}
                 </div>
               </div>
