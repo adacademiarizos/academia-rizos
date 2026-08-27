@@ -324,6 +324,27 @@ export class NotificationEventService {
         priority: input.eventKey === "payment_link.failed" || input.eventKey === "payment_link.refunded" ? NotificationPriority.HIGH : NotificationPriority.NORMAL,
         dedupeKey: `payment-link:${input.paymentLinkId}:${input.eventKey}:${input.paymentId}`,
       });
+
+      // A payment link may be created by non-admin staff; admins are broadcast
+      // a lighter-weight in-app alert on payment so they retain payments
+      // visibility without duplicating the owner's actionable notification.
+      if (input.eventKey === "payment_link.paid") {
+        const admins = await getAdmins([input.createdById]);
+        if (admins.length > 0) {
+          await dispatchNotification({
+            eventKey: input.eventKey,
+            type: "PAYMENT",
+            title: "Nuevo pago recibido",
+            message: `Pago de ${input.amountLabel ?? "un link de pago"} — ${copy.title.toLowerCase()}: "${input.title}"`,
+            recipients: admins.map((admin) => ({ userId: admin.id })),
+            channels: [NotificationDeliveryChannel.IN_APP],
+            resource: { type: "PAYMENT_LINK", id: input.paymentLinkId },
+            actionUrl: "/admin/payment-links",
+            priority: NotificationPriority.NORMAL,
+            dedupeKey: `payment-link:${input.paymentLinkId}:${input.eventKey}:${input.paymentId}:admin`,
+          });
+        }
+      }
     } catch (error) {
       console.error("[notifications] payment link event failed", error);
     }
