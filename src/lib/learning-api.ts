@@ -26,7 +26,7 @@ const questionBaseSchema = z.object({
   config: z.record(z.string(), z.unknown()).optional(),
 })
 
-export const assessmentSchema = z.object({
+const assessmentBaseSchema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(5000).optional(),
   order: z.number().int().min(0).optional(),
@@ -36,16 +36,22 @@ export const assessmentSchema = z.object({
   passingScore: z.number().int().min(0).max(100).optional(),
   published: z.boolean().optional(),
   questions: z.array(questionBaseSchema).min(1).max(100),
-}).superRefine((value, context) => {
+})
+
+function validateQuestions(value: { questions: z.infer<typeof questionBaseSchema>[] }, context: z.RefinementCtx) {
   value.questions.forEach((question, index) => {
     if (question.type === 'MULTIPLE_CHOICE' && (!question.options?.includes(question.correctAnswer ?? '') || !question.correctAnswer)) {
       context.addIssue({ code: 'custom', path: ['questions', index, 'correctAnswer'], message: 'Selecciona una respuesta correcta de las opciones.' })
     }
   })
-})
+}
 
-export const assessmentPatchSchema = assessmentSchema.partial().extend({
+export const assessmentSchema = assessmentBaseSchema.superRefine(validateQuestions)
+
+export const assessmentPatchSchema = assessmentBaseSchema.partial().extend({
   questions: z.array(questionBaseSchema).min(1).max(100).optional(),
+}).superRefine((value, context) => {
+  if (value.questions) validateQuestions({ questions: value.questions }, context)
 })
 
 export const submissionSchema = z.object({
