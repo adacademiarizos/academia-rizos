@@ -183,18 +183,31 @@ export class CourseService {
       return modules
     }
 
-    // Get progress for user
-    const progress = await db.moduleProgress.findMany({
-      where: { userId },
-      select: { moduleId: true, completed: true },
+    // Lesson progress is canonical. A module is complete only when all of its
+    // lessons are complete; module-level progress remains historical data.
+    const lessons = await db.lesson.findMany({
+      where: { moduleId: { in: modules.map((module) => module.id) } },
+      select: { id: true, moduleId: true },
     })
+    const completedLessons = await db.lessonProgress.findMany({
+      where: { userId, lessonId: { in: lessons.map((lesson) => lesson.id) } },
+      select: { lessonId: true },
+    })
+    const completedLessonIds = new Set(completedLessons.map((progress) => progress.lessonId))
+    const lessonsByModule = new Map<string, string[]>()
+    for (const lesson of lessons) {
+      lessonsByModule.set(lesson.moduleId, [...(lessonsByModule.get(lesson.moduleId) ?? []), lesson.id])
+    }
 
-    const progressMap = new Map(progress.map((p) => [p.moduleId, p.completed]))
-
-    return modules.map((module) => ({
-      ...module,
-      completed: progressMap.get(module.id) || false,
-    }))
+    return modules.map((module) => {
+      const moduleLessons = lessonsByModule.get(module.id) ?? []
+      return {
+        ...module,
+        lessonCount: moduleLessons.length,
+        completedLessonCount: moduleLessons.filter((lessonId) => completedLessonIds.has(lessonId)).length,
+        completed: moduleLessons.length > 0 && moduleLessons.every((lessonId) => completedLessonIds.has(lessonId)),
+      }
+    })
   }
 
   /**

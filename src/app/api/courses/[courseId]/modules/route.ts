@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authorizeCourseAccessByCourseId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { db } from '@/lib/db'
+import { getCourseLessonProgress } from '@/server/services/academy-assessment-service'
 import { CourseService } from '@/server/services/course-service'
 
 export async function GET(
@@ -56,18 +57,15 @@ export async function GET(
       access.viaAdmin ? undefined : access.user.id
     )
 
-    const totalModules = modules.length
-    const completedModules = modules.reduce(
-      (count, module) => count + ('completed' in module && module.completed ? 1 : 0),
-      0
-    )
-    const progress = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0
+    const lessonProgress = access.viaAdmin
+      ? { percentage: 0 }
+      : await getCourseLessonProgress(access.user.id, courseId)
 
     return NextResponse.json({
       success: true,
       data: {
         modules,
-        progress,
+        progress: lessonProgress.percentage,
       },
       count: modules.length,
     })

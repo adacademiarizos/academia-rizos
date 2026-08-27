@@ -7,6 +7,8 @@ import FileUploadProgress from '@/app/components/FileUploadProgress'
 import { toast } from 'sonner'
 import { LearningContentManager } from '../../components/LearningContentManager'
 import { CourseStylesManager } from '../../components/CourseStylesManager'
+import { LessonTestManager } from '../../components/LessonTestManager'
+import { FinalExamManager } from '../../components/FinalExamManager' 
 
 interface Course {
   id: string
@@ -1582,6 +1584,7 @@ export default function CourseEditPage() {
                                     {expandedLessonId === lesson.id && (
                                       <div className="px-3 pb-3 pt-2 space-y-2">
                                         <LearningContentManager scope="LESSON" scopeId={lesson.id} courseId={courseId} />
+                                        <LessonTestManager lessonId={lesson.id} />
                                         <input
                                           type="text"
                                           value={editLessonForms[lesson.id]?.title || ''}
@@ -1715,7 +1718,7 @@ export default function CourseEditPage() {
                           </div>
 
                           {/* Tests del Módulo */}
-                          <div className="border-t border-white/10 pt-4">
+                          <div className="hidden border-t border-white/10 pt-4" aria-hidden="true">
                             <div className="flex justify-between items-center mb-3">
                               <label className="block text-sm font-medium text-white/70">
                                 Tests del Módulo
@@ -2035,7 +2038,7 @@ export default function CourseEditPage() {
       <LearningContentManager scope="COURSE" scopeId={courseId} courseId={courseId} />
 
       {/* Course Tests Section */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[28px] p-8">
+      <div className="hidden bg-white/5 backdrop-blur-xl border border-white/10 rounded-[28px] p-8" aria-hidden="true">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-xl font-semibold text-white">Tests del Curso</h2>
@@ -2315,6 +2318,7 @@ export default function CourseEditPage() {
           </div>
         )}
       </div>
+      <FinalExamManager courseId={courseId} />
     </div>
   )
 }

@@ -47,6 +47,7 @@ export async function GET(
         createdAt: user.createdAt,
         stats: {
           coursesEnrolled: stats.coursesEnrolled,
+          lessonsCompleted: stats.lessonsCompleted,
           modulesCompleted: stats.modulesCompleted,
           testsPassed: stats.testsPassed,
         },

@@ -76,12 +76,21 @@ enum LearningScope {
 
 enum AssessmentQuestionType {
   MULTIPLE_CHOICE
+}
+
+enum FinalExamQuestionType {
   WRITTEN
   PHOTO
   VIDEO
 }
 
 enum AssessmentAttemptStatus {
+  PENDING_REVIEW
+  APPROVED
+  NOT_PASSED
+}
+
+enum FinalExamAttemptStatus {
   PENDING_REVIEW
   APPROVED
   NOT_PASSED
@@ -164,6 +173,7 @@ model User {
   moduleProgress          ModuleProgress[]
   lessonProgress          LessonProgress[]
   moduleSubmissions       ModuleSubmission[]
+  lessonTestSubmissions   LessonTestSubmission[]
   questionSubmissions     QuestionSubmission[]
   examSubmissions         ExamSubmission[]
   courseTestSubmissions   CourseTestSubmission[]
@@ -171,6 +181,11 @@ model User {
   assessmentReviews       AssessmentAttempt[]      @relation("AssessmentAttemptReviewer")
   assessmentRevalidations AssessmentRevalidation[] @relation("AssessmentRevalidationStudent")
   assessmentGrants        AssessmentRevalidation[] @relation("AssessmentRevalidationGrantedBy")
+  finalExamAttempts       FinalExamAttempt[]      @relation("FinalExamAttemptStudent")
+  finalExamReviews        FinalExamAttempt[]      @relation("FinalExamAttemptReviewer")
+  finalExamRevalidations  FinalExamRevalidation[] @relation("FinalExamRevalidationStudent")
+  finalExamGrants         FinalExamRevalidation[] @relation("FinalExamRevalidationGrantedBy")
+
 
   // Relations - ETAPA 5
   notifications          Notification[]
@@ -457,7 +472,9 @@ model Course {
   access            CourseAccess[]
   test              Test?
   exam              CourseExam?
+  finalExam         FinalExam?
   payments          Payment[]          @relation("CoursePayments")
+
 
   likes        Like[]        @relation("CourseLikes")
   comments     Comment[]     @relation("CourseComments")
@@ -538,6 +555,8 @@ model Lesson {
   progress          LessonProgress[]
   learningResources LearningResource[]
   assessments       Assessment[]
+  tests             LessonTest[]
+
 
   @@index([styleId])
   @@index([moduleId])
@@ -559,7 +578,8 @@ model ModuleProgress {
 }
 
 /// Canonical academic progress. A lesson is complete only after all of its
-/// required unified assessments have been approved.
+/// required unified assessments have been approved. Legacy lesson completion
+/// endpoints remain compatible with this row. 
 model LessonProgress {
   id          String   @id @default(cuid())
   userId      String
@@ -1180,6 +1200,166 @@ model CourseTestSubmission {
   @@index([userId, courseTestId])
   @@index([courseTestId])
   @@index([status])
+}
+
+// ============= CANONICAL LESSON TESTS =============
+
+model LessonTest {
+  id           String   @id @default(cuid())
+  lessonId     String
+  title        String
+  description  String?
+  order        Int      @default(0)
+  maxAttempts  Int      @default(1)
+  passingScore Int      @default(70)
+  publishedAt  DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lesson      Lesson                 @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions   LessonTestQuestion[]
+  submissions LessonTestSubmission[]
+
+  @@index([lessonId, order])
+}
+
+model LessonTestQuestion {
+  id            String   @id @default(cuid())
+  lessonTestId  String
+  title         String
+  description   String?
+  order         Int      @default(0)
+  options       Json
+  correctAnswer String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  lessonTest LessonTest         @relation(fields: [lessonTestId], references: [id], onDelete: Cascade)
+  answers    LessonTestAnswer[]
+
+  @@index([lessonTestId, order])
+}
+
+model LessonTestSubmission {
+  id            String   @id @default(cuid())
+  lessonTestId  String
+  userId        String
+  score         Float
+  isPassed      Boolean  @default(false)
+  attemptNumber Int
+  submittedAt   DateTime @default(now())
+
+  lessonTest LessonTest         @relation(fields: [lessonTestId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers    LessonTestAnswer[]
+
+  @@unique([lessonTestId, userId, attemptNumber])
+  @@index([lessonTestId, userId])
+  @@index([userId])
+}
+
+model LessonTestAnswer {
+  id           String   @id @default(cuid())
+  submissionId String
+  questionId   String
+  answer       String
+  isCorrect    Boolean
+  createdAt    DateTime @default(now())
+
+  submission LessonTestSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question   LessonTestQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, questionId])
+  @@index([questionId])
+}
+
+// ============= CANONICAL FINAL EXAM =============
+
+model FinalExam {
+  id          String   @id @default(cuid())
+  courseId    String   @unique
+  title       String   @default("Examen final")
+  description String?
+  maxAttempts Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  course        Course                  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  questions     FinalExamQuestion[]
+  attempts      FinalExamAttempt[]
+  revalidations FinalExamRevalidation[]
+}
+
+model FinalExamQuestion {
+  id          String                @id @default(cuid())
+  finalExamId String
+  type        FinalExamQuestionType
+  title       String
+  description String?
+  required    Boolean               @default(true)
+  order       Int                   @default(0)
+  config      Json?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  finalExam FinalExam         @relation(fields: [finalExamId], references: [id], onDelete: Cascade)
+  answers   FinalExamAnswer[]
+
+  @@index([finalExamId, order])
+}
+
+model FinalExamAttempt {
+  id            String                 @id @default(cuid())
+  finalExamId   String
+  userId        String
+  attemptNumber Int
+  status        FinalExamAttemptStatus @default(PENDING_REVIEW)
+  reviewNote    String?
+  reviewedAt    DateTime?
+  reviewedById  String?
+  submittedAt   DateTime               @default(now())
+
+  finalExam FinalExam         @relation(fields: [finalExamId], references: [id], onDelete: Cascade)
+  student   User              @relation("FinalExamAttemptStudent", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer  User?             @relation("FinalExamAttemptReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  answers   FinalExamAnswer[]
+
+  @@unique([finalExamId, userId, attemptNumber])
+  @@index([finalExamId, userId, status])
+  @@index([userId, status])
+}
+
+model FinalExamAnswer {
+  id           String   @id @default(cuid())
+  attemptId    String
+  questionId   String
+  responseText String?
+  fileUrl      String?
+  fileMimeType String?
+  createdAt    DateTime @default(now())
+
+  attempt  FinalExamAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question FinalExamQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@index([questionId])
+}
+
+model FinalExamRevalidation {
+  id              String   @id @default(cuid())
+  finalExamId     String
+  userId          String
+  grantedById     String
+  attemptsGranted Int
+  reason          String?
+  createdAt       DateTime @default(now())
+
+  finalExam FinalExam @relation(fields: [finalExamId], references: [id], onDelete: Cascade)
+  student   User      @relation("FinalExamRevalidationStudent", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy User      @relation("FinalExamRevalidationGrantedBy", fields: [grantedById], references: [id])
+
+  @@index([finalExamId, userId])
+  @@index([grantedById])
 }
 
 // ============= BUG REPORTS =============

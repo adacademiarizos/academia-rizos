@@ -11,6 +11,7 @@ interface UserProfile {
   createdAt: string
   stats: {
     coursesEnrolled: number
+    lessonsCompleted: number
     modulesCompleted: number
     testsPassed: number
   }
@@ -108,9 +109,9 @@ export function PublicUserProfile({ userId }: PublicUserProfileProps) {
               </div>
               <div>
                 <p className="text-2xl font-bold text-ap-copper">
-                  {profile.stats.modulesCompleted}
+                  {profile.stats.lessonsCompleted}
                 </p>
-                <p className="text-sm text-gray-600">Módulos completados</p>
+                <p className="text-sm text-gray-600">Lecciones completadas</p>
               </div>
               <div>
                 <p className="text-2xl font-bold text-ap-copper">

@@ -8,6 +8,7 @@ import { CommentsSection } from "@/app/components/CommentsSection";
 import { LearningAssessmentPanel } from "@/app/components/LearningAssessmentPanel";
 import { LearningResourcesPanel } from "@/app/components/LearningResourcesPanel";
 import ModuleTestSubmission from "@/app/components/ModuleTestSubmission";
+import { LessonAssessmentPanel } from "@/app/components/LessonAssessmentPanel";
 import { ChatWidget } from "@/app/components/ChatWidget";
 import { CourseAIAssistant } from "@/app/components/CourseAIAssistant";
 import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
@@ -68,7 +69,7 @@ export default function ModulePlayer() {
   const [activeTab, setActiveTab] = useState<"description" | "transcript">("description");
   // Legacy state remains for the temporary compatibility view below.
   const [tests] = useState<any[]>([]);
-  const [resources] = useState<ModuleResource[]>([]);
+  const [resources, setResources] = useState<ModuleResource[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const [activeTestId, setActiveTestId] = useState<string | null>(null);
@@ -114,6 +115,12 @@ export default function ModulePlayer() {
           if (fetchedLessons.length > 0) setActiveLessonId(fetchedLessons[0].id);
         }
 
+        // Fetch resources for this module
+        const resourcesResponse = await fetch(`/api/student/modules/${moduleId}/resources`);
+        if (resourcesResponse.ok) {
+          const resourcesData = await resourcesResponse.json();
+          setResources(resourcesData.data || []);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
@@ -294,39 +301,6 @@ export default function ModulePlayer() {
               </div>
             )}
 
-            {/* Tests */}
-            {tests.length > 0 && (
-              <div>
-                <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
-                  Tests
-                </h3>
-                <div className="space-y-1">
-                  {tests.map((test) => {
-                    const isActive = test.id === activeTestId;
-                    return (
-                      <button
-                        key={test.id}
-                        onClick={() => {
-                          setActiveTestId(isActive ? null : test.id);
-                          setActiveLessonId(null);
-                        }}
-                        className={`w-full text-left px-3 py-2.5 rounded-xl transition flex items-start gap-3 ${
-                          isActive
-                            ? "bg-ap-copper/15 border border-ap-copper/30 text-ap-ivory"
-                            : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent"
-                        }`}
-                      >
-                        <span className={`mt-0.5 text-xs shrink-0 ${isActive ? "text-ap-copper" : "text-zinc-600"}`}>
-                          ✎
-                        </span>
-                        <span className="flex-1 text-sm leading-snug">{test.title}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {/* Status */}
             {!hasLessons && <div className="p-4 rounded-2xl bg-white/5 border border-zinc-700 space-y-3">
               <div className="flex items-center justify-between">
@@ -471,7 +445,7 @@ export default function ModulePlayer() {
                   </div>
                 )}
               </div>
-              {activeLesson && <div className="space-y-4"><LearningResourcesPanel scope="LESSON" scopeId={activeLesson.id} title="Recursos de la lección" /><LearningAssessmentPanel scope="LESSON" scopeId={activeLesson.id} courseId={courseId} title="Evaluaciones de la lección" /></div>}
+              {activeLesson && <div className="space-y-4"><LearningResourcesPanel scope="LESSON" scopeId={activeLesson.id} title="Recursos de la lección" /><LearningAssessmentPanel scope="LESSON" scopeId={activeLesson.id} courseId={courseId} title="Evaluaciones de la lección" /><LessonAssessmentPanel key={activeLesson.id} lessonId={activeLesson.id} /></div>}
             </>
           )}
         </div>

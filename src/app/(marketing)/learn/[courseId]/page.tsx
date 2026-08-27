@@ -10,6 +10,7 @@ import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
 import { useCourseAccess } from "@/app/components/useCourseAccess";
 import { LearningAssessmentPanel } from "@/app/components/LearningAssessmentPanel";
 import { LearningResourcesPanel } from "@/app/components/LearningResourcesPanel";
+import { FinalExamPanel } from "@/app/components/FinalExamPanel";
 
 interface Module {
   id: string;
@@ -50,6 +51,9 @@ interface DashboardData {
   modules: Module[];
   styles: Style[];
   progress: number;
+  completedLessons: number;
+  totalLessons: number;
+  allLessonsCompleted: boolean;
   allModulesCompleted: boolean;
   courseTests: CourseTestItem[];
   certificate: Certificate | null;
@@ -97,6 +101,21 @@ export default function LearningDashboard() {
         } catch {
           // Styles are optional, so a temporary loading failure should not block the course.
         }
+        let lessonProgress = {
+          percentage: modulesData.data.progress,
+          completedLessons: 0,
+          totalLessons: 0,
+          isComplete: false,
+        };
+        try {
+          const finalExamResponse = await fetch(`/api/student/courses/${courseId}/final-exam`);
+          if (finalExamResponse.ok) {
+            const finalExamData = await finalExamResponse.json();
+            lessonProgress = finalExamData.data.progress;
+          }
+        } catch {
+          // The legacy module percentage is only a temporary display fallback.
+        }
 
         // Fetch course tests
         let courseTests: CourseTestItem[] = [];
@@ -126,7 +145,10 @@ export default function LearningDashboard() {
           course: courseData.data,
           modules: modulesData.data.modules,
           styles,
-          progress: learningProgress.percentage,
+          progress: lessonProgress.percentage,
+          completedLessons: lessonProgress.completedLessons,
+          totalLessons: lessonProgress.totalLessons,
+          allLessonsCompleted: lessonProgress.isComplete,
           allModulesCompleted: learningProgress.finalEligible,
           courseTests,
           certificate,
@@ -280,13 +302,18 @@ export default function LearningDashboard() {
             <LearningResourcesPanel scope="COURSE" scopeId={courseId} title="Recursos generales del curso" />
             <LearningAssessmentPanel scope="COURSE" scopeId={courseId} courseId={courseId} title="Evaluaciones del curso" />
 
+            <FinalExamPanel courseId={courseId} />
+
             {/* Legacy course tests remain available only during migration rollout. */}
+            <div className="hidden mt-8 pt-8 border-t border-zinc-700" aria-hidden="true">
+              {data.courseTests.length > 0 ? (
+            {/* Course Tests or Legacy Final Exam */}
             <div className="hidden mt-8 pt-8 border-t border-zinc-700" aria-hidden="true">
               {data.courseTests.length > 0 ? (
                 <>
                   <h2 className="text-xl font-bold text-ap-ivory mb-6">Tests y Evaluaciones</h2>
                   <div className="space-y-3">
-                    {data.courseTests
+                    {data.courseTests.filter((test) => !test.isFinalExam)
                       .sort((a, b) => {
                         // Final exam always last
                         if (a.isFinalExam && !b.isFinalExam) return 1;
@@ -337,7 +364,7 @@ export default function LearningDashboard() {
               ) : (
                 <>
                   <h2 className="text-xl font-bold text-ap-ivory mb-6">Evaluación</h2>
-                  {data.allModulesCompleted ? (
+                  {data?.allLessonsCompleted ? (
                     <Link href={`/learn/${courseId}/test`}>
                       <div className="p-6 rounded-2xl bg-gradient-to-r from-ap-copper/20 to-ap-olive/20 border-2 border-ap-copper cursor-pointer hover:border-ap-copper/80 hover:from-ap-copper/30 hover:to-ap-olive/30 transition">
                         <div className="flex items-center justify-between">
@@ -384,9 +411,9 @@ export default function LearningDashboard() {
                   <span className="font-semibold text-ap-copper">{data.modules.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-400">Completados</span>
+                  <span className="text-zinc-400">Lecciones completadas</span>
                   <span className="font-semibold text-ap-copper">
-                    {data.modules.filter((m) => m.completed).length}
+                    {data.completedLessons}/{data.totalLessons}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -420,7 +447,7 @@ export default function LearningDashboard() {
                 </div>
               ) : (
                 <div className="w-full py-2 rounded-lg bg-white/5 text-zinc-500 text-sm font-medium text-center border border-zinc-700 cursor-default select-none">
-                  {data.allModulesCompleted ? "⏳ Certificado pendiente de revisión" : "Certificado no disponible aún"}
+                  {data.allLessonsCompleted ? "⏳ Certificado pendiente de revisión" : "Certificado no disponible aún"}
                 </div>
               )}
             </div>

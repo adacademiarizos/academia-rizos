@@ -17,6 +17,18 @@ jest.mock('@/lib/db', () => ({
       count: jest.fn(),
       findMany: jest.fn(),
     },
+    lessonProgress: {
+      count: jest.fn(),
+    },
+    lessonTestSubmission: {
+      count: jest.fn(),
+    },
+    lesson: {
+      count: jest.fn(),
+    },
+    finalExamAttempt: {
+      findFirst: jest.fn(),
+    },
     submission: {
       count: jest.fn(),
       findFirst: jest.fn(),
@@ -56,8 +68,8 @@ describe('AnalyticsService', () => {
   describe('getUserStats', () => {
     it('should calculate correct user statistics', async () => {
       ;(db.courseAccess.count as jest.Mock).mockResolvedValue(3)
-      ;(db.moduleProgress.count as jest.Mock).mockResolvedValue(10)
-      ;(db.submission.count as jest.Mock).mockResolvedValue(2)
+      ;(db.lessonProgress.count as jest.Mock).mockResolvedValue(10)
+      ;(db.lessonTestSubmission.count as jest.Mock).mockResolvedValue(2)
       ;(db.userActivity.findFirst as jest.Mock).mockResolvedValue({
         createdAt: new Date('2026-01-01'),
       })
@@ -66,6 +78,7 @@ describe('AnalyticsService', () => {
 
       expect(stats).toEqual({
         coursesEnrolled: 3,
+        lessonsCompleted: 10,
         modulesCompleted: 10,
         testsPassed: 2,
         lastActivityAt: expect.any(Date),
@@ -74,8 +87,8 @@ describe('AnalyticsService', () => {
 
     it('should handle zero activity', async () => {
       ;(db.courseAccess.count as jest.Mock).mockResolvedValue(0)
-      ;(db.moduleProgress.count as jest.Mock).mockResolvedValue(0)
-      ;(db.submission.count as jest.Mock).mockResolvedValue(0)
+      ;(db.lessonProgress.count as jest.Mock).mockResolvedValue(0)
+      ;(db.lessonTestSubmission.count as jest.Mock).mockResolvedValue(0)
       ;(db.userActivity.findFirst as jest.Mock).mockResolvedValue(null)
 
       const stats = await AnalyticsService.getUserStats(mockUserId)
@@ -99,33 +112,24 @@ describe('AnalyticsService', () => {
         userId: mockUserId,
         courseId: mockCourseId,
       })
-      ;(db.module.findMany as jest.Mock).mockResolvedValue([
-        { id: 'mod-1' },
-        { id: 'mod-2' },
-        { id: 'mod-3' },
-        { id: 'mod-4' },
-        { id: 'mod-5' },
-      ])
-      ;(db.moduleProgress.count as jest.Mock).mockResolvedValue(3)
-      ;(db.submission.findFirst as jest.Mock).mockResolvedValue(null)
+      ;(db.lesson.count as jest.Mock).mockResolvedValue(5)
+      ;(db.lessonProgress.count as jest.Mock).mockResolvedValue(3)
+      ;(db.finalExamAttempt.findFirst as jest.Mock).mockResolvedValue(null)
 
       const progress = await AnalyticsService.getCourseProgress(mockUserId, mockCourseId)
 
       expect(progress?.percentComplete).toBe(60) // 3 of 5 = 60%
-      expect(progress?.modulesCompleted).toBe(3)
-      expect(progress?.totalModules).toBe(5)
-      expect(progress?.testPassed).toBe(false)
+      expect(progress?.lessonsCompleted).toBe(3)
+      expect(progress?.totalLessons).toBe(5)
+      expect(progress?.finalExamPassed).toBe(false)
       expect(progress?.status).toBe('IN_PROGRESS')
     })
 
     it('should mark course as completed with test passed', async () => {
       ;(db.courseAccess.findUnique as jest.Mock).mockResolvedValue({})
-      ;(db.module.findMany as jest.Mock).mockResolvedValue([
-        { id: 'mod-1' },
-        { id: 'mod-2' },
-      ])
-      ;(db.moduleProgress.count as jest.Mock).mockResolvedValue(2)
-      ;(db.submission.findFirst as jest.Mock).mockResolvedValue({
+      ;(db.lesson.count as jest.Mock).mockResolvedValue(2)
+      ;(db.lessonProgress.count as jest.Mock).mockResolvedValue(2)
+      ;(db.finalExamAttempt.findFirst as jest.Mock).mockResolvedValue({
         id: 'sub-1',
         status: 'APPROVED',
       })
@@ -133,7 +137,7 @@ describe('AnalyticsService', () => {
       const progress = await AnalyticsService.getCourseProgress(mockUserId, mockCourseId)
 
       expect(progress?.percentComplete).toBe(100)
-      expect(progress?.testPassed).toBe(true)
+      expect(progress?.finalExamPassed).toBe(true)
       expect(progress?.status).toBe('COMPLETED')
     })
   })
@@ -196,8 +200,8 @@ describe('AnalyticsService', () => {
   describe('getDashboardSnapshot', () => {
     it('should combine all dashboard data', async () => {
       ;(db.courseAccess.count as jest.Mock).mockResolvedValue(2)
-      ;(db.moduleProgress.count as jest.Mock).mockResolvedValue(5)
-      ;(db.submission.count as jest.Mock).mockResolvedValue(1)
+      ;(db.lessonProgress.count as jest.Mock).mockResolvedValue(5)
+      ;(db.lessonTestSubmission.count as jest.Mock).mockResolvedValue(1)
       ;(db.userActivity.findFirst as jest.Mock).mockResolvedValue(null)
       ;(db.courseAccess.findMany as jest.Mock).mockResolvedValue([])
       ;(db.comment.count as jest.Mock).mockResolvedValue(3)
