@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import FileUploadProgress from '@/app/components/FileUploadProgress'
+import { toast } from "sonner";
 
 interface Course {
   id: string
@@ -228,7 +229,7 @@ export default function CourseEditPage() {
       if (courseForm.isActive !== course?.isActive) updates.isActive = courseForm.isActive
 
       if (Object.keys(updates).length === 0) {
-        alert('No changes to save')
+        toast.error('No changes to save')
         return
       }
 
@@ -239,7 +240,7 @@ export default function CourseEditPage() {
       })
 
       if (response.ok) {
-        alert('Curso actualizado exitosamente')
+        toast.success('Curso actualizado exitosamente')
         fetchCourse()
       } else {
         const data = await response.json()
@@ -256,7 +257,7 @@ export default function CourseEditPage() {
   const handleAddModule = async () => {
     try {
       if (!moduleForm.title.trim()) {
-        alert('Título del módulo es requerido')
+        toast.error('Título del módulo es requerido')
         return
       }
 
@@ -278,7 +279,7 @@ export default function CourseEditPage() {
       const responseData = await response.json()
 
       if (response.ok) {
-        alert('Módulo creado exitosamente')
+        toast.success('Módulo creado exitosamente')
         setModuleForm({ title: '', description: '' })
         setNewModuleResources([])
         setShowModuleForm(false)
@@ -309,7 +310,7 @@ export default function CourseEditPage() {
       )
 
       if (response.ok) {
-        alert('Módulo eliminado')
+        toast.success('Módulo eliminado')
         fetchModules()
       } else {
         setError('Error deleting module')
@@ -339,7 +340,7 @@ export default function CourseEditPage() {
   const handleSaveModuleChanges = async () => {
     try {
       if (!editingModuleId || !editModuleForm.title.trim()) {
-        alert('Título del módulo es requerido')
+        toast.error('Título del módulo es requerido')
         return
       }
 
@@ -362,7 +363,7 @@ export default function CourseEditPage() {
       const responseData = await response.json()
 
       if (response.ok) {
-        alert('Módulo actualizado exitosamente')
+        toast.success('Módulo actualizado exitosamente')
         setEditingModuleId(null)
         fetchModules()
       } else {
@@ -431,7 +432,7 @@ export default function CourseEditPage() {
 
   const handleCreateTest = async (moduleId: string) => {
     if (!testForm.title.trim()) {
-      alert('El título del test es requerido')
+      toast.error('El título del test es requerido')
       return
     }
     try {
@@ -446,10 +447,10 @@ export default function CourseEditPage() {
         fetchModuleTests(moduleId)
       } else {
         const d = await res.json()
-        alert(d.error || 'Error al crear el test')
+        toast.error(d.error || 'Error al crear el test')
       }
     } catch {
-      alert('Error al crear el test')
+      toast.error('Error al crear el test')
     }
   }
 
@@ -461,27 +462,27 @@ export default function CourseEditPage() {
         if (expandedTestId === testId) setExpandedTestId(null)
         fetchModuleTests(moduleId)
       } else {
-        alert('Error al eliminar el test')
+        toast.error('Error al eliminar el test')
       }
     } catch {
-      alert('Error al eliminar el test')
+      toast.error('Error al eliminar el test')
     }
   }
 
   const handleAddQuestion = async (moduleId: string, testId: string) => {
     const form = questionForms[testId]
     if (!form || !form.title.trim()) {
-      alert('El texto de la pregunta es requerido')
+      toast.error('El texto de la pregunta es requerido')
       return
     }
     const filledOptions = form.options.filter((o) => o.trim())
     if (filledOptions.length < 2) {
-      alert('Ingresa al menos 2 opciones')
+      toast.error('Ingresa al menos 2 opciones')
       return
     }
     const correctAnswer = form.options[form.correctIndex]
     if (!correctAnswer?.trim()) {
-      alert('Selecciona una respuesta correcta válida')
+      toast.error('Selecciona una respuesta correcta válida')
       return
     }
     try {
@@ -500,10 +501,10 @@ export default function CourseEditPage() {
         fetchModuleTests(moduleId)
       } else {
         const d = await res.json()
-        alert(d.error || 'Error al agregar la pregunta')
+        toast.error(d.error || 'Error al agregar la pregunta')
       }
     } catch {
-      alert('Error al agregar la pregunta')
+      toast.error('Error al agregar la pregunta')
     }
   }
 
@@ -518,10 +519,10 @@ export default function CourseEditPage() {
         fetchTestQuestions(moduleId, testId)
         fetchModuleTests(moduleId)
       } else {
-        alert('Error al eliminar la pregunta')
+        toast.error('Error al eliminar la pregunta')
       }
     } catch {
-      alert('Error al eliminar la pregunta')
+      toast.error('Error al eliminar la pregunta')
     }
   }
 
@@ -564,7 +565,7 @@ export default function CourseEditPage() {
 
   const handleCreateCourseTest = async () => {
     if (!courseTestForm.title.trim()) {
-      alert('El título del test es requerido')
+      toast.error('El título del test es requerido')
       return
     }
     try {
@@ -579,10 +580,10 @@ export default function CourseEditPage() {
         fetchCourseTests()
       } else {
         const d = await res.json()
-        alert(d.error || 'Error al crear el test')
+        toast.error(d.error || 'Error al crear el test')
       }
     } catch {
-      alert('Error al crear el test')
+      toast.error('Error al crear el test')
     }
   }
 
@@ -594,17 +595,17 @@ export default function CourseEditPage() {
         if (expandedCourseTestId === testId) setExpandedCourseTestId(null)
         fetchCourseTests()
       } else {
-        alert('Error al eliminar el test')
+        toast.error('Error al eliminar el test')
       }
     } catch {
-      alert('Error al eliminar el test')
+      toast.error('Error al eliminar el test')
     }
   }
 
   const handleAddCourseTestQuestion = async (testId: string) => {
     const form = courseTestQuestionForms[testId]
     if (!form || !form.title.trim()) {
-      alert('El texto de la pregunta es requerido')
+      toast.error('El texto de la pregunta es requerido')
       return
     }
 
@@ -612,12 +613,12 @@ export default function CourseEditPage() {
     if (form.type === 'MULTIPLE_CHOICE') {
       const filledOptions = form.options.filter((o) => o.trim())
       if (filledOptions.length < 2) {
-        alert('Ingresa al menos 2 opciones')
+        toast.error('Ingresa al menos 2 opciones')
         return
       }
       const correctAnswer = form.options[form.correctIndex]
       if (!correctAnswer?.trim()) {
-        alert('Selecciona una respuesta correcta válida')
+        toast.error('Selecciona una respuesta correcta válida')
         return
       }
       config = { options: filledOptions, correctAnswer }
@@ -637,10 +638,10 @@ export default function CourseEditPage() {
         fetchCourseTests()
       } else {
         const d = await res.json()
-        alert(d.error || 'Error al agregar la pregunta')
+        toast.error(d.error || 'Error al agregar la pregunta')
       }
     } catch {
-      alert('Error al agregar la pregunta')
+      toast.error('Error al agregar la pregunta')
     }
   }
 
@@ -652,10 +653,10 @@ export default function CourseEditPage() {
         fetchCourseTestQuestions(testId)
         fetchCourseTests()
       } else {
-        alert('Error al eliminar la pregunta')
+        toast.error('Error al eliminar la pregunta')
       }
     } catch {
-      alert('Error al eliminar la pregunta')
+      toast.error('Error al eliminar la pregunta')
     }
   }
 
@@ -680,10 +681,10 @@ export default function CourseEditPage() {
       if (res.ok) {
         fetchModuleResources(moduleId)
       } else {
-        alert('Error al eliminar el recurso')
+        toast.error('Error al eliminar el recurso')
       }
     } catch {
-      alert('Error al eliminar el recurso')
+      toast.error('Error al eliminar el recurso')
     }
   }
 
@@ -710,7 +711,7 @@ export default function CourseEditPage() {
 
   const handleCreateStyle = async (moduleId: string) => {
     if (!styleForm.name.trim()) {
-      alert('El nombre del estilo es requerido')
+      toast.error('El nombre del estilo es requerido')
       return
     }
     try {
@@ -728,17 +729,17 @@ export default function CourseEditPage() {
         fetchModuleStyles(moduleId)
       } else {
         const d = await res.json()
-        alert(d.error || 'Error al crear el estilo')
+        toast.error(d.error || 'Error al crear el estilo')
       }
     } catch {
-      alert('Error al crear el estilo')
+      toast.error('Error al crear el estilo')
     }
   }
 
   const handleSaveStyle = async (moduleId: string, styleId: string) => {
     const form = editStyleForms[styleId]
     if (!form?.name?.trim()) {
-      alert('El nombre del estilo es requerido')
+      toast.error('El nombre del estilo es requerido')
       return
     }
     try {
@@ -756,10 +757,10 @@ export default function CourseEditPage() {
         fetchModuleStyles(moduleId)
       } else {
         const d = await res.json()
-        alert(d.error || 'Error al guardar el estilo')
+        toast.error(d.error || 'Error al guardar el estilo')
       }
     } catch {
-      alert('Error al guardar el estilo')
+      toast.error('Error al guardar el estilo')
     }
   }
 
@@ -772,20 +773,20 @@ export default function CourseEditPage() {
         fetchModuleStyles(moduleId)
       } else {
         const d = await res.json()
-        alert(d.error || 'Error al eliminar el estilo')
+        toast.error(d.error || 'Error al eliminar el estilo')
       }
     } catch {
-      alert('Error al eliminar el estilo')
+      toast.error('Error al eliminar el estilo')
     }
   }
 
   const handleCreateLesson = async (moduleId: string, styleId: string) => {
     if (!lessonForm.title.trim()) {
-      alert('El título de la lección es requerido')
+      toast.error('El título de la lección es requerido')
       return
     }
     if (!styleId) {
-      alert('Selecciona un estilo para esta lecciÃ³n')
+      toast.error('Selecciona un estilo para esta lecciÃ³n')
       return
     }
     try {
@@ -805,10 +806,10 @@ export default function CourseEditPage() {
         fetchModuleStyles(moduleId)
       } else {
         const d = await res.json()
-        alert(d.error || 'Error al crear la lección')
+        toast.error(d.error || 'Error al crear la lección')
       }
     } catch {
-      alert('Error al crear la lección')
+      toast.error('Error al crear la lección')
     }
   }
 
@@ -820,17 +821,17 @@ export default function CourseEditPage() {
         if (expandedLessonId === lessonId) setExpandedLessonId(null)
         fetchModuleStyles(moduleId)
       } else {
-        alert('Error al eliminar la lección')
+        toast.error('Error al eliminar la lección')
       }
     } catch {
-      alert('Error al eliminar la lección')
+      toast.error('Error al eliminar la lección')
     }
   }
 
   const handleSaveLesson = async (moduleId: string, styleId: string, lessonId: string) => {
     const form = editLessonForms[lessonId]
     if (!form?.title?.trim()) {
-      alert('El título es requerido')
+      toast.error('El título es requerido')
       return
     }
     try {
@@ -848,10 +849,10 @@ export default function CourseEditPage() {
         setExpandedLessonId(null)
         fetchModuleStyles(moduleId)
       } else {
-        alert('Error al guardar la lección')
+        toast.error('Error al guardar la lección')
       }
     } catch {
-      alert('Error al guardar la lección')
+      toast.error('Error al guardar la lección')
     }
   }
 
@@ -874,10 +875,10 @@ export default function CourseEditPage() {
           }))
         }
       } else {
-        alert('Error al transcribir: ' + (data.error || 'Error desconocido'))
+        toast.error('Error al transcribir: ' + (data.error || 'Error desconocido'))
       }
     } catch {
-      alert('Error al transcribir el video')
+      toast.error('Error al transcribir el video')
     } finally {
       setTranscribing((prev) => ({ ...prev, [id]: false }))
     }
@@ -898,10 +899,10 @@ export default function CourseEditPage() {
           [lessonId]: { ...prev[lessonId], description: data.data.synopsis },
         }))
       } else {
-        alert('Error al generar sinopsis: ' + (data.error || 'Error desconocido'))
+        toast.error('Error al generar sinopsis: ' + (data.error || 'Error desconocido'))
       }
     } catch {
-      alert('Error al generar la sinopsis')
+      toast.error('Error al generar la sinopsis')
     } finally {
       setGeneratingSynopsis((prev) => ({ ...prev, [lessonId]: false }))
     }
@@ -960,7 +961,7 @@ export default function CourseEditPage() {
       }
 
       setDraggedModuleId(null)
-      alert('Módulos reordenados exitosamente')
+      toast.success('Módulos reordenados exitosamente')
     } catch (err) {
       console.error('Error reordering modules:', err)
       setError('Error al reordenar módulos')
@@ -1037,9 +1038,23 @@ export default function CourseEditPage() {
             </label>
             {courseForm.thumbnailUrl ? (
               <div className="space-y-2">
-                <div className="relative w-48 h-32 rounded-xl overflow-hidden border border-white/20">
-                  <img src={courseForm.thumbnailUrl} alt="Miniatura" className="w-full h-full object-cover" />
+                <div
+                  className="relative w-48 h-32 rounded-xl overflow-hidden border border-white/20 cursor-zoom-in"
+                  role="button"
+                  tabIndex={0}
+                  title="Abrir miniatura en grande"
+                  aria-label="Abrir miniatura en grande"
+                  onClick={() => window.open(courseForm.thumbnailUrl, '_blank', 'noopener,noreferrer')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      window.open(courseForm.thumbnailUrl, '_blank', 'noopener,noreferrer')
+                    }
+                  }}
+                >
+                  <img src={courseForm.thumbnailUrl} alt="Miniatura (click para abrir en grande)" className="w-full h-full object-cover" />
                 </div>
+                <p className="text-xs text-white/40">Hacé clic en la miniatura para verla en grande.</p>
                 <button
                   type="button"
                   onClick={() => setCourseForm({ ...courseForm, thumbnailUrl: null })}

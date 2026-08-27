@@ -10,6 +10,7 @@ import { ChatWidget } from "@/app/components/ChatWidget";
 import { CourseAIAssistant } from "@/app/components/CourseAIAssistant";
 import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
 import { useCourseAccess } from "@/app/components/useCourseAccess";
+import { toast } from "sonner";
 
 interface Module {
   id: string;
@@ -178,7 +179,7 @@ export default function ModulePlayer() {
       }, 1000);
     } catch (err) {
       console.error("Error:", err);
-      alert("Error marking module complete");
+      toast.error("Error marking module complete");
     } finally {
       setCompleting(false);
     }

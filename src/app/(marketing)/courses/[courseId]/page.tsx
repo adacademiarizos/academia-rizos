@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Course } from "@/types/academy";
 import { LikeButton } from "@/app/components/LikeButton";
 import { CommentsSection } from "@/app/components/CommentsSection";
+import { toast } from "sonner";
 
 interface CourseDetail extends Course {
   moduleCount: number;
@@ -113,12 +114,12 @@ export default function CourseLandingPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(`Error: ${data.error || "Checkout failed"}`);
+        toast.error(`Error: ${data.error || "Checkout failed"}`);
         return;
       }
       window.location.href = data.data.checkoutUrl;
     } catch (error) {
-      alert(
+      toast.error(
         "Error al iniciar el pago: " +
           (error instanceof Error ? error.message : "Error desconocido")
       );

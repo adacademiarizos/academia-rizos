@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
 import { useCourseAccess } from "@/app/components/useCourseAccess";
+import { toast } from "sonner";
 
 interface Question {
   id: string;
@@ -107,13 +108,13 @@ export default function CourseTestPage() {
       });
       if (!res.ok) {
         const d = await res.json();
-        alert(d.error || "Error al subir el archivo");
+        toast.error(d.error || "Error al subir el archivo");
         return;
       }
       const data = await res.json();
       setAnswers((prev) => ({ ...prev, [questionId]: data.data.fileUrl }));
     } catch {
-      alert("Error al subir el archivo");
+      toast.error("Error al subir el archivo");
     } finally {
       setUploadingFor(null);
     }
@@ -123,7 +124,7 @@ export default function CourseTestPage() {
     // Validate all questions answered
     const unanswered = questions.filter((q) => !answers[q.id]?.trim());
     if (unanswered.length > 0) {
-      alert(`Por favor responde todas las preguntas (${unanswered.length} sin responder)`);
+      toast.error(`Por favor responde todas las preguntas (${unanswered.length} sin responder)`);
       return;
     }
 
@@ -144,10 +145,10 @@ export default function CourseTestPage() {
           setStatus(s.data);
         }
       } else {
-        alert(data.error || "Error al enviar el test");
+        toast.error(data.error || "Error al enviar el test");
       }
     } catch {
-      alert("Error al enviar el test");
+      toast.error("Error al enviar el test");
     } finally {
       setSubmitting(false);
     }

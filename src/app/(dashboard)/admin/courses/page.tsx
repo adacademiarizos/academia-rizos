@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { CoursesTabs } from './components/CoursesTabs'
+import { toast } from "sonner";
 
 interface Course {
   id: string
@@ -44,6 +45,7 @@ export default function AdminCoursesPage() {
   })
   const [priceInput, setPriceInput] = useState('')
   const [thumbnailUploading, setThumbnailUploading] = useState(false)
+  const [thumbnailUploadProgress, setThumbnailUploadProgress] = useState(0)
   const [thumbnailError, setThumbnailError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -75,9 +77,10 @@ export default function AdminCoursesPage() {
         return
       }
 
-      if (response.ok) {
-        const data = await response.json()
-        setCourses(data.data || [])
+      const result = await response.json().catch(() => null)
+
+      if (response.ok && result?.success) {
+        setCourses(result.data || [])
       } else {
         setError('Error loading courses')
       }
@@ -100,21 +103,43 @@ export default function AdminCoursesPage() {
 
     setThumbnailError(null)
     setThumbnailUploading(true)
+    setThumbnailUploadProgress(0)
 
     try {
       const form = new FormData()
       form.append('image', file)
-      const res = await fetch('/api/admin/uploads/image', { method: 'POST', body: form })
-
-      if (res.status === 413) throw new Error('La imagen es demasiado grande. Usá una imagen menor a 4MB.')
-
-      const contentType = res.headers.get('content-type') ?? ''
-      if (!contentType.includes('application/json')) {
-        throw new Error('Error del servidor al subir la imagen. Intentá con una imagen más pequeña.')
-      }
-
-      const data = await res.json()
-      if (!res.ok || !data.ok) throw new Error(data.error?.message ?? 'Error al subir imagen')
+      const data = await new Promise<any>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('POST', '/api/admin/uploads/image')
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            setThumbnailUploadProgress(Math.round((event.loaded / event.total) * 100))
+          }
+        }
+        xhr.onload = () => {
+          if (xhr.status === 413) {
+            reject(new Error('La imagen es demasiado grande. Usá una imagen menor a 4MB.'))
+            return
+          }
+          if (!xhr.getResponseHeader('content-type')?.includes('application/json')) {
+            reject(new Error('Error del servidor al subir la imagen. Intentá con una imagen más pequeña.'))
+            return
+          }
+          try {
+            const response = JSON.parse(xhr.responseText)
+            if (xhr.status < 200 || xhr.status >= 300 || !response.ok) {
+              reject(new Error(response.error?.message ?? 'Error al subir imagen'))
+              return
+            }
+            resolve(response)
+          } catch {
+            reject(new Error('Error del servidor al subir la imagen.'))
+          }
+        }
+        xhr.onerror = () => reject(new Error('No se pudo conectar con el servidor.'))
+        xhr.send(form)
+      })
+      setThumbnailUploadProgress(100)
       setNewCourse((prev) => ({ ...prev, thumbnailUrl: data.data.url }))
     } catch (err: any) {
       setThumbnailError(err.message)
@@ -126,18 +151,18 @@ export default function AdminCoursesPage() {
   const handleCreateCourse = async () => {
     try {
       if (!newCourse.title.trim()) {
-        alert('El título del curso es requerido')
+        toast.error('El título del curso es requerido')
         return
       }
 
       if (!newCourse.thumbnailUrl) {
-        alert('La miniatura del curso es requerida')
+        toast.error('La miniatura del curso es requerida')
         return
       }
 
       const baseVal = parseFloat(priceInput)
       if (!priceInput || isNaN(baseVal) || baseVal <= 0) {
-        alert('Ingresá un precio válido mayor a 0')
+        toast.error('Ingresá un precio válido mayor a 0')
         return
       }
 
@@ -152,8 +177,9 @@ export default function AdminCoursesPage() {
           rentalDays: newCourse.rentalDays || undefined,
         }),
       })
+      const result = await response.json().catch(() => null)
 
-      if (response.ok) {
+      if (response.ok && result?.success) {
         setShowModal(false)
         setNewCourse({
           title: '',
@@ -164,13 +190,16 @@ export default function AdminCoursesPage() {
         })
         setPriceInput('')
         fetchCourses()
-        alert('Curso creado exitosamente')
+        toast.success('Curso creado exitosamente')
       } else {
-        alert('Error creating course')
+        const details = Array.isArray(result?.details)
+          ? result.details.map((issue: { message?: string }) => issue.message).filter(Boolean).join(', ')
+          : null
+        toast.error(details || result?.error || 'No se pudo crear el curso')
       }
     } catch (error) {
       console.error('Error:', error)
-      alert('Error creating course')
+      toast.error(error instanceof Error ? error.message : 'No se pudo crear el curso')
     }
   }
 
@@ -180,12 +209,12 @@ export default function AdminCoursesPage() {
       const res = await fetch(`/api/admin/courses/${courseId}/notify`, { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
-        alert(data.data.message);
+        toast.success(data.data.message);
       } else {
-        alert('Error al enviar notificaciones');
+        toast.error('Error al enviar notificaciones');
       }
     } catch {
-      alert('Error al enviar notificaciones');
+      toast.error('Error al enviar notificaciones');
     }
   };
 
@@ -201,13 +230,13 @@ export default function AdminCoursesPage() {
 
       if (response.ok) {
         fetchCourses()
-        alert('Curso eliminado exitosamente')
+        toast.success('Curso eliminado exitosamente')
       } else {
-        alert('Error deleting course')
+        toast.error('Error deleting course')
       }
     } catch (error) {
       console.error('Error:', error)
-      alert('Error deleting course')
+      toast.error('Error deleting course')
     }
   }
 
@@ -371,11 +400,27 @@ export default function AdminCoursesPage() {
                   Miniatura <span className="text-red-400">*</span>
                 </label>
                 {newCourse.thumbnailUrl ? (
-                  <div className="relative w-full h-36 rounded-2xl overflow-hidden">
-                    <img src={newCourse.thumbnailUrl} alt="Miniatura" className="w-full h-full object-cover" />
+                  <div
+                    className="relative w-full h-36 rounded-2xl overflow-hidden cursor-zoom-in"
+                    role="button"
+                    tabIndex={0}
+                    title="Abrir miniatura en grande"
+                    aria-label="Abrir miniatura en grande"
+                    onClick={() => window.open(newCourse.thumbnailUrl, '_blank', 'noopener,noreferrer')}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        window.open(newCourse.thumbnailUrl, '_blank', 'noopener,noreferrer')
+                      }
+                    }}
+                  >
+                    <img src={newCourse.thumbnailUrl} alt="Miniatura (click para abrir en grande)" className="w-full h-full object-cover" />
                     <button
                       type="button"
-                      onClick={() => setNewCourse((prev) => ({ ...prev, thumbnailUrl: '' }))}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setNewCourse((prev) => ({ ...prev, thumbnailUrl: '' }))
+                      }}
                       className="absolute top-2 right-2 bg-black/60 text-white text-xs px-3 py-1.5 rounded-xl hover:bg-black/80 transition"
                     >
                       Cambiar
@@ -390,10 +435,23 @@ export default function AdminCoursesPage() {
                       onChange={handleThumbnailUpload}
                       disabled={thumbnailUploading}
                     />
-                    <span className="text-sm text-white/40">
-                      {thumbnailUploading ? 'Subiendo…' : 'Seleccionar imagen'}
-                    </span>
-                    <span className="text-xs text-white/25 mt-1">JPG, PNG, WebP · máx 5 MB</span>
+                    {thumbnailUploading ? (
+                      <>
+                        <div className="flex items-center gap-2 text-sm text-white/60">
+                          <span>Subiendo…</span>
+                          <span className="tabular-nums text-[#c8cf94]">{thumbnailUploadProgress}%</span>
+                        </div>
+                        <div className="mt-2 h-1.5 w-4/5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={thumbnailUploadProgress} aria-label="Progreso de carga de miniatura">
+                          <div className="h-full rounded-full bg-[#c8cf94] transition-[width] duration-150" style={{ width: `${thumbnailUploadProgress}%` }} />
+                        </div>
+                        <span className="mt-1 text-xs text-white/35">No cierres esta ventana</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-sm text-white/40">Seleccionar imagen</span>
+                        <span className="mt-1 text-xs text-white/25">JPG, PNG, WebP · máx 5 MB</span>
+                      </>
+                    )}
                   </label>
                 )}
                 {thumbnailError && <p className="text-xs text-red-400 mt-1.5">{thumbnailError}</p>}

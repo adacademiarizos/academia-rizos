@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Users, Search, Shield, UserCheck, GraduationCap, ChevronLeft, ChevronRight } from "lucide-react";
 import { UserCommunityTabs } from "./components/UserCommunityTabs";
+import { toast } from "sonner";
 
 type User = {
   id: string;
@@ -117,10 +118,10 @@ export default function AdminUsersPage() {
       if (data.ok) {
         fetchUsers({ search, role: roleFilter, page: 1, pageSize });
       } else {
-        alert(data.error ?? "Error al actualizar rol");
+        toast.error(data.error ?? "Error al actualizar rol");
       }
     } catch {
-      alert("Error al actualizar rol");
+      toast.error("Error al actualizar rol");
     } finally {
       setUpdating(null);
     }

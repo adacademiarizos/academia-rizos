@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import ServiceImages from "./components/ServiceImages";
 import ServiceVariants from "./components/ServiceVariants";
 
@@ -160,7 +161,7 @@ export default function LandingServicesPage() {
       setCreating(false);
       await fetchServices();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setSaving(false);
     }
@@ -202,7 +203,7 @@ export default function LandingServicesPage() {
       setEditingId(null);
       await fetchServices();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setSaving(false);
     }
@@ -216,7 +217,7 @@ export default function LandingServicesPage() {
       if (!res.ok) throw new Error("Error al eliminar");
       await fetchServices();
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setDeleting(null);
     }

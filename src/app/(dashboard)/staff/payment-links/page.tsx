@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link2, Copy, Check, ExternalLink, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 type PaymentLink = {
   id: string;
@@ -97,10 +98,10 @@ export default function StaffPaymentLinksPage() {
         setForm({ title: "", description: "", customerEmail: "", baseAmount: "" });
         setShowForm(false);
       } else {
-        alert("Error al crear el link");
+        toast.error("Error al crear el link");
       }
     } catch {
-      alert("Error al crear el link");
+      toast.error("Error al crear el link");
     } finally {
       setSubmitting(false);
     }

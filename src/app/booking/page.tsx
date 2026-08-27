@@ -8,6 +8,7 @@ import CalendarPicker from "./CalendarPicker";
 import TimeSlotPicker from "./TimeSlotPicker";
 import VariantSelector from "./VariantSelector";
 import WhatsAppButton from "./WhatsAppButton";
+import { toast } from "sonner";
 
 /* ───── Types ───── */
 
@@ -256,7 +257,7 @@ function BookingContent() {
       };
 
       if (billingRule === "AUTHORIZE") {
-        alert("Solicitud enviada. Te enviaremos el link de pago cuando sea autorizada.");
+        toast.success("Solicitud enviada. Te enviaremos el link de pago cuando sea autorizada.");
         setSelectedServiceId("");
         setCustomer({ name: "", email: "", phone: "" });
         return;

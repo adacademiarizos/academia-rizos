@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { toast } from "sonner";
 
 type Answer = {
   questionId: string;
@@ -55,12 +56,12 @@ export function CourseTestReviewCard({ item }: { item: CourseTestPending }) {
       );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert("Error: " + (data.error ?? "Error desconocido"));
+        toast.error("Error: " + (data.error ?? "Error desconocido"));
         return;
       }
       router.refresh();
     } catch {
-      alert("Error de red. Intenta de nuevo.");
+      toast.error("Error de red. Intenta de nuevo.");
     } finally {
       setLoading(null);
     }
@@ -171,12 +172,12 @@ export function ExamReviewCard({ item }: { item: ExamPending }) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert("Error: " + (data.error ?? "Error desconocido"));
+        toast.error("Error: " + (data.error ?? "Error desconocido"));
         return;
       }
       router.refresh();
     } catch {
-      alert("Error de red. Intenta de nuevo.");
+      toast.error("Error de red. Intenta de nuevo.");
     } finally {
       setLoading(null);
     }
