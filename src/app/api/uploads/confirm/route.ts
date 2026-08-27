@@ -44,24 +44,6 @@ export async function POST(req: NextRequest) {
       }
       // If lessonId/moduleId is 'temp', the caller stores the URL locally until the entity is saved
 
-      // Trigger transcription in background (non-blocking)
-      if (process.env.INTERNAL_TRANSCRIBE_SECRET) {
-        const target =
-          lessonId && lessonId !== 'temp' ? { lessonId }
-          : moduleId && moduleId !== 'temp' ? { moduleId }
-          : null
-        if (target) {
-          const baseUrl = req.nextUrl.origin
-          fetch(`${baseUrl}/api/ai/transcribe`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-internal-secret': process.env.INTERNAL_TRANSCRIBE_SECRET,
-            },
-            body: JSON.stringify(target),
-          }).catch((err: unknown) => console.error('Transcription trigger failed:', err))
-        }
-      }
     } else if (uploadType === 'resource') {
       if (moduleId && moduleId !== 'temp') {
         await db.moduleResource.create({

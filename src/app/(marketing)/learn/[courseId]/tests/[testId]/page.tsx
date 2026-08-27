@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
 import { useCourseAccess } from "@/app/components/useCourseAccess";
-import { toast } from "sonner";
+import { UploadFeedbackField } from "@/app/components/UploadFeedbackField";
 
 interface Question {
   id: string;
@@ -46,12 +46,10 @@ export default function CourseTestPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [status, setStatus] = useState<TestStatus | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
     if (!access.loading && access.hasAccess) {
@@ -96,35 +94,11 @@ export default function CourseTestPage() {
     }
   };
 
-  const handleFileUpload = async (questionId: string, file: File) => {
-    setUploadingFor(questionId);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("courseId", courseId);
-      const res = await fetch("/api/student/uploads", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        const d = await res.json();
-        toast.error(d.error || "Error al subir el archivo");
-        return;
-      }
-      const data = await res.json();
-      setAnswers((prev) => ({ ...prev, [questionId]: data.data.fileUrl }));
-    } catch {
-      toast.error("Error al subir el archivo");
-    } finally {
-      setUploadingFor(null);
-    }
-  };
-
   const handleSubmit = async () => {
     // Validate all questions answered
     const unanswered = questions.filter((q) => !answers[q.id]?.trim());
     if (unanswered.length > 0) {
-      toast.error(`Por favor responde todas las preguntas (${unanswered.length} sin responder)`);
+      alert(`Por favor responde todas las preguntas (${unanswered.length} sin responder)`);
       return;
     }
 
@@ -145,10 +119,10 @@ export default function CourseTestPage() {
           setStatus(s.data);
         }
       } else {
-        toast.error(data.error || "Error al enviar el test");
+        alert(data.error || "Error al enviar el test");
       }
     } catch {
-      toast.error("Error al enviar el test");
+      alert("Error al enviar el test");
     } finally {
       setSubmitting(false);
     }
@@ -391,26 +365,21 @@ export default function CourseTestPage() {
                       </button>
                     </div>
                   ) : (
-                    <div>
-                      <input
-                        type="file"
-                        ref={(el) => { fileInputRefs.current[q.id] = el; }}
-                        className="hidden"
-                        accept="image/*,video/*,application/pdf"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileUpload(q.id, file);
-                        }}
-                      />
-                      <button
-                        onClick={() => fileInputRefs.current[q.id]?.click()}
-                        disabled={uploadingFor === q.id}
-                        className="w-full py-3 border-2 border-dashed border-zinc-600 rounded-xl text-zinc-400 hover:border-ap-copper hover:text-ap-copper transition text-sm font-medium disabled:opacity-50"
-                      >
-                        {uploadingFor === q.id ? "Subiendo..." : "📎 Seleccionar foto, video o PDF"}
-                      </button>
-                      <p className="text-xs text-zinc-500 mt-1">Imágenes, videos y PDFs. Máximo 100 MB.</p>
-                    </div>
+                    <UploadFeedbackField
+                      label="Adjuntar respuesta"
+                      helperText="Imágenes, videos y PDFs · máximo 100 MB"
+                      accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm,video/quicktime,video/mov,application/pdf"
+                      allowedTypes={['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm', 'video/quicktime', 'video/mov', 'application/pdf']}
+                      maxBytes={100 * 1024 * 1024}
+                      endpoint="/api/student/uploads"
+                      createFormData={(file) => { const form = new FormData(); form.set('file', file); form.set('courseId', courseId); return form }}
+                      getResult={(payload) => {
+                        const result = payload as { success?: boolean; data?: { fileUrl?: string }; error?: string }
+                        if (!result.success || !result.data?.fileUrl) throw new Error(result.error || 'No se pudo subir el archivo')
+                        return result.data.fileUrl
+                      }}
+                      onUploaded={(fileUrl) => setAnswers((previous) => ({ ...previous, [q.id]: fileUrl }))}
+                    />
                   )}
                 </div>
               )}

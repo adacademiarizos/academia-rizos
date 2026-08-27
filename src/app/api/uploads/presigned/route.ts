@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin-auth'
-import { generateUploadPresignedUrl } from '@/lib/storage'
+import { generateUploadPresignedUrl, StorageConfigurationError } from '@/lib/storage'
 import { nanoid } from 'nanoid'
 
 const GB = 1024 * 1024 * 1024
@@ -93,6 +93,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, data: { presignedUrl, fileUrl, key } })
   } catch (error) {
     console.error('[presigned upload] error:', error)
+    if (error instanceof StorageConfigurationError) {
+      return NextResponse.json(
+        { ok: false, error: 'Cloudflare R2 no está configurado para subir videos o recursos.' },
+        { status: 503 }
+      )
+    }
     return NextResponse.json(
       { ok: false, error: 'Failed to generate upload URL' },
       { status: 500 }

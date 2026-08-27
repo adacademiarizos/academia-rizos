@@ -26,7 +26,7 @@
      3. "Técnicas Avanzadas de Styling para Rizos" ($39.99, Lifetime)
 
    • Modules: 13 total
-     - Each module has: title, description, video URL, transcript
+     - Each module has: title, description, and an uploaded video when applicable
 
    • Tests: 3 total
      - Multi-choice questions: ✅
@@ -81,7 +81,7 @@
 
 Database Content:
   COURSES:        3 ✅
-  MODULES:       13 ✅ (all with videos & transcripts)
+  MODULES:       13 ✅ (seed content from the original verification run)
   TESTS:          3 ✅ (all with questions)
   RESOURCES:      5 ✅ (PDFs + Images)
   QUESTIONS:      9 ✅ (Multiple choice + Text + File upload)

@@ -4,9 +4,6 @@
 
 import { db } from '@/lib/db'
 import { addStripeFees } from '@/lib/fees'
-import { buildActiveCourseAccessWhere, isCourseAccessActive } from '@/lib/course-access'
-import { cancelScheduledNotificationDeliveries } from '@/server/services/notification-dispatcher'
-import { NotificationEventService } from '@/server/services/notification-event-service'
 import type { Prisma } from '@prisma/client'
 
 type CourseAccessClient = Pick<Prisma.TransactionClient, 'course' | 'courseAccess'>
@@ -23,6 +20,7 @@ export class CourseService {
           _count: {
             select: {
               modules: true,
+              styles: true,
               resources: true,
               access: true,
             },
@@ -59,8 +57,9 @@ export class CourseService {
         isActive: course.isActive,
         createdAt: course.createdAt,
         updatedAt: course.updatedAt,
-        moduleCount: course._count.modules,
-        totalHours: (course._count.modules * 1.5),
+        contentStructure: course.contentStructure,
+        moduleCount: course._count.modules + course._count.styles,
+        totalHours: ((course._count.modules + course._count.styles) * 1.5),
         hasTest: !!course.test,
       }
     })
@@ -75,6 +74,7 @@ export class CourseService {
         where: { id: courseId },
         include: {
           modules: {
+            where: { styleId: null },
             select: {
               id: true,
               order: true,
@@ -83,9 +83,19 @@ export class CourseService {
             },
             orderBy: { order: 'asc' },
           },
+          styles: {
+            select: {
+              id: true,
+              order: true,
+              name: true,
+              description: true,
+            },
+            orderBy: { order: 'asc' },
+          },
           _count: {
             select: {
               modules: true,
+              styles: true,
               resources: true,
               access: true,
             },
@@ -110,7 +120,7 @@ export class CourseService {
       feeFixedCents,
     })
 
-    const totalModules = course._count.modules
+    const totalModules = course._count.modules + course._count.styles
     const totalHours = totalModules * 1.5
 
     return {
@@ -125,6 +135,7 @@ export class CourseService {
       currency: course.currency,
       rentalDays: course.rentalDays,
       isActive: course.isActive,
+      contentStructure: course.contentStructure,
       createdAt: course.createdAt,
       updatedAt: course.updatedAt,
       moduleCount: totalModules,
@@ -144,16 +155,15 @@ export class CourseService {
       select: {
         id: true,
         accessUntil: true,
-        revokedAt: true,
       },
     })
 
-    if (!access || access.revokedAt) {
+    if (!access) {
       return { hasAccess: false, isExpired: false, canWatchVideos: false }
     }
 
     // Check if video rental period has expired
-    const isExpired = !isCourseAccessActive(access)
+    const isExpired = !!(access.accessUntil && access.accessUntil < new Date())
 
     return {
       hasAccess: true,          // purchased — always true once enrolled
@@ -168,13 +178,13 @@ export class CourseService {
    */
   static async getCourseModules(courseId: string, userId?: string) {
     const modules = await db.module.findMany({
-      where: { courseId },
+      where: { courseId, styleId: null },
       select: {
         id: true,
         order: true,
         title: true,
         description: true,
-        videoUrl: true,
+        videoFileUrl: true,
       },
       orderBy: { order: 'asc' },
     })
@@ -183,31 +193,66 @@ export class CourseService {
       return modules
     }
 
-    // Lesson progress is canonical. A module is complete only when all of its
-    // lessons are complete; module-level progress remains historical data.
-    const lessons = await db.lesson.findMany({
-      where: { moduleId: { in: modules.map((module) => module.id) } },
-      select: { id: true, moduleId: true },
+    // Get progress for user
+    const progress = await db.moduleProgress.findMany({
+      where: { userId },
+      select: { moduleId: true, completed: true },
     })
-    const completedLessons = await db.lessonProgress.findMany({
-      where: { userId, lessonId: { in: lessons.map((lesson) => lesson.id) } },
-      select: { lessonId: true },
-    })
-    const completedLessonIds = new Set(completedLessons.map((progress) => progress.lessonId))
-    const lessonsByModule = new Map<string, string[]>()
-    for (const lesson of lessons) {
-      lessonsByModule.set(lesson.moduleId, [...(lessonsByModule.get(lesson.moduleId) ?? []), lesson.id])
+
+    const progressMap = new Map(progress.map((p) => [p.moduleId, p.completed]))
+
+    return modules.map((module) => ({
+      ...module,
+      completed: progressMap.get(module.id) || false,
+    }))
+  }
+
+  /**
+   * Get the course-level style sections and their completion state. Styles are
+   * independent from modules and complete when all their direct lessons do.
+   */
+  static async getCourseStyles(courseId: string, userId?: string) {
+    const course = await db.course.findUnique({ where: { id: courseId }, select: { contentStructure: true } })
+    if (!course || (course.contentStructure !== 'STYLES' && course.contentStructure !== 'BOTH')) {
+      return []
     }
 
-    return modules.map((module) => {
-      const moduleLessons = lessonsByModule.get(module.id) ?? []
-      return {
-        ...module,
-        lessonCount: moduleLessons.length,
-        completedLessonCount: moduleLessons.filter((lessonId) => completedLessonIds.has(lessonId)).length,
-        completed: moduleLessons.length > 0 && moduleLessons.every((lessonId) => completedLessonIds.has(lessonId)),
-      }
+    const styles = await db.moduleStyle.findMany({
+      where: { courseId },
+      select: {
+        id: true,
+        order: true,
+        name: true,
+        description: true,
+        _count: { select: { lessons: { where: { moduleId: null } } } },
+        lessons: { where: { moduleId: null }, select: { id: true } },
+      },
+      orderBy: { order: 'asc' },
     })
+
+    if (!userId) {
+      return styles.map((style) => ({
+        id: style.id,
+        order: style.order,
+        name: style.name,
+        description: style.description,
+        lessonCount: style._count.lessons,
+      }))
+    }
+
+    const progress = await db.lessonProgress.findMany({
+      where: { userId, lesson: { courseId, moduleId: null } },
+      select: { lessonId: true, completed: true },
+    })
+    const completedLessonIds = new Set(
+      progress.filter((item) => item.completed).map((item) => item.lessonId)
+    )
+
+    return styles.map(({ lessons, _count, ...style }) => ({
+      ...style,
+      lessonCount: _count.lessons,
+      completed: lessons.length > 0 && lessons.every((lesson) => completedLessonIds.has(lesson.id)),
+    }))
   }
 
   /**
@@ -257,14 +302,17 @@ export class CourseService {
     }
 
     // Get module count
-    const moduleCount = await db.module.count({
-      where: { courseId },
-    })
+    const [modules, styles] = await Promise.all([
+      this.getCourseModules(courseId, userId),
+      this.getCourseStyles(courseId, userId),
+    ])
+    const moduleCount = modules.length + styles.length
 
     // Get completed modules
-    const completedCount = await db.moduleProgress.count({
-      where: { userId, module: { courseId } },
-    })
+    const completedCount = [
+      ...modules.filter((module) => 'completed' in module && module.completed),
+      ...styles.filter((style) => 'completed' in style && style.completed),
+    ].length
 
     // Get submission status
     const test = await db.test.findUnique({
@@ -321,7 +369,7 @@ export class CourseService {
     // Check course exists
     const course = await client.course.findUnique({
       where: { id: courseId },
-      select: { rentalDays: true, title: true },
+      select: { rentalDays: true },
     })
 
     if (!course) {
@@ -333,7 +381,7 @@ export class CourseService {
       where: { userId_courseId: { userId, courseId } },
     })
 
-    if (existing && !existing.revokedAt && !existing.accessUntil) {
+    if (existing && !existing.accessUntil) {
       // Already has lifetime access
       return existing
     }
@@ -344,25 +392,10 @@ export class CourseService {
         ? new Date(Date.now() + course.rentalDays * 24 * 60 * 60 * 1000)
         : null
 
-      await cancelScheduledNotificationDeliveries({
-        resource: { type: 'COURSE_ACCESS', id: existing.id },
-      })
-
-      const access = await client.courseAccess.update({
+      return client.courseAccess.update({
         where: { id: existing.id },
-        data: {
-          accessUntil: newAccessUntil,
-          revokedAt: null,
-        },
+        data: { accessUntil: newAccessUntil },
       })
-      await NotificationEventService.courseAccessGranted({
-        accessId: access.id,
-        userId,
-        courseId,
-        courseTitle: course.title,
-        accessUntil: access.accessUntil,
-      })
-      return access
     }
 
     // Create new access
@@ -370,56 +403,12 @@ export class CourseService {
       ? new Date(Date.now() + course.rentalDays * 24 * 60 * 60 * 1000)
       : null
 
-    const access = await client.courseAccess.create({
+    return client.courseAccess.create({
       data: {
         userId,
         courseId,
         accessUntil,
-        revokedAt: null,
       },
     })
-    await NotificationEventService.courseAccessGranted({
-      accessId: access.id,
-      userId,
-      courseId,
-      courseTitle: course.title,
-      accessUntil: access.accessUntil,
-    })
-    return access
-  }
-
-  /**
-   * Revoke a student's course access without deleting historical enrollment.
-   */
-  static async revokeCourseAccess(userId: string, courseId: string) {
-    const activeAccess = await db.courseAccess.findFirst({
-      where: {
-        userId,
-        courseId,
-        ...buildActiveCourseAccessWhere(),
-      },
-      include: {
-        course: { select: { title: true } },
-      },
-    })
-
-    if (!activeAccess) {
-      return null
-    }
-
-    const access = await db.courseAccess.update({
-      where: { id: activeAccess.id },
-      data: { revokedAt: new Date() },
-    })
-    await cancelScheduledNotificationDeliveries({
-      resource: { type: 'COURSE_ACCESS', id: activeAccess.id },
-    })
-    await NotificationEventService.courseAccessRevoked({
-      accessId: activeAccess.id,
-      userId,
-      courseId,
-      courseTitle: activeAccess.course.title,
-    })
-    return access
   }
 }

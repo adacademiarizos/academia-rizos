@@ -20,8 +20,7 @@ export const createModuleSchema = z.object({
   order: z.number().int().positive(),
   title: z.string().min(3, 'Title must be at least 3 characters').max(255),
   description: z.string().optional(),
-  videoUrl: z.string().url('Invalid video URL'),
-  transcript: z.string().optional(),
+  videoFileUrl: z.string().url().optional().or(z.literal('')),
 })
 
 export const updateModuleSchema = createModuleSchema.partial().omit({ courseId: true })
@@ -41,22 +40,20 @@ export const updateModuleStyleSchema = createModuleStyleSchema.partial().omit({ 
 // Lesson Validators
 
 const lessonFieldsSchema = z.object({
+  courseId: z.string().cuid(),
   styleId: z.string().cuid().optional(),
   moduleId: z.string().cuid().optional(),
   title: z.string().min(1, 'Title is required').max(255),
   description: z.string().optional().nullable(),
-  videoUrl: z.string().url().optional().or(z.literal('')),
   videoFileUrl: z.string().url().optional().or(z.literal('')),
-  transcript: z.string().optional().nullable(),
   order: z.number().int().min(0).optional(),
 })
 
-export const createLessonSchema = lessonFieldsSchema.refine((data) => Boolean(data.styleId) !== Boolean(data.moduleId), {
-  message: 'A lesson must belong to either a module or a style',
-  path: ['styleId'],
+export const createLessonSchema = lessonFieldsSchema.refine((lesson) => Boolean(lesson.styleId) !== Boolean(lesson.moduleId), {
+  message: 'A lesson must belong to exactly one module or style',
 })
 
-export const updateLessonSchema = lessonFieldsSchema.partial().omit({ styleId: true, moduleId: true })
+export const updateLessonSchema = lessonFieldsSchema.partial().omit({ courseId: true, styleId: true, moduleId: true })
 
 // Resource Validators
 
@@ -122,9 +119,6 @@ export const createCommentSchema = z.object({
   targetType: z.enum(['COURSE', 'MODULE']),
   courseId: z.string().cuid().optional(),
   moduleId: z.string().cuid().optional(),
-  // This is only an interaction hint. The server resolves it against the
-  // exact course/module before persisting a comment or notifying anyone.
-  replyToCommentId: z.string().min(1).max(128).optional(),
 }).refine(
   (data) => data.courseId || data.moduleId,
   {

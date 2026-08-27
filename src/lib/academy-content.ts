@@ -21,12 +21,21 @@ export async function getNextStyleOrder(courseId: string) {
   return (lastStyle?.order ?? -1) + 1
 }
 
-export async function getNextLessonOrder(styleId: string) {
+export async function getNextLessonOrder(moduleId: string) {
   const lastLesson = await db.lesson.findFirst({
-    where: { styleId },
+    where: { moduleId, styleId: null },
     orderBy: { order: 'desc' },
     select: { order: true },
   })
 
+  return (lastLesson?.order ?? -1) + 1
+}
+
+export async function getNextStyleLessonOrder(styleId: string) {
+  const lastLesson = await db.lesson.findFirst({
+    where: { styleId, moduleId: null },
+    orderBy: { order: 'desc' },
+    select: { order: true },
+  })
   return (lastLesson?.order ?? -1) + 1
 }

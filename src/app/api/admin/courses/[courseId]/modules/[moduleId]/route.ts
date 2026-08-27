@@ -4,8 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options'
+import { checkAdminAuth } from '@/lib/admin-auth'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 
@@ -13,23 +12,8 @@ const UpdateModuleSchema = z.object({
   order: z.number().int().positive().optional(),
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  videoUrl: z.string().url().optional().or(z.literal('')),
-  transcript: z.string().optional(),
+  videoFileUrl: z.string().url().optional().or(z.literal('')),
 })
-
-async function verifyAdmin() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.email) {
-    return false
-  }
-
-  const user = await db.user.findUnique({
-    where: { email: session.user.email },
-    select: { role: true },
-  })
-
-  return user?.role === 'ADMIN'
-}
 
 export async function PUT(
   request: NextRequest,
@@ -39,12 +23,8 @@ export async function PUT(
     const { courseId, moduleId } = await params
 
     // Check admin
-    if (!(await verifyAdmin())) {
-      return NextResponse.json(
-        { success: false, error: 'Admin access required' },
-        { status: 403 }
-      )
-    }
+    const auth = await checkAdminAuth()
+    if (!auth.authorized) return auth.response
 
     // Verify module exists and belongs to course
     const mod = await db.module.findUnique({
@@ -68,8 +48,7 @@ export async function PUT(
         ...(data.order !== undefined && { order: data.order }),
         ...(data.title && { title: data.title }),
         ...(data.description !== undefined && { description: data.description || null }),
-        ...(data.videoUrl !== undefined && { videoUrl: data.videoUrl || null }),
-        ...(data.transcript !== undefined && { transcript: data.transcript || null }),
+        ...(data.videoFileUrl !== undefined && { videoFileUrl: data.videoFileUrl || null }),
       },
     })
 
@@ -108,12 +87,8 @@ export async function DELETE(
     const { courseId, moduleId } = await params
 
     // Check admin
-    if (!(await verifyAdmin())) {
-      return NextResponse.json(
-        { success: false, error: 'Admin access required' },
-        { status: 403 }
-      )
-    }
+    const auth = await checkAdminAuth()
+    if (!auth.authorized) return auth.response
 
     // Verify module exists and belongs to course
     const mod = await db.module.findUnique({

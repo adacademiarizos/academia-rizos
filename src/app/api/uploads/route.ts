@@ -204,28 +204,6 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Fire-and-forget transcription: triggered after video is saved to DB
-    if (type === 'video' && process.env.INTERNAL_TRANSCRIBE_SECRET) {
-      const transcribeTarget =
-        lessonId && lessonId !== 'temp' ? { lessonId } :
-        moduleId && moduleId !== 'temp' ? { moduleId } :
-        null
-
-      if (transcribeTarget) {
-        const baseUrl = request.nextUrl.origin
-        fetch(`${baseUrl}/api/ai/transcribe`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-internal-secret': process.env.INTERNAL_TRANSCRIBE_SECRET,
-          },
-          body: JSON.stringify(transcribeTarget),
-        }).catch((err: unknown) => {
-          console.error('Failed to trigger transcription:', err)
-        })
-        // No await — upload response returns immediately while transcription runs in background
-      }
-    }
 
     return NextResponse.json({
       success: true,

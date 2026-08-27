@@ -6,10 +6,8 @@ import { db } from '@/lib/db'
 const UpdateLessonSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
-  videoUrl: z.string().optional().nullable(),
   videoFileUrl: z.string().optional().nullable(),
   order: z.number().int().min(0).optional(),
-  transcript: z.string().optional().nullable(),
 })
 
 export async function PUT(
@@ -39,10 +37,8 @@ export async function PUT(
       data: {
         ...(data.title !== undefined && { title: data.title }),
         ...(data.description !== undefined && { description: data.description }),
-        ...(data.videoUrl !== undefined && { videoUrl: data.videoUrl }),
         ...(data.videoFileUrl !== undefined && { videoFileUrl: data.videoFileUrl }),
         ...(data.order !== undefined && { order: data.order }),
-        ...(data.transcript !== undefined && { transcript: data.transcript }),
       },
     })
 

@@ -16,6 +16,7 @@ export type AccessFailureCode =
   | 'USER_NOT_FOUND'
   | 'COURSE_NOT_FOUND'
   | 'MODULE_NOT_FOUND'
+  | 'STYLE_NOT_FOUND'
   | 'CHAT_ROOM_NOT_FOUND'
   | 'COURSE_PURCHASE_REQUIRED'
   | 'COURSE_ACCESS_EXPIRED'
@@ -48,6 +49,14 @@ type ModuleAccessSuccess = CourseAccessSuccess & {
 
 export type CourseAccessResult = CourseAccessSuccess | AccessFailure
 export type ModuleAccessResult = ModuleAccessSuccess | AccessFailure
+export type StyleAccessResult = (CourseAccessSuccess & {
+  style: {
+    id: string
+    courseId: string
+    order?: number
+    name?: string
+  }
+}) | AccessFailure
 export type ChatRoomAccessResult =
   | (CourseAccessSuccess & {
       room: {
@@ -282,6 +291,33 @@ export async function authorizeCourseAccessByModuleId(
     viaAdmin: false,
     module: courseModule,
   }
+}
+
+export async function authorizeCourseAccessByStyleId(
+  styleId: string,
+  options: {
+    allowAdmin?: boolean
+    requireActiveAccess?: boolean
+  } = {}
+): Promise<StyleAccessResult> {
+  const style = await db.moduleStyle.findUnique({
+    where: { id: styleId },
+    select: { id: true, courseId: true, order: true, name: true },
+  })
+
+  if (!style) {
+    return {
+      ok: false,
+      status: 404,
+      code: 'STYLE_NOT_FOUND',
+      message: 'El estilo solicitado no existe.',
+    }
+  }
+
+  const courseAccess = await authorizeCourseAccessByCourseId(style.courseId, options)
+  if (!courseAccess.ok) return courseAccess
+
+  return { ...courseAccess, style }
 }
 
 export async function authorizeChatRoomAccessByRoomId(

@@ -13,16 +13,14 @@ jest.mock('@/lib/db', () => ({
 
 import { db } from '@/lib/db'
 import {
-  ensureGeneralModuleStyle,
   getNextLessonOrder,
+  getNextStyleLessonOrder,
   slugifyStyleName,
 } from '@/lib/academy-content'
 
 const mockedDb = db as unknown as {
   moduleStyle: {
-    findUnique: jest.Mock
     findFirst: jest.Mock
-    create: jest.Mock
   }
   lesson: {
     findFirst: jest.Mock
@@ -40,34 +38,25 @@ describe('academy content helpers', () => {
     expect(slugifyStyleName('***')).toBe('estilo')
   })
 
-  it('returns the existing General style when it already exists', async () => {
-    const existing = { id: 'style-1', moduleId: 'module-1', slug: 'general' }
-    mockedDb.moduleStyle.findUnique.mockResolvedValue(existing)
+  it('calculates the next lesson order for a module', async () => {
+    mockedDb.lesson.findFirst.mockResolvedValue({ order: 4 })
 
-    await expect(ensureGeneralModuleStyle('module-1')).resolves.toBe(existing)
-    expect(mockedDb.moduleStyle.create).not.toHaveBeenCalled()
-  })
-
-  it('creates General after the last style order when missing', async () => {
-    const created = { id: 'style-created', moduleId: 'module-1', order: 3 }
-    mockedDb.moduleStyle.findUnique.mockResolvedValue(null)
-    mockedDb.moduleStyle.findFirst.mockResolvedValue({ order: 2 })
-    mockedDb.moduleStyle.create.mockResolvedValue(created)
-
-    await expect(ensureGeneralModuleStyle('module-1')).resolves.toBe(created)
-    expect(mockedDb.moduleStyle.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        moduleId: 'module-1',
-        order: 3,
-        name: 'General',
-        slug: 'general',
-      }),
+    await expect(getNextLessonOrder('module-1')).resolves.toBe(5)
+    expect(mockedDb.lesson.findFirst).toHaveBeenCalledWith({
+      where: { moduleId: 'module-1', styleId: null },
+      orderBy: { order: 'desc' },
+      select: { order: true },
     })
   })
 
   it('calculates the next lesson order for a style', async () => {
-    mockedDb.lesson.findFirst.mockResolvedValue({ order: 4 })
+    mockedDb.lesson.findFirst.mockResolvedValue({ order: 2 })
 
-    await expect(getNextLessonOrder('style-1')).resolves.toBe(5)
+    await expect(getNextStyleLessonOrder('style-1')).resolves.toBe(3)
+    expect(mockedDb.lesson.findFirst).toHaveBeenCalledWith({
+      where: { styleId: 'style-1', moduleId: null },
+      orderBy: { order: 'desc' },
+      select: { order: true },
+    })
   })
 })

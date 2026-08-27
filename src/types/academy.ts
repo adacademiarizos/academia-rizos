@@ -6,13 +6,13 @@ export type Course = {
   description?: string | null
   trailerUrl?: string | null
   thumbnailUrl?: string | null
-  certificateSlogan?: string | null
   priceCents: number       // net price admin receives
   totalPriceCents: number  // what the customer pays (base + Stripe fees)
   feeCents: number         // Stripe fee amount
   currency: string
   rentalDays?: number | null
   isActive: boolean
+  contentStructure?: 'MODULES' | 'STYLES' | 'BOTH' | null
   moduleCount?: number
   totalHours?: number
   createdAt: Date
@@ -22,11 +22,11 @@ export type Course = {
 export type Module = {
   id: string
   courseId: string
+  styleId?: string | null
   order: number
   title: string
   description?: string | null
-  videoUrl?: string | null
-  transcript?: string | null
+  videoFileUrl?: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -46,14 +46,13 @@ export type ModuleStyle = {
 
 export type Lesson = {
   id: string
+  courseId: string
   moduleId?: string | null
   styleId?: string | null
   order: number
   title: string
   description?: string | null
-  videoUrl?: string | null
   videoFileUrl?: string | null
-  transcript?: string | null
   styleName?: string
   createdAt: Date
   updatedAt: Date
@@ -72,7 +71,6 @@ export type CourseAccess = {
   userId: string
   courseId: string
   accessUntil?: Date | null
-  revokedAt?: Date | null
   createdAt: Date
 }
 
@@ -200,11 +198,11 @@ export type ChatMessage = {
 export type CreateCourseRequest = {
   title: string
   description?: string
-  certificateSlogan?: string
   trailerUrl?: string
   priceCents: number
   currency?: string
   rentalDays?: number
+  contentStructure: 'MODULES' | 'STYLES' | 'BOTH'
 }
 
 export type UpdateCourseRequest = Partial<CreateCourseRequest>
@@ -214,8 +212,7 @@ export type CreateModuleRequest = {
   order: number
   title: string
   description?: string
-  videoUrl: string
-  transcript?: string
+  videoFileUrl?: string | null
 }
 
 export type UpdateModuleRequest = Partial<CreateModuleRequest>
@@ -231,17 +228,16 @@ export type CreateModuleStyleRequest = {
 export type UpdateModuleStyleRequest = Partial<Omit<CreateModuleStyleRequest, 'courseId'>>
 
 export type CreateLessonRequest = {
+  courseId: string
   styleId?: string
   moduleId?: string
   title: string
   description?: string | null
-  videoUrl?: string | null
   videoFileUrl?: string | null
-  transcript?: string | null
   order?: number
 }
 
-export type UpdateLessonRequest = Partial<Omit<CreateLessonRequest, 'styleId' | 'moduleId'>>
+export type UpdateLessonRequest = Partial<Omit<CreateLessonRequest, 'courseId' | 'styleId' | 'moduleId'>>
 
 export type CreateTestRequest = {
   courseId: string

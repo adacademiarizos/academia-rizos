@@ -5,7 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { checkAdminAuth } from "@/lib/admin-auth";
-import { uploadFile } from "@/lib/storage";
+import { StorageConfigurationError, uploadFile } from "@/lib/storage";
 import { nanoid } from "nanoid";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -43,7 +43,28 @@ export async function POST(req: Request) {
   const key = `images/${nanoid()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const url = await uploadFile(key, buffer, file.type);
+  try {
+    const url = await uploadFile(key, buffer, file.type);
+    return NextResponse.json({ ok: true, data: { url } });
+  } catch (error) {
+    console.error('[admin image upload] error:', error)
 
-  return NextResponse.json({ ok: true, data: { url } });
+    if (error instanceof StorageConfigurationError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: {
+            code: 'R2_NOT_CONFIGURED',
+            message: 'Cloudflare R2 no está configurado. Configura las variables R2 para subir archivos en producción.',
+          },
+        },
+        { status: 503 }
+      )
+    }
+
+    return NextResponse.json(
+      { ok: false, error: { code: 'UPLOAD_FAILED', message: 'No se pudo subir la imagen. Inténtalo de nuevo.' } },
+      { status: 500 }
+    )
+  }
 }

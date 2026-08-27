@@ -1,11 +1,15 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { checkAdminAuth } from '@/lib/admin-auth'
 
-const message = 'Los estilos pertenecen directamente al curso y no se pueden gestionar dentro de un módulo.'
-
+// Styles are now course-level containers, never children of modules.
 export async function GET() {
-  return NextResponse.json({ success: false, error: message }, { status: 410 })
+  const auth = await checkAdminAuth()
+  if (!auth.authorized) return auth.response
+  return NextResponse.json({ success: true, data: [] })
 }
 
-export async function POST() {
-  return NextResponse.json({ success: false, error: message }, { status: 410 })
+export async function POST(_request: NextRequest) {
+  const auth = await checkAdminAuth()
+  if (!auth.authorized) return auth.response
+  return NextResponse.json({ success: false, error: 'Los estilos se crean directamente en el curso' }, { status: 410 })
 }

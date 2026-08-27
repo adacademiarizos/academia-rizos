@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 
+// Retained as a harmless compatibility endpoint for older clients. Styles are
+// no longer nested in modules.
 export async function GET() {
-  return NextResponse.json(
-    { success: false, error: 'Los estilos se consultan desde el curso, no desde un módulo.' },
-    { status: 410 }
-  )
+  return NextResponse.json({ success: true, data: [], videoExpired: false })
 }

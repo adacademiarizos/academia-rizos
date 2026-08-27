@@ -28,7 +28,7 @@
    Status: ✅ Complete
 
 4. GET /learn/[courseId]/modules/[moduleId]
-   Purpose: Video player with module content and transcript
+   Purpose: Video player with module content and uploaded videos
    Status: ✅ Complete
 
 5. GET /learn/[courseId]/test

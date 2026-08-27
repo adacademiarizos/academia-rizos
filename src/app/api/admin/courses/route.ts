@@ -23,6 +23,7 @@ const CreateCourseSchema = z.object({
   priceCents: z.number().int().min(0, 'Price must be non-negative'),
   rentalDays: z.number().int().positive().optional(),
   isActive: z.boolean().default(true),
+  contentStructure: z.enum(['MODULES', 'STYLES', 'BOTH']),
 })
 
 export async function GET(request: NextRequest) {
@@ -165,6 +166,7 @@ export async function POST(request: NextRequest) {
         priceCents: data.priceCents,
         rentalDays: data.rentalDays || null,
         isActive: data.isActive,
+        contentStructure: data.contentStructure,
       },
     })
 

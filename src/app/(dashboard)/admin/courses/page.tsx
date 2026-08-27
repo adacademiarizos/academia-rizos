@@ -5,14 +5,13 @@ import { redirect } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
+import { UploadFeedbackField } from '@/app/components/UploadFeedbackField'
 import { CoursesTabs } from './components/CoursesTabs'
-import { toast } from "sonner";
 
 interface Course {
   id: string
   title: string
   description: string | null
-  certificateSlogan: string | null
   priceCents: number
   isActive: boolean
   createdAt: string
@@ -34,22 +33,19 @@ export default function AdminCoursesPage() {
   const [newCourse, setNewCourse] = useState<{
     title: string
     description: string
-    certificateSlogan: string
     rentalDays: number | undefined
     isActive: boolean
     thumbnailUrl: string
+    contentStructure: 'MODULES' | 'STYLES' | 'BOTH'
   }>({
     title: '',
     description: '',
-    certificateSlogan: '',
     rentalDays: undefined,
-    isActive: false,
+    isActive: true,
     thumbnailUrl: '',
+    contentStructure: 'MODULES',
   })
   const [priceInput, setPriceInput] = useState('')
-  const [thumbnailUploading, setThumbnailUploading] = useState(false)
-  const [thumbnailUploadProgress, setThumbnailUploadProgress] = useState(0)
-  const [thumbnailError, setThumbnailError] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -80,10 +76,9 @@ export default function AdminCoursesPage() {
         return
       }
 
-      const result = await response.json().catch(() => null)
-
-      if (response.ok && result?.success) {
-        setCourses(result.data || [])
+      if (response.ok) {
+        const data = await response.json()
+        setCourses(data.data || [])
       } else {
         setError('Error loading courses')
       }
@@ -95,82 +90,21 @@ export default function AdminCoursesPage() {
     }
   }
 
-  const handleThumbnailUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    if (file.size > 4 * 1024 * 1024) {
-      setThumbnailError('La imagen es demasiado grande. Usá una imagen menor a 4MB.')
-      return
-    }
-
-    setThumbnailError(null)
-    setThumbnailUploading(true)
-    setThumbnailUploadProgress(0)
-
-    try {
-      const form = new FormData()
-      form.append('image', file)
-      const data = await new Promise<any>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        xhr.open('POST', '/api/admin/uploads/image')
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            setThumbnailUploadProgress(Math.round((event.loaded / event.total) * 100))
-          }
-        }
-        xhr.onload = () => {
-          if (xhr.status === 413) {
-            reject(new Error('La imagen es demasiado grande. Usá una imagen menor a 4MB.'))
-            return
-          }
-          if (!xhr.getResponseHeader('content-type')?.includes('application/json')) {
-            reject(new Error('Error del servidor al subir la imagen. Intentá con una imagen más pequeña.'))
-            return
-          }
-          try {
-            const response = JSON.parse(xhr.responseText)
-            if (xhr.status < 200 || xhr.status >= 300 || !response.ok) {
-              reject(new Error(response.error?.message ?? 'Error al subir imagen'))
-              return
-            }
-            resolve(response)
-          } catch {
-            reject(new Error('Error del servidor al subir la imagen.'))
-          }
-        }
-        xhr.onerror = () => reject(new Error('No se pudo conectar con el servidor.'))
-        xhr.send(form)
-      })
-      setThumbnailUploadProgress(100)
-      setNewCourse((prev) => ({ ...prev, thumbnailUrl: data.data.url }))
-    } catch (err: any) {
-      setThumbnailError(err.message)
-    } finally {
-      setThumbnailUploading(false)
-    }
-  }
-
   const handleCreateCourse = async () => {
     try {
       if (!newCourse.title.trim()) {
-        toast.error('El título del curso es requerido')
+        alert('El título del curso es requerido')
         return
       }
 
       if (!newCourse.thumbnailUrl) {
-        toast.error('La miniatura del curso es requerida')
-        return
-      }
-
-      if (newCourse.isActive && !newCourse.certificateSlogan.trim()) {
-        alert('Completá el slogan del certificado antes de publicar el curso')
+        alert('La miniatura del curso es requerida')
         return
       }
 
       const baseVal = parseFloat(priceInput)
       if (!priceInput || isNaN(baseVal) || baseVal <= 0) {
-        toast.error('Ingresá un precio válido mayor a 0')
+        alert('Ingresá un precio válido mayor a 0')
         return
       }
 
@@ -185,30 +119,26 @@ export default function AdminCoursesPage() {
           rentalDays: newCourse.rentalDays || undefined,
         }),
       })
-      const result = await response.json().catch(() => null)
 
-      if (response.ok && result?.success) {
+      if (response.ok) {
         setShowModal(false)
         setNewCourse({
           title: '',
           description: '',
-          certificateSlogan: '',
           rentalDays: undefined,
-          isActive: false,
+          isActive: true,
           thumbnailUrl: '',
+          contentStructure: 'MODULES',
         })
         setPriceInput('')
         fetchCourses()
-        toast.success('Curso creado exitosamente')
+        alert('Curso creado exitosamente')
       } else {
-        const details = Array.isArray(result?.details)
-          ? result.details.map((issue: { message?: string }) => issue.message).filter(Boolean).join(', ')
-          : null
-        toast.error(details || result?.error || 'No se pudo crear el curso')
+        alert('Error creating course')
       }
     } catch (error) {
       console.error('Error:', error)
-      toast.error(error instanceof Error ? error.message : 'No se pudo crear el curso')
+      alert('Error creating course')
     }
   }
 
@@ -218,12 +148,12 @@ export default function AdminCoursesPage() {
       const res = await fetch(`/api/admin/courses/${courseId}/notify`, { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
-        toast.success(data.data.message);
+        alert(data.data.message);
       } else {
-        toast.error('Error al enviar notificaciones');
+        alert('Error al enviar notificaciones');
       }
     } catch {
-      toast.error('Error al enviar notificaciones');
+      alert('Error al enviar notificaciones');
     }
   };
 
@@ -239,13 +169,13 @@ export default function AdminCoursesPage() {
 
       if (response.ok) {
         fetchCourses()
-        toast.success('Curso eliminado exitosamente')
+        alert('Curso eliminado exitosamente')
       } else {
-        toast.error('Error deleting course')
+        alert('Error deleting course')
       }
     } catch (error) {
       console.error('Error:', error)
-      toast.error('Error deleting course')
+      alert('Error deleting course')
     }
   }
 
@@ -403,67 +333,35 @@ export default function AdminCoursesPage() {
             </h2>
 
             <div className="flex flex-col gap-4">
-              {/* Thumbnail upload */}
-              <div>
-                <label className="block text-xs font-semibold text-white/50 uppercase tracking-wide mb-2">
+              <div className="space-y-4">
+                <label className="block text-xs font-semibold uppercase tracking-wide text-white/50">
                   Miniatura <span className="text-red-400">*</span>
                 </label>
                 {newCourse.thumbnailUrl ? (
-                  <div
-                    className="relative w-full h-36 rounded-2xl overflow-hidden cursor-zoom-in"
-                    role="button"
-                    tabIndex={0}
-                    title="Abrir miniatura en grande"
-                    aria-label="Abrir miniatura en grande"
-                    onClick={() => window.open(newCourse.thumbnailUrl, '_blank', 'noopener,noreferrer')}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        window.open(newCourse.thumbnailUrl, '_blank', 'noopener,noreferrer')
-                      }
-                    }}
-                  >
-                    <img src={newCourse.thumbnailUrl} alt="Miniatura (click para abrir en grande)" className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setNewCourse((prev) => ({ ...prev, thumbnailUrl: '' }))
-                      }}
-                      className="absolute top-2 right-2 bg-black/60 text-white text-xs px-3 py-1.5 rounded-xl hover:bg-black/80 transition"
-                    >
-                      Cambiar
+                  <div className="flex flex-wrap items-start gap-4">
+                    <div className="h-36 w-full max-w-[240px] overflow-hidden rounded-2xl">
+                      <img src={newCourse.thumbnailUrl} alt="Miniatura del curso" className="h-full w-full object-cover" />
+                    </div>
+                    <button type="button" onClick={() => setNewCourse((prev) => ({ ...prev, thumbnailUrl: '' }))} className="pt-2 text-sm text-red-300 hover:text-red-200">
+                      Quitar miniatura
                     </button>
                   </div>
-                ) : (
-                  <label className="flex flex-col items-center justify-center w-full h-28 cursor-pointer rounded-2xl border border-dashed border-white/20 hover:border-white/40 transition">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      onChange={handleThumbnailUpload}
-                      disabled={thumbnailUploading}
-                    />
-                    {thumbnailUploading ? (
-                      <>
-                        <div className="flex items-center gap-2 text-sm text-white/60">
-                          <span>Subiendo…</span>
-                          <span className="tabular-nums text-[#c8cf94]">{thumbnailUploadProgress}%</span>
-                        </div>
-                        <div className="mt-2 h-1.5 w-4/5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={thumbnailUploadProgress} aria-label="Progreso de carga de miniatura">
-                          <div className="h-full rounded-full bg-[#c8cf94] transition-[width] duration-150" style={{ width: `${thumbnailUploadProgress}%` }} />
-                        </div>
-                        <span className="mt-1 text-xs text-white/35">No cierres esta ventana</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-sm text-white/40">Seleccionar imagen</span>
-                        <span className="mt-1 text-xs text-white/25">JPG, PNG, WebP · máx 5 MB</span>
-                      </>
-                    )}
-                  </label>
-                )}
-                {thumbnailError && <p className="text-xs text-red-400 mt-1.5">{thumbnailError}</p>}
+                ) : null}
+                <UploadFeedbackField
+                  label={newCourse.thumbnailUrl ? 'Cambiar miniatura' : 'Cargar miniatura'}
+                  helperText="JPG, PNG o WebP · máximo 5 MB"
+                  accept="image/jpeg,image/png,image/webp"
+                  allowedTypes={['image/jpeg', 'image/png', 'image/webp']}
+                  maxBytes={5 * 1024 * 1024}
+                  endpoint="/api/admin/uploads/image"
+                  createFormData={(image) => { const form = new FormData(); form.set('image', image); return form }}
+                  getResult={(payload) => {
+                    const result = payload as { ok?: boolean; data?: { url?: string }; error?: { message?: string } }
+                    if (!result.ok || !result.data?.url) throw new Error(result.error?.message || 'No se pudo subir la imagen')
+                    return result.data.url
+                  }}
+                  onUploaded={(thumbnailUrl) => setNewCourse((current) => ({ ...current, thumbnailUrl }))}
+                />
               </div>
 
               <input
@@ -482,20 +380,26 @@ export default function AdminCoursesPage() {
                 className="rounded-2xl bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition resize-none"
               />
 
-              <div>
-                <label className="mb-2 flex items-center justify-between text-sm text-white/70">
-                  <span>Slogan del certificado</span>
-                  <span className="text-xs text-white/35">{newCourse.certificateSlogan.length}/100</span>
-                </label>
-                <input
-                  type="text"
-                  value={newCourse.certificateSlogan}
-                  onChange={(e) => setNewCourse({ ...newCourse, certificateSlogan: e.target.value })}
-                  placeholder="Ej.: Especialización en definición y cuidado de rizos"
-                  maxLength={100}
-                  className="h-11 w-full rounded-2xl bg-white/5 px-4 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition"
-                />
-                <p className="mt-1.5 text-xs text-white/35">Obligatorio para publicar y emitir certificados.</p>
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Organización del curso</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {[
+                    { id: 'MODULES' as const, title: 'Módulos', detail: 'Curso → módulos → lecciones' },
+                    { id: 'STYLES' as const, title: 'Estilos', detail: 'Curso → estilos → lecciones' },
+                    { id: 'BOTH' as const, title: 'Ambos', detail: 'Dos secciones independientes' },
+                  ].map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      onClick={() => setNewCourse({ ...newCourse, contentStructure: option.id })}
+                      className={`rounded-2xl border p-3 text-left transition ${newCourse.contentStructure === option.id ? 'border-[#c8cf94] bg-[#646a40]/20' : 'border-white/10 bg-white/[0.03] hover:border-white/25'}`}
+                    >
+                      <span className="block text-sm font-medium text-white">{option.title}</span>
+                      <span className="mt-1 block text-xs leading-4 text-white/45">{option.detail}</span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs leading-5 text-white/35">La estructura queda definida al crear el curso.</p>
               </div>
 
               <div>
@@ -540,16 +444,10 @@ export default function AdminCoursesPage() {
                 <input
                   type="checkbox"
                   checked={newCourse.isActive}
-                  onChange={(e) => {
-                    if (e.target.checked && !newCourse.certificateSlogan.trim()) {
-                      alert('Completá el slogan del certificado antes de publicar el curso')
-                      return
-                    }
-                    setNewCourse({ ...newCourse, isActive: e.target.checked })
-                  }}
+                  onChange={(e) => setNewCourse({ ...newCourse, isActive: e.target.checked })}
                   className="rounded"
                 />
-                <span className="text-sm text-white/60">Publicar curso al crear</span>
+                <span className="text-sm text-white/60">Activar curso al crear</span>
               </label>
             </div>
 
@@ -562,7 +460,7 @@ export default function AdminCoursesPage() {
               </button>
               <button
                 onClick={handleCreateCourse}
-                disabled={!newCourse.thumbnailUrl || thumbnailUploading}
+                disabled={!newCourse.thumbnailUrl}
                 className="flex-1 h-11 rounded-2xl bg-[#646a40] text-sm font-semibold text-white ring-1 ring-white/10 hover:opacity-90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
                 Crear curso

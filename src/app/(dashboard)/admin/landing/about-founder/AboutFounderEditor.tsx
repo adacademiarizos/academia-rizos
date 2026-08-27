@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { Upload } from "lucide-react";
+import { useState } from "react";
+import { UploadFeedbackField } from "@/app/components/UploadFeedbackField";
 import type { AboutFounderContent } from "@/lib/about-founder-content";
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -12,9 +12,6 @@ export default function AboutFounderEditor({ initial }: { initial: AboutFounderC
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
 
   function setField<K extends keyof AboutFounderContent>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -48,38 +45,6 @@ export default function AboutFounderEditor({ initial }: { initial: AboutFounderC
   const inputClass =
     "w-full rounded-xl bg-white/5 px-4 py-3 text-sm text-white outline-none ring-1 ring-white/10 placeholder:text-white/30";
   const textareaClass = `${inputClass} resize-y min-h-[96px]`;
-
-  async function handleImageFile(file: File) {
-    setUploadError(null);
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-      setUploadError("Solo JPEG, PNG o WebP.");
-      return;
-    }
-    if (file.size > MAX_IMAGE_SIZE) {
-      setUploadError("Maximo 5MB.");
-      return;
-    }
-
-    setUploadingImage(true);
-    const data = new FormData();
-    data.set("image", file);
-
-    try {
-      const res = await fetch("/api/admin/uploads/image", {
-        method: "POST",
-        body: data,
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        throw new Error(json?.error?.message ?? "Error al subir imagen");
-      }
-      setField("imageUrl", json.data.url);
-    } catch (e) {
-      setUploadError(e instanceof Error ? e.message : "Error al subir imagen");
-    } finally {
-      setUploadingImage(false);
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -125,43 +90,26 @@ export default function AboutFounderEditor({ initial }: { initial: AboutFounderC
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <div className="md:col-span-2">
             <label className="mb-2 block text-xs text-white/60">Imagen actual</label>
-            <div className="flex items-center gap-3">
+            <div className="space-y-4">
               {form.imageUrl ? (
-                <div>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={form.imageUrl}
-                    alt={form.imageAlt || "Preview de imagen"}
-                    className="h-20 w-20 rounded-xl border border-white/15 object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/5 text-white/30">
-                  <Upload className="h-5 w-5" />
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => imageInputRef.current?.click()}
-                disabled={uploadingImage}
-                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 transition hover:bg-white/10 disabled:opacity-40"
-              >
-                {uploadingImage ? "Subiendo..." : form.imageUrl ? "Cambiar imagen" : "Subir imagen"}
-              </button>
+                <img src={form.imageUrl} alt={form.imageAlt || "Preview de imagen"} className="h-20 w-20 rounded-xl border border-white/15 object-cover" />
+              ) : null}
+              <UploadFeedbackField
+                label={form.imageUrl ? "Cambiar imagen" : "Cargar imagen"}
+                helperText="JPEG, PNG o WebP · máximo 5 MB"
+                accept="image/jpeg,image/png,image/webp"
+                allowedTypes={ALLOWED_IMAGE_TYPES}
+                maxBytes={MAX_IMAGE_SIZE}
+                endpoint="/api/admin/uploads/image"
+                createFormData={(image) => { const data = new FormData(); data.set("image", image); return data }}
+                getResult={(payload) => {
+                  const result = payload as { ok?: boolean; data?: { url?: string }; error?: { message?: string } }
+                  if (!result.ok || !result.data?.url) throw new Error(result.error?.message || "No se pudo subir la imagen")
+                  return result.data.url
+                }}
+                onUploaded={(imageUrl) => setField("imageUrl", imageUrl)}
+              />
             </div>
-            {uploadError && <p className="mt-2 text-xs text-red-400">{uploadError}</p>}
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleImageFile(file);
-                e.target.value = "";
-              }}
-            />
           </div>
           <div className="md:col-span-2">
             <label className="mb-1 block text-xs text-white/60">Alt de imagen</label>
@@ -257,7 +205,7 @@ export default function AboutFounderEditor({ initial }: { initial: AboutFounderC
         <button
           type="button"
           onClick={handleSave}
-          disabled={saving || uploadingImage}
+          disabled={saving}
           className="rounded-xl bg-ap-copper px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
         >
           {saving ? "Guardando..." : "Guardar cambios"}

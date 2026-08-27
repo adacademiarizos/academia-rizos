@@ -178,8 +178,8 @@ Course
   title, description, thumbnailUrl
   priceCents, rentalDays?
   isActive
-  └─ Module[]
-     └─ Lesson[]        (videoUrl, synopsis)
+  ├─ Module[]           (videoFileUrl, lecciones directas)
+  └─ ModuleStyle[]      (lecciones directas)
      └─ ModuleTest[]    (tests por módulo)
      └─ ModuleResource[] (PDFs, docs descargables)
   └─ CourseTest[]       (tests globales, isFinalExam?)
