@@ -11,34 +11,9 @@ export function slugifyStyleName(name: string) {
   return slug || 'estilo'
 }
 
-export async function ensureGeneralModuleStyle(moduleId: string) {
-  const existing = await db.moduleStyle.findUnique({
-    where: { moduleId_slug: { moduleId, slug: 'general' } },
-  })
-
-  if (existing) return existing
-
+export async function getNextStyleOrder(courseId: string) {
   const lastStyle = await db.moduleStyle.findFirst({
-    where: { moduleId },
-    orderBy: { order: 'desc' },
-    select: { order: true },
-  })
-
-  return db.moduleStyle.create({
-    data: {
-      moduleId,
-      order: (lastStyle?.order ?? -1) + 1,
-      name: 'General',
-      slug: 'general',
-      description: 'Contenido general de la seccion.',
-      isActive: true,
-    },
-  })
-}
-
-export async function getNextStyleOrder(moduleId: string) {
-  const lastStyle = await db.moduleStyle.findFirst({
-    where: { moduleId },
+    where: { courseId },
     orderBy: { order: 'desc' },
     select: { order: true },
   })

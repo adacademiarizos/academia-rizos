@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import FileUploadProgress from '@/app/components/FileUploadProgress'
+import { LearningContentManager } from '../../components/LearningContentManager'
+import { CourseStylesManager } from '../../components/CourseStylesManager'
 
 interface Course {
   id: string
@@ -65,25 +67,12 @@ interface UploadedResource {
 
 interface Lesson {
   id: string
-  styleId: string
   order: number
   title: string
   description: string | null
   videoUrl: string | null
   videoFileUrl: string | null
   transcript: string | null
-  styleName?: string
-}
-
-interface ModuleStyle {
-  id: string
-  moduleId: string
-  order: number
-  name: string
-  slug: string
-  description: string | null
-  isActive: boolean
-  lessons: Lesson[]
 }
 
 export default function CourseEditPage() {
@@ -133,13 +122,8 @@ export default function CourseEditPage() {
   const [newModuleResources, setNewModuleResources] = useState<UploadedResource[]>([])
   // Module lessons state
   const [moduleLessons, setModuleLessons] = useState<Record<string, Lesson[]>>({})
-  const [moduleStyles, setModuleStyles] = useState<Record<string, ModuleStyle[]>>({})
-  const [showStyleForm, setShowStyleForm] = useState(false)
-  const [styleForm, setStyleForm] = useState({ name: '', description: '' })
-  const [editingStyleId, setEditingStyleId] = useState<string | null>(null)
-  const [editStyleForms, setEditStyleForms] = useState<Record<string, { name: string; description: string; isActive: boolean }>>({})
   const [showLessonForms, setShowLessonForms] = useState<Record<string, boolean>>({})
-  const [lessonForm, setLessonForm] = useState({ title: '', description: '', videoUrl: '', styleId: '' })
+  const [lessonForm, setLessonForm] = useState({ title: '', description: '', videoUrl: '' })
   const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null)
   const [editLessonForms, setEditLessonForms] = useState<Record<string, { title: string; description: string; videoUrl: string; transcript: string }>>({})
   const [showVideoUploadLessonNew, setShowVideoUploadLessonNew] = useState(false)
@@ -336,7 +320,7 @@ export default function CourseEditPage() {
     setExpandedTestId(null)
     fetchModuleTests(module.id)
     fetchModuleResources(module.id)
-    fetchModuleStyles(module.id)
+    fetchModuleLessons(module.id)
   }
 
   const handleSaveModuleChanges = async () => {
@@ -692,18 +676,14 @@ export default function CourseEditPage() {
 
   // ── Module lessons functions ───────────────────────────────────────────────
 
-  const fetchModuleStyles = async (moduleId: string) => {
+  const fetchModuleLessons = async (moduleId: string) => {
     try {
-      const res = await fetch(`/api/admin/modules/${moduleId}/styles`)
+      const res = await fetch(`/api/admin/modules/${moduleId}/lessons`)
       if (res.ok) {
         const data = await res.json()
-        const styles: ModuleStyle[] = data.data || []
-        setModuleStyles((prev) => ({ ...prev, [moduleId]: styles }))
         setModuleLessons((prev) => ({
           ...prev,
-          [moduleId]: styles.flatMap((style) =>
-            (style.lessons || []).map((lesson) => ({ ...lesson, styleName: style.name }))
-          ),
+          [moduleId]: data.data || [],
         }))
       }
     } catch (err) {
@@ -711,6 +691,8 @@ export default function CourseEditPage() {
     }
   }
 
+  /* Nested-style routes are deliberately unavailable: styles belong to the course. */
+  /*
   const handleCreateStyle = async (moduleId: string) => {
     if (!styleForm.name.trim()) {
       alert('El nombre del estilo es requerido')
@@ -728,7 +710,7 @@ export default function CourseEditPage() {
       if (res.ok) {
         setStyleForm({ name: '', description: '' })
         setShowStyleForm(false)
-        fetchModuleStyles(moduleId)
+        fetchModuleLessons(moduleId)
       } else {
         const d = await res.json()
         alert(d.error || 'Error al crear el estilo')
@@ -756,7 +738,7 @@ export default function CourseEditPage() {
       })
       if (res.ok) {
         setEditingStyleId(null)
-        fetchModuleStyles(moduleId)
+        fetchModuleLessons(moduleId)
       } else {
         const d = await res.json()
         alert(d.error || 'Error al guardar el estilo')
@@ -772,7 +754,7 @@ export default function CourseEditPage() {
       const res = await fetch(`/api/admin/modules/${moduleId}/styles/${styleId}`, { method: 'DELETE' })
       if (res.ok) {
         if (editingStyleId === styleId) setEditingStyleId(null)
-        fetchModuleStyles(moduleId)
+        fetchModuleLessons(moduleId)
       } else {
         const d = await res.json()
         alert(d.error || 'Error al eliminar el estilo')
@@ -782,17 +764,19 @@ export default function CourseEditPage() {
     }
   }
 
-  const handleCreateLesson = async (moduleId: string, styleId: string) => {
+  */
+
+  const handleCreateLesson = async (moduleId: string) => {
     if (!lessonForm.title.trim()) {
       alert('El título de la lección es requerido')
       return
     }
-    if (!styleId) {
+    if (false) {
       alert('Selecciona un estilo para esta lecciÃ³n')
       return
     }
     try {
-      const res = await fetch(`/api/admin/styles/${styleId}/lessons`, {
+      const res = await fetch(`/api/admin/modules/${moduleId}/lessons`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -802,10 +786,10 @@ export default function CourseEditPage() {
         }),
       })
       if (res.ok) {
-        setLessonForm({ title: '', description: '', videoUrl: '', styleId: '' })
+        setLessonForm({ title: '', description: '', videoUrl: '' })
         setShowVideoUploadLessonNew(false)
-        setShowLessonForms((prev) => ({ ...prev, [styleId]: false }))
-        fetchModuleStyles(moduleId)
+        setShowLessonForms((prev) => ({ ...prev, [moduleId]: false }))
+        fetchModuleLessons(moduleId)
       } else {
         const d = await res.json()
         alert(d.error || 'Error al crear la lección')
@@ -815,13 +799,13 @@ export default function CourseEditPage() {
     }
   }
 
-  const handleDeleteLesson = async (moduleId: string, styleId: string, lessonId: string) => {
+  const handleDeleteLesson = async (moduleId: string, lessonId: string) => {
     if (!confirm('¿Eliminar esta lección?')) return
     try {
-      const res = await fetch(`/api/admin/styles/${styleId}/lessons/${lessonId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/admin/modules/${moduleId}/lessons/${lessonId}`, { method: 'DELETE' })
       if (res.ok) {
         if (expandedLessonId === lessonId) setExpandedLessonId(null)
-        fetchModuleStyles(moduleId)
+        fetchModuleLessons(moduleId)
       } else {
         alert('Error al eliminar la lección')
       }
@@ -830,14 +814,14 @@ export default function CourseEditPage() {
     }
   }
 
-  const handleSaveLesson = async (moduleId: string, styleId: string, lessonId: string) => {
+  const handleSaveLesson = async (moduleId: string, lessonId: string) => {
     const form = editLessonForms[lessonId]
     if (!form?.title?.trim()) {
       alert('El título es requerido')
       return
     }
     try {
-      const res = await fetch(`/api/admin/styles/${styleId}/lessons/${lessonId}`, {
+      const res = await fetch(`/api/admin/modules/${moduleId}/lessons/${lessonId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -849,7 +833,7 @@ export default function CourseEditPage() {
       })
       if (res.ok) {
         setExpandedLessonId(null)
-        fetchModuleStyles(moduleId)
+        fetchModuleLessons(moduleId)
       } else {
         alert('Error al guardar la lección')
       }
@@ -1313,8 +1297,8 @@ export default function CourseEditPage() {
                             />
                           </div>
 
-                          {/* Estilos del Modulo */}
-                          <div className="border-t border-white/10 pt-4">
+                          {/* Los estilos se administran directamente en el curso. */}
+                          {/* <div className="border-t border-white/10 pt-4">
                             <div className="flex justify-between items-center mb-3">
                               <label className="block text-sm font-medium text-white/70">
                                 Estilos de la seccion
@@ -1449,11 +1433,12 @@ export default function CourseEditPage() {
                                         </div>
                                       </div>
                                     )}
+                                    <LearningContentManager scope="STYLE" scopeId={style.id} courseId={courseId} />
                                   </div>
                                 ))
                               )}
                             </div>
-                          </div>
+                          </div> */}
 
                           {/* Lecciones del Módulo */}
                           <div className="border-t border-white/10 pt-4">
@@ -1468,7 +1453,6 @@ export default function CourseEditPage() {
                                     title: '',
                                     description: '',
                                     videoUrl: '',
-                                    styleId: moduleStyles[editingModuleId!]?.[0]?.id || '',
                                   })
                                   setShowVideoUploadLessonNew(false)
                                 }}
@@ -1481,7 +1465,7 @@ export default function CourseEditPage() {
                             {/* Create Lesson Form */}
                             {showLessonForms[editingModuleId!] && (
                               <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-3 space-y-3">
-                                <select
+                                {/* <select
                                   value={lessonForm.styleId}
                                   onChange={(e) => setLessonForm({ ...lessonForm, styleId: e.target.value })}
                                   className="w-full bg-white/10 border border-white/20 text-white rounded-lg px-3 py-2 text-sm outline-none focus:border-ap-copper/50 transition"
@@ -1492,7 +1476,7 @@ export default function CourseEditPage() {
                                       {style.name}
                                     </option>
                                   ))}
-                                </select>
+                                </select> */}
                                 <input
                                   type="text"
                                   placeholder="Título de la lección"
@@ -1535,7 +1519,7 @@ export default function CourseEditPage() {
                                   />
                                 )}
                                 <button
-                                  onClick={() => handleCreateLesson(editingModuleId!, lessonForm.styleId)}
+                                  onClick={() => handleCreateLesson(editingModuleId!)}
                                   className="w-full px-3 py-2 bg-ap-copper text-white rounded-lg text-sm hover:bg-orange-700 transition font-medium"
                                 >
                                   Crear Lección
@@ -1572,15 +1556,12 @@ export default function CourseEditPage() {
                                         className="flex-1 text-left text-sm font-medium text-white/80 hover:text-ap-copper transition"
                                       >
                                         {expandedLessonId === lesson.id ? '▼' : '▶'} {li + 1}. {lesson.title}
-                                        {lesson.styleName && (
-                                          <span className="ml-2 text-xs text-ap-copper font-normal">{lesson.styleName}</span>
-                                        )}
                                         {(lesson.videoFileUrl || lesson.videoUrl) && (
                                           <span className="ml-2 text-xs text-green-400 font-normal">✓ video</span>
                                         )}
                                       </button>
                                       <button
-                                        onClick={() => handleDeleteLesson(editingModuleId!, lesson.styleId, lesson.id)}
+                                        onClick={() => handleDeleteLesson(editingModuleId!, lesson.id)}
                                         className="text-xs text-red-400 hover:text-red-300 ml-2 transition"
                                       >
                                         Eliminar
@@ -1589,6 +1570,7 @@ export default function CourseEditPage() {
 
                                     {expandedLessonId === lesson.id && (
                                       <div className="px-3 pb-3 pt-2 space-y-2">
+                                        <LearningContentManager scope="LESSON" scopeId={lesson.id} courseId={courseId} />
                                         <input
                                           type="text"
                                           value={editLessonForms[lesson.id]?.title || ''}
@@ -1669,7 +1651,7 @@ export default function CourseEditPage() {
                                         </div>
                                         <div className="flex gap-2">
                                           <button
-                                            onClick={() => handleSaveLesson(editingModuleId!, lesson.styleId, lesson.id)}
+                                            onClick={() => handleSaveLesson(editingModuleId!, lesson.id)}
                                             className="flex-1 px-3 py-1.5 bg-ap-copper text-white rounded-lg text-xs hover:bg-orange-700 transition font-medium"
                                           >
                                             Guardar
@@ -1690,6 +1672,8 @@ export default function CourseEditPage() {
                           </div>
 
                           {/* Recursos del Módulo */}
+                          <LearningContentManager scope="MODULE" scopeId={editingModuleId!} courseId={courseId} />
+
                           <div className="border-t border-white/10 pt-4">
                             <label className="block text-sm font-medium text-white/70 mb-2">
                               Recursos del módulo
@@ -2034,6 +2018,10 @@ export default function CourseEditPage() {
           </>
         )}
       </div>
+
+      <CourseStylesManager courseId={courseId} />
+
+      <LearningContentManager scope="COURSE" scopeId={courseId} courseId={courseId} />
 
       {/* Course Tests Section */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[28px] p-8">

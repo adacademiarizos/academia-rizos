@@ -29,19 +29,20 @@ export const updateModuleSchema = createModuleSchema.partial().omit({ courseId: 
 // Module Style Validators
 
 export const createModuleStyleSchema = z.object({
-  moduleId: z.string().cuid(),
+  courseId: z.string().cuid(),
   name: z.string().min(1, 'Name is required').max(120),
   description: z.string().optional().nullable(),
   order: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
 })
 
-export const updateModuleStyleSchema = createModuleStyleSchema.partial().omit({ moduleId: true })
+export const updateModuleStyleSchema = createModuleStyleSchema.partial().omit({ courseId: true })
 
 // Lesson Validators
 
-export const createLessonSchema = z.object({
-  styleId: z.string().cuid(),
+const lessonFieldsSchema = z.object({
+  styleId: z.string().cuid().optional(),
+  moduleId: z.string().cuid().optional(),
   title: z.string().min(1, 'Title is required').max(255),
   description: z.string().optional().nullable(),
   videoUrl: z.string().url().optional().or(z.literal('')),
@@ -50,7 +51,12 @@ export const createLessonSchema = z.object({
   order: z.number().int().min(0).optional(),
 })
 
-export const updateLessonSchema = createLessonSchema.partial().omit({ styleId: true })
+export const createLessonSchema = lessonFieldsSchema.refine((data) => Boolean(data.styleId) !== Boolean(data.moduleId), {
+  message: 'A lesson must belong to either a module or a style',
+  path: ['styleId'],
+})
+
+export const updateLessonSchema = lessonFieldsSchema.partial().omit({ styleId: true, moduleId: true })
 
 // Resource Validators
 

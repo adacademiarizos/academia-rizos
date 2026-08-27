@@ -24,7 +24,7 @@ export async function GET(
 
     const lessons = await db.lesson.findMany({
       where: { moduleId },
-      orderBy: [{ style: { order: 'asc' } }, { order: 'asc' }],
+      orderBy: { order: 'asc' },
       select: {
         id: true,
         styleId: true,
@@ -34,20 +34,12 @@ export async function GET(
         videoUrl: true,
         videoFileUrl: true,
         transcript: true,
-        style: {
-          select: { name: true },
-        },
       },
     })
 
-    const data = lessons.map(({ style, ...lesson }) => ({
-      ...lesson,
-      styleName: style.name,
-    }))
-
     return NextResponse.json({
       success: true,
-      data,
+      data: lessons,
       videoExpired: false,
     })
   } catch (error) {

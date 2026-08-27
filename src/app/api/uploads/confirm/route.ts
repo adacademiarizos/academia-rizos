@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   if (!auth.authorized) return auth.response
 
   try {
-    const { fileUrl, fileName, fileSize, mimeType, uploadType, moduleId, lessonId, courseId } =
+    const { fileUrl, fileName, fileSize, mimeType, uploadType, moduleId, lessonId, courseId, deferPersistence } =
       await req.json()
 
     if (!fileUrl || !uploadType) {
@@ -32,7 +32,11 @@ export async function POST(req: NextRequest) {
     else if (mimeType?.includes('sheet') || mimeType?.includes('spreadsheetml')) fileType = 'document'
 
     // Update DB
-    if (uploadType === 'video') {
+    if (deferPersistence) {
+      // The unified learning-content API owns persistence for resources at any
+      // hierarchy level. This preserves the direct-to-R2 upload path without
+      // accidentally creating a legacy CourseResource/ModuleResource row.
+    } else if (uploadType === 'video') {
       if (lessonId && lessonId !== 'temp') {
         await db.lesson.update({ where: { id: lessonId }, data: { videoFileUrl: fileUrl } })
       } else if (moduleId && moduleId !== 'temp') {

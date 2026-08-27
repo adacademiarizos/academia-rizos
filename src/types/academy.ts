@@ -33,7 +33,7 @@ export type Module = {
 
 export type ModuleStyle = {
   id: string
-  moduleId: string
+  courseId: string
   order: number
   name: string
   slug: string
@@ -46,8 +46,8 @@ export type ModuleStyle = {
 
 export type Lesson = {
   id: string
-  moduleId: string
-  styleId: string
+  moduleId?: string | null
+  styleId?: string | null
   order: number
   title: string
   description?: string | null
@@ -221,17 +221,18 @@ export type CreateModuleRequest = {
 export type UpdateModuleRequest = Partial<CreateModuleRequest>
 
 export type CreateModuleStyleRequest = {
-  moduleId: string
+  courseId: string
   name: string
   description?: string | null
   order?: number
   isActive?: boolean
 }
 
-export type UpdateModuleStyleRequest = Partial<Omit<CreateModuleStyleRequest, 'moduleId'>>
+export type UpdateModuleStyleRequest = Partial<Omit<CreateModuleStyleRequest, 'courseId'>>
 
 export type CreateLessonRequest = {
-  styleId: string
+  styleId?: string
+  moduleId?: string
   title: string
   description?: string | null
   videoUrl?: string | null
@@ -240,7 +241,7 @@ export type CreateLessonRequest = {
   order?: number
 }
 
-export type UpdateLessonRequest = Partial<Omit<CreateLessonRequest, 'styleId'>>
+export type UpdateLessonRequest = Partial<Omit<CreateLessonRequest, 'styleId' | 'moduleId'>>
 
 export type CreateTestRequest = {
   courseId: string
