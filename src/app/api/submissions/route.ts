@@ -114,13 +114,17 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Notify admins about new submission for review
-    NotificationService.notifyAllAdmins({
-      type: 'SUBMISSION',
-      title: 'Nueva entrega pendiente de revisión',
-      message: `Un estudiante ha enviado una evaluación para revisión`,
-      relatedId: submission.id,
-    }).catch((err) => console.error('Submission notification failed:', err))
+    // This legacy upsert endpoint supports revalidation, so its updatedAt
+    // forms a distinct event version while the semantic service handles both
+    // the persistent student acknowledgement and ADMIN review queue.
+    await NotificationService.triggerOnAssessmentSubmission({
+      userId: user.id,
+      courseId,
+      submissionId: submission.id,
+      assessmentType: 'COURSE_TEST',
+      requiresReview: true,
+      submissionVersion: submission.updatedAt.toISOString(),
+    })
 
     return NextResponse.json(
       {

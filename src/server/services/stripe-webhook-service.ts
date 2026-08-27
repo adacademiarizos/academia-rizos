@@ -1,18 +1,9 @@
 import type Stripe from "stripe";
 import type { PaymentStatus, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
 import { stripe } from "@/lib/stripe";
-import {
-  sendAdminAlertEmail,
-  sendAppointmentCancelledEmail,
-  sendAppointmentConfirmationEmail,
-  sendAppointmentNotificationEmail,
-  sendPaymentFailedEmail,
-  sendPaymentReceiptEmail,
-} from "@/lib/mail";
 import { CourseService } from "@/server/services/course-service";
-import { NotificationService } from "@/server/services/notification-service";
+import { NotificationEventService } from "@/server/services/notification-event-service";
 import { AchievementService } from "@/server/services/achievement-service";
 
 type DeferredTask = () => Promise<unknown>;
@@ -80,29 +71,16 @@ function paymentConcept(type: string) {
   return "Pago";
 }
 
-function buildRetryUrl(payment: PaymentContext) {
+function buildInternalPaymentActionUrl(payment: PaymentContext) {
   if (payment.type === "COURSE" && payment.courseId) {
-    return `${env.NEXT_PUBLIC_APP_URL}/courses/${payment.courseId}`;
+    return `/courses/${payment.courseId}`;
   }
 
   if (payment.type === "PAYMENT_LINK" && payment.paymentLinkId) {
-    return `${env.NEXT_PUBLIC_APP_URL}/pay/${payment.paymentLinkId}`;
+    return `/pay/${payment.paymentLinkId}`;
   }
 
-  if (payment.type === "APPOINTMENT") {
-    return `${env.NEXT_PUBLIC_APP_URL}/booking`;
-  }
-
-  return undefined;
-}
-
-async function getAdminEmails() {
-  const admins = await db.user.findMany({
-    where: { role: "ADMIN" },
-    select: { email: true },
-  });
-
-  return admins.map((admin) => admin.email);
+  return "/booking";
 }
 
 async function getPaymentContext(paymentId: string) {
@@ -116,11 +94,13 @@ async function getPaymentContext(paymentId: string) {
           customerId: true,
           customerName: true,
           customerEmail: true,
+          customer: { select: { id: true, email: true } },
           startAt: true,
           endAt: true,
           notes: true,
+          updatedAt: true,
           service: { select: { name: true } },
-          staff: { select: { name: true, email: true } },
+          staff: { select: { id: true, name: true, email: true } },
         },
       },
       course: {
@@ -130,7 +110,7 @@ async function getPaymentContext(paymentId: string) {
         select: { id: true, name: true, email: true },
       },
       paymentLink: {
-        select: { id: true, title: true, status: true },
+        select: { id: true, title: true, status: true, createdById: true },
       },
     },
   });
@@ -259,27 +239,22 @@ async function queuePaymentReceipt(tasks: DeferredTask[], payment: PaymentContex
     return;
   }
 
-  queueTask(tasks, "payment receipt email failed", async () => {
-    await sendPaymentReceiptEmail({
-      to: payerEmail,
+  queueTask(tasks, "payment receipt notification failed", async () => {
+    await NotificationEventService.paymentReceipt({
       paymentId: payment.id,
-      amountCents: payment.amountCents,
-      currency: payment.currency,
       concept: paymentConcept(payment.type),
-      stripePaymentIntentId: payment.stripePaymentIntentId ?? undefined,
-    });
-
-    await db.payment.update({
-      where: { id: payment.id },
-      data: {
-        receiptEmailSentAt: new Date(),
-        receiptToEmail: payerEmail,
-      },
+      amountLabel: formatMoney(payment.amountCents, payment.currency),
+      payer: payment.payer,
+      payerEmail,
+      actionUrl: buildInternalPaymentActionUrl(payment),
     });
   });
 }
 
-async function queueAppointmentConfirmationTasks(tasks: DeferredTask[], payment: PaymentContext) {
+async function queueAppointmentConfirmationTasks(
+  tasks: DeferredTask[],
+  payment: PaymentContext,
+) {
   if (
     !payment.appointment ||
     payment.status !== "PAID" ||
@@ -291,61 +266,15 @@ async function queueAppointmentConfirmationTasks(tasks: DeferredTask[], payment:
   const customerEmail = payment.appointment.customerEmail ?? payment.payerEmail ?? undefined;
   const customerName = payment.appointment.customerName ?? payment.payer?.name ?? "Cliente";
   const serviceName = payment.appointment.service?.name ?? "Servicio";
-  const staffName = payment.appointment.staff?.name ?? "Especialista";
-
-  if (customerEmail) {
-    queueTask(tasks, "appointment confirmation email failed", async () => {
-      await sendAppointmentConfirmationEmail({
-        to: customerEmail,
-        customerName,
-        serviceName,
-        staffName,
-        startAt: payment.appointment!.startAt,
-        endAt: payment.appointment!.endAt,
-        notes: payment.appointment!.notes ?? undefined,
-      });
-    });
-  }
-
-  const adminEmails = await getAdminEmails();
-  const notifyRecipients = [
-    ...(payment.appointment.staff?.email ? [payment.appointment.staff.email] : []),
-    ...adminEmails,
-  ].filter((email, index, list) => list.indexOf(email) === index);
-
-  if (notifyRecipients.length > 0 && customerEmail) {
-    queueTask(tasks, "appointment staff notification email failed", async () => {
-      await sendAppointmentNotificationEmail({
-        to: notifyRecipients,
-        customerName,
-        customerEmail,
-        serviceName,
-        staffName,
-        startAt: payment.appointment!.startAt,
-        endAt: payment.appointment!.endAt,
-        notes: payment.appointment!.notes ?? undefined,
-      });
-    });
-  }
-
-  if (payment.appointment.customerId) {
-    queueTask(tasks, "appointment customer notification failed", async () => {
-      await NotificationService.createNotification({
-        userId: payment.appointment!.customerId!,
-        type: "APPOINTMENT",
-        title: "Cita confirmada",
-        message: `Tu cita de ${serviceName} fue confirmada`,
-        relatedId: payment.appointment!.id,
-      });
-    });
-  }
-
-  queueTask(tasks, "appointment admin notification failed", async () => {
-    await NotificationService.notifyAllAdmins({
-      type: "APPOINTMENT",
-      title: "Nueva cita reservada",
-      message: `${customerName} reservó ${serviceName}`,
-      relatedId: payment.appointment!.id,
+  queueTask(tasks, "paid appointment notification failed", async () => {
+    await NotificationEventService.appointmentPaid({
+      appointmentId: payment.appointment!.id,
+      paymentId: payment.id,
+      serviceName,
+      customerName,
+      customer: payment.appointment!.customer,
+      customerEmail,
+      staff: payment.appointment!.staff,
     });
   });
 }
@@ -360,42 +289,10 @@ async function queueCourseEnrollmentTasks(tasks: DeferredTask[], payment: Paymen
     return;
   }
 
-  const adminEmails = await getAdminEmails();
-  const courseTitle = payment.course?.title ?? "un curso";
-  const payerName = payment.payer?.name ?? payment.payerEmail ?? "Un estudiante";
-  const payerEmail = payment.payer?.email ?? payment.payerEmail ?? "—";
-
-  if (adminEmails.length > 0) {
-    queueTask(tasks, "course purchase admin email failed", async () => {
-      await sendAdminAlertEmail({
-        to: adminEmails,
-        subject: `Nuevo pago de curso — ${courseTitle}`,
-        title: "Curso adquirido",
-        rows: [
-          ["Curso", courseTitle],
-          ["Estudiante", payerName],
-          ["Email", payerEmail],
-          ["Monto", formatMoney(payment.amountCents, payment.currency)],
-          ["Fecha", formatDate(new Date())],
-        ],
-      });
-    });
-  }
-
-  queueTask(tasks, "course purchase admin notification failed", async () => {
-    await NotificationService.notifyAllAdmins({
-      type: "PAYMENT",
-      title: "Nuevo pago de curso",
-      message: `${payerName} compró "${courseTitle}"`,
-      relatedId: payment.courseId!,
-    });
-  });
-
-  queueTask(tasks, "course enrollment notifications failed", async () => {
-    await Promise.all([
-      NotificationService.triggerOnCourseEnrollment(payment.payerId!, payment.courseId!),
-      AchievementService.recordActivity(payment.payerId!, "COURSE_STARTED", payment.courseId!),
-    ]);
+  // Course access itself emits the student event through CourseService. Normal
+  // purchases do not fan out operational payment alerts to every admin.
+  queueTask(tasks, "course enrollment activity failed", async () => {
+    await AchievementService.recordActivity(payment.payerId!, "COURSE_STARTED", payment.courseId!);
   });
 }
 
@@ -404,98 +301,83 @@ async function queuePaymentFailedTasks(tasks: DeferredTask[], payment: PaymentCo
   const customerName =
     payment.payer?.name ?? payment.appointment?.customerName ?? "cliente";
 
-  if (payment.payerEmail) {
-    queueTask(tasks, "payment failed email failed", async () => {
-      await sendPaymentFailedEmail({
-        to: payment.payerEmail!,
-        customerName,
-        concept,
-        amountCents: payment.amountCents,
-        currency: payment.currency,
-        failureReason,
-        retryUrl: buildRetryUrl(payment),
-      });
-    });
-  }
-
-  queueTask(tasks, "payment failed admin notification failed", async () => {
-    await NotificationService.notifyAllAdmins({
-      type: "PAYMENT",
-      title: "Pago fallido",
-      message: `${customerName} no pudo completar un pago de ${concept.toLowerCase()}`,
-      relatedId: payment.id,
-    });
+  queueTask(tasks, "payment failed notification failed", async () => {
+    await Promise.all([
+      NotificationEventService.paymentForPayer({
+        eventKey: "payment.failed",
+        paymentId: payment.id,
+        title: "No se pudo completar tu pago",
+        message: `No se pudo completar tu pago de ${concept.toLowerCase()}. Puedes intentarlo de nuevo.`,
+        payer: payment.payer,
+        payerEmail: payment.payerEmail,
+        actionUrl: buildInternalPaymentActionUrl(payment),
+      }),
+      NotificationEventService.paymentException({
+        eventKey: "payment.failed",
+        paymentId: payment.id,
+        title: "Pago fallido",
+        message: `${customerName} no pudo completar un pago de ${concept.toLowerCase()}${
+          failureReason ? `: ${failureReason}` : "."
+        }`,
+      }),
+      ...(payment.paymentLink?.createdById
+        ? [
+            NotificationEventService.paymentLinkLifecycle({
+              eventKey: "payment_link.failed",
+              paymentLinkId: payment.paymentLink.id,
+              paymentId: payment.id,
+              title: payment.paymentLink.title,
+              createdById: payment.paymentLink.createdById,
+            }),
+          ]
+        : []),
+    ]);
   });
 }
 
 async function queueAppointmentRefundTasks(
   tasks: DeferredTask[],
   payment: PaymentContext,
-  reason: string
+  reason: string,
+  notifyStaffStatusChange: boolean,
 ) {
   if (!payment.appointment) {
     return;
   }
 
-  const customerEmail = payment.appointment.customerEmail ?? payment.payerEmail ?? undefined;
   const customerName = payment.appointment.customerName ?? payment.payer?.name ?? "Cliente";
   const serviceName = payment.appointment.service?.name ?? "Servicio";
-  const staffName = payment.appointment.staff?.name ?? "Especialista";
-  const adminEmails = await getAdminEmails();
-  const recipients = [
-    ...(payment.appointment.staff?.email ? [payment.appointment.staff.email] : []),
-    ...adminEmails,
-  ].filter((email, index, list) => list.indexOf(email) === index);
-
-  if (customerEmail) {
-    queueTask(tasks, "appointment cancellation email failed", async () => {
-      await sendAppointmentCancelledEmail({
-        to: customerEmail,
-        customerName,
-        serviceName,
-        staffName,
-        startAt: payment.appointment!.startAt,
-        endAt: payment.appointment!.endAt,
-        reason,
-      });
-    });
-  }
-
-  if (payment.appointment.customerId) {
-    queueTask(tasks, "appointment refund customer notification failed", async () => {
-      await NotificationService.createNotification({
-        userId: payment.appointment!.customerId!,
-        type: "APPOINTMENT",
-        title: "Cita cancelada",
-        message: `Tu cita de ${serviceName} fue cancelada porque el pago ya no es válido`,
-        relatedId: payment.appointment!.id,
-      });
-    });
-  }
-
-  if (recipients.length > 0) {
-    queueTask(tasks, "appointment refund admin email failed", async () => {
-      await sendAdminAlertEmail({
-        to: recipients,
-        subject: `Cita cancelada por reembolso — ${serviceName}`,
-        title: "Cita cancelada",
-        rows: [
-          ["Cliente", customerName],
-          ["Servicio", serviceName],
-          ["Motivo", reason],
-          ["Monto", formatMoney(payment.amountCents, payment.currency)],
-        ],
-      });
-    });
-  }
-
-  queueTask(tasks, "appointment refund admin notification failed", async () => {
-    await NotificationService.notifyAllAdmins({
-      type: "PAYMENT",
-      title: "Pago reembolsado",
-      message: `${customerName} recibió un reembolso y su cita fue cancelada`,
-      relatedId: payment.appointment!.id,
-    });
+  queueTask(tasks, "appointment refund notification failed", async () => {
+    await Promise.all([
+      NotificationEventService.paymentForPayer({
+        eventKey: "payment.refunded",
+        paymentId: payment.id,
+        title: "Pago reembolsado",
+        message: `Tu pago de la cita de ${serviceName} fue reembolsado.`,
+        payer: payment.payer ?? payment.appointment!.customer,
+        payerEmail: payment.payerEmail ?? payment.appointment!.customerEmail,
+        actionUrl: "/booking",
+      }),
+      NotificationEventService.paymentException({
+        eventKey: "payment.refunded",
+        paymentId: payment.id,
+        title: "Pago reembolsado",
+        message: `${customerName} recibió un reembolso y su cita fue cancelada. Motivo: ${reason}`,
+      }),
+      ...(notifyStaffStatusChange
+        ? [
+            NotificationEventService.appointmentStatusChanged({
+              appointmentId: payment.appointment!.id,
+              status: "CANCELLED",
+              serviceName,
+              transitionId: payment.appointment!.updatedAt.toISOString(),
+              staff: payment.appointment!.staff,
+              customer: payment.appointment!.customer,
+              customerEmail: payment.appointment!.customerEmail ?? payment.payerEmail,
+            }),
+          ]
+        : []),
+    ]);
   });
 }
 
@@ -506,43 +388,25 @@ async function queueCourseRefundTasks(
 ) {
   const courseTitle = payment.course?.title ?? "tu curso";
   const payerName = payment.payer?.name ?? payment.payerEmail ?? "Un estudiante";
-  const adminEmails = await getAdminEmails();
 
-  if (payment.payerId && payment.courseId) {
-    queueTask(tasks, "course refund student notification failed", async () => {
-      await NotificationService.createNotification({
-        userId: payment.payerId!,
-        type: "PAYMENT",
-        title: "Acceso revocado",
-        message: `Tu acceso a "${courseTitle}" fue revocado porque el pago ya no es válido`,
-        relatedId: payment.courseId!,
-      });
-    });
-  }
-
-  if (adminEmails.length > 0) {
-    queueTask(tasks, "course refund admin email failed", async () => {
-      await sendAdminAlertEmail({
-        to: adminEmails,
-        subject: `Pago reembolsado — ${courseTitle}`,
+  queueTask(tasks, "course refund notification failed", async () => {
+    await Promise.all([
+      NotificationEventService.paymentForPayer({
+        eventKey: "payment.refunded",
+        paymentId: payment.id,
+        title: "Pago reembolsado",
+        message: `Tu pago de \"${courseTitle}\" fue reembolsado.`,
+        payer: payment.payer,
+        payerEmail: payment.payerEmail,
+        actionUrl: payment.courseId ? `/courses/${payment.courseId}` : "/courses",
+      }),
+      NotificationEventService.paymentException({
+        eventKey: "payment.refunded",
+        paymentId: payment.id,
         title: "Acceso de curso revocado",
-        rows: [
-          ["Curso", courseTitle],
-          ["Estudiante", payerName],
-          ["Motivo", reason],
-          ["Monto", formatMoney(payment.amountCents, payment.currency)],
-        ],
-      });
-    });
-  }
-
-  queueTask(tasks, "course refund admin notification failed", async () => {
-    await NotificationService.notifyAllAdmins({
-      type: "PAYMENT",
-      title: "Acceso de curso revocado",
-      message: `${payerName} perdió acceso a "${courseTitle}" porque el pago ya no es válido`,
-      relatedId: payment.courseId ?? undefined,
-    });
+        message: `${payerName} perdió acceso a \"${courseTitle}\" porque el pago ya no es válido. Motivo: ${reason}`,
+      }),
+    ]);
   });
 }
 
@@ -566,6 +430,11 @@ async function handleCheckoutSessionCompleted(
   const existingPayment = await db.payment.findUnique({
     where: { stripeCheckoutSessionId },
   });
+  // Stripe can redeliver checkout.session.completed. Domain mutations that
+  // grant value (course time) or record analytics must run only on the first
+  // transition into PAID; notification dispatch remains safe to re-attempt
+  // because its recipient-scoped outbox keys are idempotent.
+  const wasAlreadyPaid = existingPayment?.status === "PAID";
 
   let paymentId: string;
   if (existingPayment) {
@@ -614,6 +483,7 @@ async function handleCheckoutSessionCompleted(
   }
 
   const payment = await getPaymentContext(paymentId);
+  const becamePaid = payment.status === "PAID" && !wasAlreadyPaid;
 
   if (payment.status === "PAID" && payment.appointmentId && payment.appointment) {
     if (payment.appointment.status !== "CONFIRMED" && payment.appointment.status !== "CANCELLED") {
@@ -622,7 +492,10 @@ async function handleCheckoutSessionCompleted(
         data: { status: "CONFIRMED" },
       });
     }
-    await queueAppointmentConfirmationTasks(tasks, await getPaymentContext(paymentId));
+    await queueAppointmentConfirmationTasks(
+      tasks,
+      await getPaymentContext(paymentId),
+    );
   }
 
   if (payment.status === "PAID" && payment.type === "PAYMENT_LINK" && payment.paymentLinkId) {
@@ -630,14 +503,27 @@ async function handleCheckoutSessionCompleted(
       where: { id: payment.paymentLinkId },
       data: { status: "PAID" },
     });
+
+    if (payment.paymentLink?.createdById) {
+      queueTask(tasks, "payment link creator notification failed", async () => {
+        await NotificationEventService.paymentLinkLifecycle({
+          eventKey: "payment_link.paid",
+          paymentLinkId: payment.paymentLink!.id,
+          paymentId: payment.id,
+          title: payment.paymentLink!.title,
+          amountLabel: formatMoney(payment.amountCents, payment.currency),
+          createdById: payment.paymentLink!.createdById!,
+        });
+      });
+    }
   }
 
-  if (payment.status === "PAID" && payment.type === "COURSE" && payment.courseId && payment.payerId) {
+  if (becamePaid && payment.type === "COURSE" && payment.courseId && payment.payerId) {
     await CourseService.createCourseAccess(payment.payerId, payment.courseId);
     await queueCourseEnrollmentTasks(tasks, await getPaymentContext(paymentId));
   }
 
-  if (payment.status === "PAID") {
+  if (becamePaid) {
     queueTask(tasks, "conversion event failed", async () => {
       const paymentContext = await getPaymentContext(paymentId);
       const paymentMetadata = metadataFrom(paymentContext.metadata);
@@ -691,23 +577,13 @@ async function handleCheckoutSessionCompleted(
     await queuePaymentReceipt(tasks, payment, payment.payerEmail);
   }
 
-  if (payment.status === "PAID" && payment.type !== "COURSE") {
-    queueTask(tasks, "payment admin notification failed", async () => {
-      await NotificationService.notifyAllAdmins({
-        type: "PAYMENT",
-        title: "Nuevo pago recibido",
-        message: `Pago de ${formatMoney(payment.amountCents, payment.currency)} — ${paymentConcept(payment.type)}`,
-        relatedId: payment.id,
-      });
-    });
-  }
-
   return tasks;
 }
 
 async function handleCheckoutSessionExpired(
   event: Stripe.Event
 ): Promise<DeferredTask[]> {
+  const tasks: DeferredTask[] = [];
   const session = event.data.object as Stripe.Checkout.Session;
   const payment = await db.payment.findUnique({
     where: { stripeCheckoutSessionId: session.id },
@@ -731,16 +607,41 @@ async function handleCheckoutSessionExpired(
       where: { id: context.paymentLinkId },
       data: { status: "CANCELED" },
     });
+
+    if (context.paymentLink?.createdById) {
+      queueTask(tasks, "expired payment link notification failed", async () => {
+        await NotificationEventService.paymentLinkLifecycle({
+          eventKey: "payment_link.expired",
+          paymentLinkId: context.paymentLink!.id,
+          paymentId: context.id,
+          title: context.paymentLink!.title,
+          createdById: context.paymentLink!.createdById!,
+        });
+      });
+    }
   }
 
   if (context.type === "APPOINTMENT" && context.appointment?.status === "PENDING") {
-    await db.appointment.update({
+    const updatedAppointment = await db.appointment.update({
       where: { id: context.appointment.id },
       data: { status: "CANCELLED" },
+      select: { updatedAt: true },
+    });
+
+    queueTask(tasks, "expired appointment notification failed", async () => {
+      await NotificationEventService.appointmentStatusChanged({
+        appointmentId: context.appointment!.id,
+        status: "CANCELLED",
+        serviceName: context.appointment!.service?.name ?? "Servicio",
+        transitionId: updatedAppointment.updatedAt.toISOString(),
+        staff: context.appointment!.staff,
+        customer: context.appointment!.customer,
+        customerEmail: context.appointment!.customerEmail ?? context.payerEmail,
+      });
     });
   }
 
-  return [];
+  return tasks;
 }
 
 async function handlePaymentIntentFailed(
@@ -831,6 +732,7 @@ async function handlePaymentIntentFailed(
 
 async function applyFullRefundState(paymentId: string, reason: string) {
   const payment = await getPaymentContext(paymentId);
+  let appointmentStatusChangedToCancelled = false;
 
   if (payment.status !== "REFUNDED" && payment.status !== "CANCELED") {
     await db.payment.update({
@@ -856,6 +758,7 @@ async function applyFullRefundState(paymentId: string, reason: string) {
       where: { id: appointment.id },
       data: { status: "CANCELLED" },
     });
+    appointmentStatusChangedToCancelled = true;
   }
 
   if (payment.type === "COURSE" && payment.payerId && payment.courseId) {
@@ -866,11 +769,48 @@ async function applyFullRefundState(paymentId: string, reason: string) {
   const refreshedPayment = await getPaymentContext(paymentId);
 
   if (refreshedPayment.type === "APPOINTMENT") {
-    await queueAppointmentRefundTasks(tasks, refreshedPayment, reason);
+    await queueAppointmentRefundTasks(
+      tasks,
+      refreshedPayment,
+      reason,
+      appointmentStatusChangedToCancelled,
+    );
   }
 
   if (refreshedPayment.type === "COURSE") {
     await queueCourseRefundTasks(tasks, refreshedPayment, reason);
+  }
+
+  if (
+    refreshedPayment.type === "PAYMENT_LINK" &&
+    refreshedPayment.paymentLink?.createdById
+  ) {
+    queueTask(tasks, "payment link refund notification failed", async () => {
+      await Promise.all([
+        NotificationEventService.paymentForPayer({
+          eventKey: "payment.refunded",
+          paymentId: refreshedPayment.id,
+          title: "Pago reembolsado",
+          message: "Tu pago fue reembolsado.",
+          payer: refreshedPayment.payer,
+          payerEmail: refreshedPayment.payerEmail,
+          actionUrl: `/pay/${refreshedPayment.paymentLinkId}`,
+        }),
+        NotificationEventService.paymentException({
+          eventKey: "payment.refunded",
+          paymentId: refreshedPayment.id,
+          title: "Pago de link reembolsado",
+          message: `El pago del link \"${refreshedPayment.paymentLink!.title}\" fue reembolsado. Motivo: ${reason}`,
+        }),
+        NotificationEventService.paymentLinkLifecycle({
+          eventKey: "payment_link.refunded",
+          paymentLinkId: refreshedPayment.paymentLink!.id,
+          paymentId: refreshedPayment.id,
+          title: refreshedPayment.paymentLink!.title,
+          createdById: refreshedPayment.paymentLink!.createdById!,
+        }),
+      ]);
+    });
   }
 
   return tasks;
@@ -949,32 +889,13 @@ async function handleDisputeCreated(
   });
 
   const context = await getPaymentContext(payment.id);
-  const adminEmails = await getAdminEmails();
-
-  if (adminEmails.length > 0) {
-    queueTask(tasks, "dispute created admin email failed", async () => {
-      await sendAdminAlertEmail({
-        to: adminEmails,
-        subject: `Disputa de pago — ${paymentConcept(context.type)}`,
-        title: "Disputa de pago urgente",
-        rows: [
-          ["Disputa", dispute.id],
-          ["Pago", context.id],
-          ["Tipo", paymentConcept(context.type)],
-          ["Monto", formatMoney(context.amountCents, context.currency)],
-          ["Responder antes de", formatUnixDate(dispute.evidence_details?.due_by)],
-        ],
-        note: "Revisar la disputa manualmente en Stripe y preparar evidencia antes del vencimiento.",
-      });
-    });
-  }
-
-  queueTask(tasks, "dispute created admin notification failed", async () => {
-    await NotificationService.notifyAllAdmins({
-      type: "DISPUTE",
+  queueTask(tasks, "dispute created notification failed", async () => {
+    await NotificationEventService.paymentException({
+      eventKey: "payment.dispute_created",
+      paymentId: context.id,
       title: "Disputa de pago urgente",
       message: `Stripe abrió una disputa sobre un ${paymentConcept(context.type).toLowerCase()}. Responder antes de ${formatUnixDate(dispute.evidence_details?.due_by)}.`,
-      relatedId: context.id,
+      priority: "URGENT",
     });
   });
 
@@ -1009,7 +930,17 @@ async function handleDisputeClosed(
       },
     });
 
-    return applyFullRefundState(payment.id, "Disputa perdida en Stripe");
+    const refundTasks = await applyFullRefundState(payment.id, "Disputa perdida en Stripe");
+    refundTasks.push(async () => {
+      await NotificationEventService.paymentException({
+        eventKey: "payment.dispute_closed",
+        paymentId: payment.id,
+        title: "Disputa cerrada en contra",
+        message: `La disputa ${dispute.id} se cerró en contra del negocio.`,
+        priority: "URGENT",
+      });
+    });
+    return refundTasks;
   }
 
   const cleanedMetadata = omitKeys(metadataFrom(payment.metadata), [
@@ -1030,12 +961,12 @@ async function handleDisputeClosed(
   });
 
   const context = await getPaymentContext(payment.id);
-  queueTask(tasks, "dispute closed admin notification failed", async () => {
-    await NotificationService.notifyAllAdmins({
-      type: "DISPUTE",
+  queueTask(tasks, "dispute closed notification failed", async () => {
+    await NotificationEventService.paymentException({
+      eventKey: "payment.dispute_closed",
+      paymentId: context.id,
       title: "Disputa cerrada a favor",
       message: `La disputa ${dispute.id} se cerró a favor del negocio.`,
-      relatedId: context.id,
     });
   });
 

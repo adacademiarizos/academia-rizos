@@ -6,6 +6,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { authorizeChatRoomAccessByRoomId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { CommunityService } from '@/server/services/community-service'
+import {
+  CommunityInteractionValidationError,
+  CommunityNotificationService,
+} from '@/server/services/community-notification-service'
 
 export async function GET(request: NextRequest) {
   try {
@@ -83,6 +87,14 @@ export async function POST(request: NextRequest) {
       return toAccessDeniedResponse(access)
     }
 
+    // Mention ids are embedded in visible canonical tokens. The service only
+    // accepts people who already participated in this same authorized room.
+    const mentionRecipientIds = await CommunityNotificationService.resolveChatMentionRecipientIds({
+      authorId: access.user.id,
+      room: access.room,
+      body: messageBody || '',
+    })
+
     const message = await CommunityService.createChatMessage(
       access.user.id,
       roomId,
@@ -90,8 +102,23 @@ export async function POST(request: NextRequest) {
       imageUrl || undefined
     )
 
+    await CommunityNotificationService.dispatchChatMentions({
+      actor: message.user,
+      message,
+      room: access.room,
+      recipientIds: mentionRecipientIds,
+    }).catch((error) => {
+      // Message persistence is already complete. A notification failure must
+      // never make a valid chat message fail.
+      console.error('Error dispatching chat mention notifications:', error)
+    })
+
     return NextResponse.json({ success: true, data: message })
   } catch (error) {
+    if (error instanceof CommunityInteractionValidationError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 })
+    }
+
     console.error('Error creating chat message:', error)
     return NextResponse.json(
       {

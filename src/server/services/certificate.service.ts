@@ -1,7 +1,7 @@
 import { db } from '@/lib/db'
 import { generateCertificatePdf } from '@/lib/pdf'
 import { uploadFile } from '@/lib/storage'
-import { sendCertificateEmail } from '@/lib/mail'
+import { NotificationService } from '@/server/services/notification-service'
 
 function generateCertCode(): string {
   const timestamp = Date.now().toString(36).toUpperCase()
@@ -74,16 +74,13 @@ export async function generateAndSaveCertificate(
     },
   }).catch(() => {})
 
-  // Send congratulations email (non-critical)
-  if (user.email) {
-    await sendCertificateEmail({
-      to: user.email,
-      studentName: user.name ?? 'Estudiante',
-      courseName: course.title,
-      certificateCode: code,
-      pdfUrl,
-    }).catch(() => {})
-  }
+  // Certificate and academic-completion notifications are emitted only for a
+  // newly created certificate. The triggers absorb delivery failures, so a
+  // valid certificate is never rolled back by notification infrastructure.
+  await Promise.all([
+    NotificationService.triggerOnCertificateIssued(userId, courseId),
+    NotificationService.triggerOnCourseCompletion(userId, courseId),
+  ])
 
   return certificate
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authorizeCourseAccessByCourseId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { z } from 'zod'
 import { db } from '@/lib/db'
+import { NotificationService } from '@/server/services/notification-service'
 
 const SubmitSchema = z.object({
   answers: z.record(z.string(), z.string()),
@@ -101,6 +102,14 @@ export async function POST(
       )
 
       return createdSubmission
+    })
+
+    await NotificationService.triggerOnAssessmentSubmission({
+      userId: access.user.id,
+      courseId,
+      submissionId: submission.id,
+      assessmentType: isFinalExam ? 'FINAL_EXAM' : 'COURSE_TEST',
+      requiresReview: hasManualReview || isFinalExam,
     })
 
     return NextResponse.json({

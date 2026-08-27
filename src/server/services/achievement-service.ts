@@ -4,6 +4,7 @@
  */
 
 import { db } from '@/lib/db'
+import { NotificationEventService } from '@/server/services/notification-event-service'
 
 interface AchievementDefinition {
   type: string
@@ -123,6 +124,13 @@ export class AchievementService {
               },
             })
             newAchievements.push(achievement)
+            // Recognition is emitted only for a freshly-created aggregate
+            // achievement, never for each underlying comment or like.
+            await NotificationEventService.achievementEarned({
+              achievementId: achievement.id,
+              userId,
+              achievementName: achievement.name,
+            })
             console.log(`✅ Achievement awarded: ${definition.name} to user ${userId}`)
           }
         }

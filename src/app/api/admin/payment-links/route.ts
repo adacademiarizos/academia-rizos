@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       baseAmountCents,
       totalAmountCents: totalCents,
       status: "REQUIRES_PAYMENT",
+      createdById: auth.user.id,
     },
   });
   const metadata = {

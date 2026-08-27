@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sendAppointmentNotificationEmail } from "@/lib/mail";
-import { NotificationService } from "@/server/services/notification-service";
+import { NotificationEventService } from "@/server/services/notification-event-service";
 
 type Body = {
   serviceId: string;
@@ -121,57 +120,23 @@ export async function POST(req: Request) {
       select: { id: true },
     });
 
-    // For AUTHORIZE (pay on-site), notify staff + admins immediately since
-    // no Stripe webhook will fire to handle notifications.
+    // AUTHORIZE has no Stripe webhook. The central event service owns the
+    // operational recipient matrix and does not block a valid booking.
     if (service.billingRule === "AUTHORIZE") {
-      const [staffUser, admins] = await Promise.all([
-        db.user.findUnique({
-          where: { id: staffId },
-          select: { id: true, name: true, email: true },
-        }),
-        db.user.findMany({
-          where: { role: "ADMIN" },
-          select: { id: true, email: true },
-        }),
-      ]);
+      const staffUser = await db.user.findUnique({
+        where: { id: staffId },
+        select: { id: true, name: true, email: true },
+      });
 
-      const staffName = staffUser?.name ?? "Especialista";
-
-      // De-duplicate: staff member may also be an admin
-      const recipientEmails = [
-        ...(staffUser?.email ? [staffUser.email] : []),
-        ...admins.map((a) => a.email),
-      ].filter((v, i, arr) => v && arr.indexOf(v) === i) as string[];
-
-      const notifyUserIds = [
-        ...(staffUser ? [staffUser.id] : []),
-        ...admins.map((a) => a.id),
-      ].filter((v, i, arr) => arr.indexOf(v) === i);
-
-      // Email notification (fire and forget — don't block response)
-      if (recipientEmails.length > 0) {
-        sendAppointmentNotificationEmail({
-          to: recipientEmails,
-          customerName: customer.name,
-          customerEmail: customer.email,
+      if (staffUser) {
+        await NotificationEventService.appointmentRequested({
+          appointmentId: appointment.id,
           serviceName: service.name,
-          staffName,
-          startAt: start,
-          endAt: end,
-          notes: body.notes || undefined,
-        }).catch((err) => console.error("DRAFT NOTIFY EMAIL ERROR:", err));
-      }
-
-      // In-app notifications for staff + admins
-      const notifMessage = `${customer.name} solicitó una cita de ${service.name}`;
-      for (const userId of notifyUserIds) {
-        NotificationService.createNotification({
-          userId,
-          type: "APPOINTMENT",
-          title: "Nueva solicitud de cita",
-          message: notifMessage,
-          relatedId: appointment.id,
-        }).catch((err) => console.error("DRAFT NOTIFY DB ERROR:", err));
+          customerName: customer.name,
+          staff: staffUser,
+          customer: existingUser ? { id: existingUser.id, email: customer.email.toLowerCase() } : null,
+          customerEmail: customer.email,
+        });
       }
     }
 

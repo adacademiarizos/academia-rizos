@@ -75,6 +75,34 @@ enum TestimonialType {
   ACADEMIA
 }
 
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationDeliveryChannel {
+  IN_APP
+  EMAIL
+}
+
+enum NotificationDeliveryStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+// Only discretionary product/community notifications can be opted out of.
+// Payments, appointments, security and assessment events remain mandatory.
+enum NotificationPreferenceCategory {
+  COURSE_UPDATES
+  COMMUNITY
+  ACHIEVEMENTS
+}
+
 model User {
   id             String  @id @default(cuid())
   name           String?
@@ -110,9 +138,11 @@ model User {
   courseTestSubmissions CourseTestSubmission[]
 
   // Relations - ETAPA 5
-  notifications Notification[]
-  activities    UserActivity[]
-  achievements  Achievement[]
+  notifications          Notification[]
+  notificationDeliveries NotificationDelivery[] @relation("NotificationDeliveryRecipient")
+  notificationPreferences NotificationPreference[]
+  activities             UserActivity[]
+  achievements           Achievement[]
 
   // Relations - New features
   bugReports          BugReport[]
@@ -285,6 +315,8 @@ model Payment {
   payerId    String?
   payerEmail String?
 
+  // Legacy marker: set when the receipt email is enqueued in NotificationDelivery,
+  // not when the email provider actually sends it.
   receiptEmailSentAt DateTime?
   receiptToEmail     String?
 
@@ -628,19 +660,85 @@ model ChatMessage {
 // ============= NOTIFICATIONS & ACTIVITY =============
 
 model Notification {
-  id        String   @id @default(cuid())
+  id           String               @id @default(cuid())
+  userId       String
+  type         String // Legacy presentation category: COMMENT, PAYMENT, APPOINTMENT, etc.
+  eventKey     String? // Typed domain event key; nullable while legacy producers are migrated.
+  dedupeKey    String? // Recipient-scoped event identity; nullable for existing/legacy notifications.
+  title        String
+  message      String
+  relatedId    String? // Legacy related entity ID, retained for API compatibility.
+  resourceType String? // Generic resource kind; intentionally not the PDF/IMAGE ResourceType enum.
+  resourceId   String?
+  actionUrl    String? // Internal relative URL for an actionable notification.
+  priority     NotificationPriority @default(NORMAL)
+  isRead       Boolean              @default(false)
+  readAt       DateTime?
+  createdAt    DateTime             @default(now())
+
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries NotificationDelivery[]
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@index([resourceType, resourceId])
+  @@unique([userId, dedupeKey])
+}
+
+// Persistent delivery work for channels that cannot be completed in the
+// request path. notificationId is optional so guest recipients can receive an
+// email without gaining an in-app Notification record.
+model NotificationDelivery {
+  id              String                     @id @default(cuid())
+  notificationId  String?
+  recipientUserId String?
+  eventKey        String
+  dedupeKey       String
+  channel         NotificationDeliveryChannel @default(EMAIL)
+  recipientEmail  String?
+  type            String
+  relatedId       String?
+  title           String
+  message         String
+  resourceType    String?
+  resourceId      String?
+  actionUrl       String?
+  priority        NotificationPriority       @default(NORMAL)
+  scheduledFor    DateTime                   @default(now())
+  status          NotificationDeliveryStatus @default(PENDING)
+  attemptCount    Int                        @default(0)
+  lockedAt        DateTime?
+  sentAt          DateTime?
+  failedAt        DateTime?
+  lastError       String?
+  createdAt       DateTime                   @default(now())
+  updatedAt       DateTime                   @updatedAt
+
+  notification  Notification? @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  recipientUser User?         @relation("NotificationDeliveryRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull)
+
+  @@unique([channel, dedupeKey])
+  @@index([notificationId])
+  @@index([recipientUserId])
+  @@index([status, scheduledFor])
+  @@index([resourceType, resourceId, status])
+}
+
+// A missing row means enabled. Only an explicit opt-out is persisted, which
+// keeps the existing experience backward compatible for current users.
+model NotificationPreference {
+  id        String                         @id @default(cuid())
   userId    String
-  type      String // 'COMMENT', 'LIKE', 'COURSE_COMPLETION', 'NEW_COURSE', 'PAYMENT', 'CERTIFICATE', 'EXAM_REVIEW', 'APPOINTMENT', 'SUBMISSION', 'BUG_REPORT', 'ROLE_CHANGE', 'NEW_USER'
-  title     String
-  message   String
-  relatedId String? // courseId, commentId, likeId, etc.
-  isRead    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  category  NotificationPreferenceCategory
+  enabled   Boolean                        @default(true)
+  createdAt DateTime                       @default(now())
+  updatedAt DateTime                       @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, isRead])
-  @@index([createdAt])
+  @@unique([userId, category])
+  @@index([userId])
 }
 
 model UserActivity {

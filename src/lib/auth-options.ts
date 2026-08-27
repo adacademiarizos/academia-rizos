@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { isSessionVersionStale } from "@/lib/password-reset";
+import { NotificationEventService } from "@/server/services/notification-event-service";
 
 export const authOptions: NextAuthOptions = {
   secret: env.NEXTAUTH_SECRET,
@@ -51,10 +52,15 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google" && user.email) {
-        await db.user.upsert({
-          where: { email: user.email.toLowerCase() },
+        const normalizedEmail = user.email.toLowerCase();
+        const existingUser = await db.user.findUnique({
+          where: { email: normalizedEmail },
+          select: { id: true },
+        });
+        const dbUser = await db.user.upsert({
+          where: { email: normalizedEmail },
           create: {
-            email: user.email.toLowerCase(),
+            email: normalizedEmail,
             name: user.name,
             image: user.image,
             role: "STUDENT",
@@ -64,6 +70,12 @@ export const authOptions: NextAuthOptions = {
             image: user.image ?? undefined,
           },
         });
+
+        if (!existingUser) {
+          // Low-priority, in-app only administration signal. The notification
+          // service catches its own errors so OAuth sign-in stays available.
+          await NotificationEventService.userRegistered(dbUser.id, "Google");
+        }
       }
       return true;
     },
