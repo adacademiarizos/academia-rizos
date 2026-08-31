@@ -261,6 +261,27 @@ export async function getSignedDownloadUrl(
 }
 
 /**
+ * Recover the storage key from a URL previously returned by uploadFile().
+ * uploadFile() stores either `${R2_PUBLIC_URL}/${key}` or `${R2_ENDPOINT}/${bucket}/${key}`,
+ * so this strips whichever base is currently configured to get back the raw key.
+ * @param url - Full URL as stored in the database
+ * @returns The storage key, or null if it doesn't match a known base
+ */
+export function getStorageKeyFromUrl(url: string): string | null {
+  const bases = [process.env.R2_PUBLIC_URL, `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET_NAME}`]
+
+  for (const base of bases) {
+    if (!base) continue
+    const normalizedBase = `${base.replace(/\/$/, '')}/`
+    if (url.startsWith(normalizedBase)) {
+      return url.slice(normalizedBase.length)
+    }
+  }
+
+  return null
+}
+
+/**
  * Delete file from R2/S3
  * @param key - File path in bucket
  */
