@@ -20,8 +20,7 @@ export const createModuleSchema = z.object({
   order: z.number().int().positive(),
   title: z.string().min(3, 'Title must be at least 3 characters').max(255),
   description: z.string().optional(),
-  videoUrl: z.string().url('Invalid video URL'),
-  transcript: z.string().optional(),
+  videoFileUrl: z.string().url().optional().or(z.literal('')),
 })
 
 export const updateModuleSchema = createModuleSchema.partial().omit({ courseId: true })
@@ -29,28 +28,32 @@ export const updateModuleSchema = createModuleSchema.partial().omit({ courseId: 
 // Module Style Validators
 
 export const createModuleStyleSchema = z.object({
-  moduleId: z.string().cuid(),
+  courseId: z.string().cuid(),
   name: z.string().min(1, 'Name is required').max(120),
   description: z.string().optional().nullable(),
   order: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
 })
 
-export const updateModuleStyleSchema = createModuleStyleSchema.partial().omit({ moduleId: true })
+export const updateModuleStyleSchema = createModuleStyleSchema.partial().omit({ courseId: true })
 
 // Lesson Validators
 
-export const createLessonSchema = z.object({
-  styleId: z.string().cuid(),
+const lessonFieldsSchema = z.object({
+  courseId: z.string().cuid(),
+  styleId: z.string().cuid().optional(),
+  moduleId: z.string().cuid().optional(),
   title: z.string().min(1, 'Title is required').max(255),
   description: z.string().optional().nullable(),
-  videoUrl: z.string().url().optional().or(z.literal('')),
   videoFileUrl: z.string().url().optional().or(z.literal('')),
-  transcript: z.string().optional().nullable(),
   order: z.number().int().min(0).optional(),
 })
 
-export const updateLessonSchema = createLessonSchema.partial().omit({ styleId: true })
+export const createLessonSchema = lessonFieldsSchema.refine((lesson) => Boolean(lesson.styleId) !== Boolean(lesson.moduleId), {
+  message: 'A lesson must belong to exactly one module or style',
+})
+
+export const updateLessonSchema = lessonFieldsSchema.partial().omit({ courseId: true, styleId: true, moduleId: true })
 
 // Resource Validators
 
@@ -116,6 +119,9 @@ export const createCommentSchema = z.object({
   targetType: z.enum(['COURSE', 'MODULE']),
   courseId: z.string().cuid().optional(),
   moduleId: z.string().cuid().optional(),
+  // Set when the comment answers another one, so its author gets notified.
+  // Zod strips unknown keys, so omitting it here silently drops the reply link.
+  replyToCommentId: z.string().cuid().optional(),
 }).refine(
   (data) => data.courseId || data.moduleId,
   {

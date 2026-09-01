@@ -13,19 +13,19 @@ export class AnalyticsService {
     try {
       // Courses enrolled
       const coursesEnrolled = await db.courseAccess.count({
+        where: { userId, revokedAt: null },
+      })
+
+      // Lesson progress is canonical.
+      const lessonsCompleted = await db.lessonProgress.count({
         where: { userId },
       })
 
-      // Modules completed
-      const modulesCompleted = await db.moduleProgress.count({
-        where: { userId, completed: true },
-      })
-
-      // Tests passed (approved submissions)
-      const testsPassed = await db.submission.count({
+      // Lesson tests are automatically scored; a passing submission is retained.
+      const testsPassed = await db.lessonTestSubmission.count({
         where: {
           userId,
-          status: 'APPROVED',
+          isPassed: true,
         },
       })
 
@@ -38,7 +38,9 @@ export class AnalyticsService {
 
       return {
         coursesEnrolled,
-        modulesCompleted,
+        lessonsCompleted,
+        // Backwards-compatible alias while secondary dashboards migrate.
+        modulesCompleted: lessonsCompleted,
         testsPassed,
         lastActivityAt: lastActivity?.createdAt || null,
       }
@@ -58,49 +60,35 @@ export class AnalyticsService {
         where: { userId_courseId: { userId, courseId } },
       })
 
-      if (!access) {
+      if (!access || access.revokedAt) {
         return null // No access
       }
 
-      // Get all modules in course
-      const modules = await db.module.findMany({
-        where: { courseId },
-        select: { id: true },
-      })
-
-      const totalModules = modules.length
-
-      // Get completed modules
-      const completedModules = await db.moduleProgress.count({
-        where: {
-          userId,
-          moduleId: {
-            in: modules.map((m) => m.id),
-          },
-          completed: true,
-        },
+      const totalLessons = await db.lesson.count({ where: { module: { courseId } } })
+      const completedLessons = await db.lessonProgress.count({
+        where: { userId, lesson: { module: { courseId } } },
       })
 
       const percentComplete =
-        totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0
+        totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
 
-      // Check if test was passed
-      const testPassed = await db.submission.findFirst({
+      // Completion requires a manually approved course final exam.
+      const finalExamPassed = await db.finalExamAttempt.findFirst({
         where: {
           userId,
-          test: {
+          status: 'APPROVED',
+          finalExam: {
             courseId,
           },
-          status: 'APPROVED',
         },
       })
 
       return {
         percentComplete,
-        modulesCompleted: completedModules,
-        totalModules,
-        testPassed: !!testPassed,
-        status: percentComplete === 100 && testPassed ? 'COMPLETED' : 'IN_PROGRESS',
+        lessonsCompleted: completedLessons,
+        totalLessons,
+        finalExamPassed: !!finalExamPassed,
+        status: percentComplete === 100 && finalExamPassed ? 'COMPLETED' : 'IN_PROGRESS',
       }
     } catch (error) {
       console.error('Error calculating course progress:', error)
@@ -181,7 +169,7 @@ export class AnalyticsService {
   static async getCoursesProgress(userId: string) {
     try {
       const courses = await db.courseAccess.findMany({
-        where: { userId },
+        where: { userId, revokedAt: null },
         select: { courseId: true },
       })
 

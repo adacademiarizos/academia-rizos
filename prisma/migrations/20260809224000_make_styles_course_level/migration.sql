@@ -1,0 +1,1 @@
+-- No-op: course-level style migration is implemented by 20260805000000_move_styles_to_courses.

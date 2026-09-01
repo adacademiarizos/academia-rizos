@@ -18,7 +18,7 @@ export async function checkAdminAuth() {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return {
-        authorized: false,
+        authorized: false as const,
         response: NextResponse.json(
           { success: false, error: 'Unauthorized - please sign in' },
           { status: 401 }
@@ -34,7 +34,7 @@ export async function checkAdminAuth() {
 
     if (!user) {
       return {
-        authorized: false,
+        authorized: false as const,
         response: NextResponse.json(
           { success: false, error: 'User not found' },
           { status: 404 }
@@ -44,7 +44,7 @@ export async function checkAdminAuth() {
 
     if (user.role !== 'ADMIN') {
       return {
-        authorized: false,
+        authorized: false as const,
         response: NextResponse.json(
           { success: false, error: 'Admin access required' },
           { status: 403 }
@@ -54,12 +54,12 @@ export async function checkAdminAuth() {
 
     // All checks passed
     return {
-      authorized: true,
+      authorized: true as const,
       user,
     }
   } catch (error) {
     return {
-      authorized: false,
+      authorized: false as const,
       response: NextResponse.json(
         {
           success: false,

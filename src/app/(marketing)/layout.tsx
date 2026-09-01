@@ -102,8 +102,12 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
         </defs>
       </svg>
       <Header />
-      {/* pt-16 clears the fixed navbar (~64px) on all pages except those with full-bleed heroes */}
-      <div >
+      {/* The header is fixed, so it takes no space in the flow and content would
+          render underneath it. Marketing pages happen to clear it with their own
+          top padding (py-16 or more); the student area does not, and its course
+          header is positioned with `sticky top-16` on the assumption that this
+          offset exists. Reserve the navbar height there. */}
+      <div className={pathname.startsWith("/learn") ? "pt-16" : undefined}>
         {children}
       </div>
       <Footer />
@@ -147,8 +151,15 @@ function Header() {
   const buttonConfig = getButtonConfig();
   const ButtonIcon = buttonConfig.icon;
 
+  // The marketing pages want the navbar to pick up the hero behind it, but the
+  // student area sits over videos and banners, where the blur tints the bar a
+  // different colour on every lesson. There it gets an opaque background.
+  const isStudentArea = pathname.startsWith('/learn')
+
   return (
-    <header className="fixed w-full top-0 z-50 backdrop-blur-3xl ">
+    <header
+      className={`fixed w-full top-0 z-50 ${isStudentArea ? 'border-b border-white/10 bg-ap-ink' : 'backdrop-blur-3xl'}`}
+    >
       <div className="mx-auto max-w-6xl px-4 py-2 flex items-center justify-between gap-4">
         {/* Brand */}
         <Link href="/" className="group leading-none">

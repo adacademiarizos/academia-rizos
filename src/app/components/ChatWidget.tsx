@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
+import { CommunityText } from '@/app/components/CommunityText'
+import { createCommunityMentionToken } from '@/lib/community-mentions'
 
 interface ChatMessage {
   id: string
@@ -89,6 +91,18 @@ export function ChatWidget({ courseId }: ChatWidgetProps) {
     if (isOpen) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isOpen])
 
+  useEffect(() => {
+    if (!isOpen) return
+
+    const messageId = window.location.hash.replace(/^#message-/, '')
+    if (!messageId) return
+
+    document.getElementById(`message-${messageId}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    })
+  }, [messages, isOpen])
+
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -105,6 +119,15 @@ export function ChatWidget({ courseId }: ChatWidgetProps) {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  const appendMention = (user: ChatMessage['user']) => {
+    const token = createCommunityMentionToken(user)
+
+    setText((current) => {
+      if (current.includes(`](${user.id})`)) return current
+      return `${current}${current.trimEnd() ? ' ' : ''}${token} `
+    })
+  }
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!session?.user || !roomId) return
@@ -117,7 +140,6 @@ export function ChatWidget({ courseId }: ChatWidgetProps) {
       if (pendingImage) {
         const fd = new FormData()
         fd.append('file', pendingImage)
-        fd.append('roomId', roomId)
         const r = await fetch('/api/chat/images', { method: 'POST', body: fd })
         const d = await r.json()
         if (!r.ok) { setError(d.error || 'Error al subir imagen'); setSending(false); return }
@@ -190,7 +212,7 @@ export function ChatWidget({ courseId }: ChatWidgetProps) {
           messages.map((msg) => {
             const isOwn = msg.userId === (session?.user as any)?.id
             return (
-              <div key={msg.id} className={`flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
+              <div id={`message-${msg.id}`} key={msg.id} className={`scroll-mt-24 flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
                 <Avatar user={msg.user} />
                 <div className={`max-w-[80%] space-y-1 flex flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
                   <div className={`flex items-baseline gap-1.5 ${isOwn ? 'flex-row-reverse' : ''}`}>
@@ -210,8 +232,17 @@ export function ChatWidget({ courseId }: ChatWidgetProps) {
                     <div className={`px-2.5 py-1.5 rounded-2xl text-xs leading-relaxed break-words ${
                       isOwn ? 'bg-ap-copper text-white rounded-tr-sm' : 'bg-white/10 text-ap-ivory rounded-tl-sm'
                     }`}>
-                      {msg.body}
+                      <CommunityText body={msg.body} />
                     </div>
+                  )}
+                  {!isOwn && session?.user && (
+                    <button
+                      type="button"
+                      onClick={() => appendMention(msg.user)}
+                      className="text-[10px] text-ap-copper hover:text-orange-400 transition"
+                    >
+                      Mencionar
+                    </button>
                   )}
                 </div>
               </div>

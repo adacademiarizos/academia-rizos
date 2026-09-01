@@ -37,6 +37,13 @@ export async function POST(req: Request) {
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
 
     const currency = (link.currency || "EUR").toLowerCase();
+    const metadata = {
+      type: "PAYMENT_LINK",
+      paymentLinkId: link.id,
+      baseAmountCents: String(link.baseAmountCents),
+      totalAmountCents: String(link.totalAmountCents),
+      currency: link.currency,
+    };
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -56,13 +63,10 @@ export async function POST(req: Request) {
           },
         },
       ],
-      metadata: {
-        type: "PAYMENT_LINK",
-        paymentLinkId: link.id,
-        baseAmountCents: String(link.baseAmountCents),
-        totalAmountCents: String(link.totalAmountCents),
-        currency: link.currency,
+      payment_intent_data: {
+        metadata,
       },
+      metadata,
     });
 
     if (!session.url) {
@@ -81,13 +85,13 @@ export async function POST(req: Request) {
     await db.payment.create({
       data: {
         type: "PAYMENT_LINK",
-        status: "PROCESSING",
+        status: "REQUIRES_PAYMENT",
         amountCents: link.totalAmountCents,
         currency: link.currency,
         stripeCheckoutSessionId: session.id,
         paymentLinkId: link.id,
         payerEmail: link.customerEmail || null,
-        metadata: session.metadata as any,
+        metadata,
       },
     });
 

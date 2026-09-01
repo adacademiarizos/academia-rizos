@@ -10,6 +10,7 @@ const eslintConfig = [
       ".codex/**",
       "coverage/**",
       "dist/**",
+      "next-env.d.ts",
     ],
   },
   ...nextVitals,

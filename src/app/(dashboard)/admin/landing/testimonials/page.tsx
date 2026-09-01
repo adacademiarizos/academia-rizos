@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { UploadFeedbackField } from "@/app/components/UploadFeedbackField";
 import {
   Check,
   Eye,
@@ -9,7 +10,6 @@ import {
   Plus,
   Star,
   Trash2,
-  Upload,
   X,
 } from "lucide-react";
 
@@ -68,99 +68,31 @@ function AvatarUpload({
   currentUrl: string | null;
   onUploaded: (url: string | null) => void;
 }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-
-  async function handleFile(file: File) {
-    setUploadError(null);
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      setUploadError("Solo JPEG, PNG o WebP.");
-      return;
-    }
-    if (file.size > MAX_AVATAR_SIZE) {
-      setUploadError("Maximo 5MB.");
-      return;
-    }
-
-    setUploading(true);
-    const form = new FormData();
-    form.set("image", file);
-
-    try {
-      const res = await fetch("/api/admin/uploads/image", {
-        method: "POST",
-        body: form,
-      });
-      const json = await res.json();
-      if (!res.ok || !json.ok) {
-        throw new Error(json?.error?.message ?? "Error al subir imagen");
-      }
-      onUploaded(json.data.url);
-    } catch (e: any) {
-      setUploadError(e.message ?? "Error al subir");
-    } finally {
-      setUploading(false);
-    }
-  }
-
   return (
-    <div>
+    <div className="space-y-3">
       <label className="mb-1.5 block text-xs text-white/50">Avatar</label>
-      <div className="flex items-center gap-3">
-        {currentUrl ? (
-          <div className="group relative">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={currentUrl}
-              alt="Avatar"
-              className="h-14 w-14 rounded-full border-2 border-[#B16E34]/30 object-cover"
-            />
-            <button
-              type="button"
-              onClick={() => onUploaded(null)}
-              className="absolute -right-1 -top-1 rounded-full bg-black/80 p-0.5 text-white/60 opacity-0 transition group-hover:opacity-100 hover:text-red-400"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex h-14 w-14 items-center justify-center rounded-full border border-dashed border-white/20 bg-white/5 text-white/30">
-            <Upload className="h-4 w-4" />
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploading}
-          className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70 transition hover:bg-white/10 disabled:opacity-40"
-        >
-          {uploading ? (
-            <span className="flex items-center gap-1.5">
-              <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-              Subiendo...
-            </span>
-          ) : currentUrl ? (
-            "Cambiar imagen"
-          ) : (
-            "Subir imagen"
-          )}
-        </button>
-      </div>
-
-      {uploadError && <p className="mt-1 text-xs text-red-400">{uploadError}</p>}
-
-      <input
-        ref={fileRef}
-        type="file"
+      {currentUrl ? (
+        <div className="group relative h-14 w-14">
+          <img src={currentUrl} alt="Avatar" className="h-14 w-14 rounded-full border-2 border-[#B16E34]/30 object-cover" />
+          <button type="button" onClick={() => onUploaded(null)} className="absolute -right-1 -top-1 rounded-full bg-black/80 p-0.5 text-white/60 opacity-0 transition group-hover:opacity-100 hover:text-red-400" aria-label="Quitar avatar">
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      ) : null}
+      <UploadFeedbackField
+        label={currentUrl ? "Cambiar avatar" : "Cargar avatar"}
+        helperText="JPEG, PNG o WebP · máximo 5 MB"
         accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) handleFile(f);
-          e.target.value = "";
+        allowedTypes={ALLOWED_TYPES}
+        maxBytes={MAX_AVATAR_SIZE}
+        endpoint="/api/admin/uploads/image"
+        createFormData={(image) => { const form = new FormData(); form.set("image", image); return form }}
+        getResult={(payload) => {
+          const result = payload as { ok?: boolean; data?: { url?: string }; error?: { message?: string } }
+          if (!result.ok || !result.data?.url) throw new Error(result.error?.message || "No se pudo subir el avatar")
+          return result.data.url
         }}
+        onUploaded={(url) => onUploaded(url)}
       />
     </div>
   );

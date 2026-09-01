@@ -1,6 +1,7 @@
 /**
  * GET /api/courses/[courseId]/modules
- * Get course modules in preview mode or protected learning mode
+ * Returns the independent module and style sections for the learning area.
+ * The route name is kept for backward compatibility with existing links.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -15,64 +16,44 @@ export async function GET(
   try {
     const { courseId } = await params
     const previewMode = request.nextUrl.searchParams.get('preview') === 'true'
-
     if (!courseId) {
       return NextResponse.json({ success: false, error: 'Course ID is required' }, { status: 400 })
     }
 
-    const courseExists = await db.course.findUnique({
-      where: { id: courseId },
-      select: { id: true },
-    })
-
-    if (!courseExists) {
-      return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 })
-    }
+    const course = await db.course.findUnique({ where: { id: courseId }, select: { id: true, contentStructure: true } })
+    if (!course) return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 })
 
     if (previewMode) {
-      const modules = await CourseService.getCourseModules(courseId)
-
+      const [modules, styles] = await Promise.all([
+        CourseService.getCourseModules(courseId),
+        CourseService.getCourseStyles(courseId),
+      ])
       return NextResponse.json({
         success: true,
-        data: {
-          modules,
-          progress: 0,
-        },
-        count: modules.length,
+        data: { modules, styles, contentStructure: course.contentStructure, progress: 0 },
+        count: modules.length + styles.length,
       })
     }
 
-    const access = await authorizeCourseAccessByCourseId(courseId, {
-      allowAdmin: true,
-      requireActiveAccess: true,
-    })
+    const access = await authorizeCourseAccessByCourseId(courseId, { allowAdmin: true, requireActiveAccess: true })
+    if (!access.ok) return toAccessDeniedResponse(access)
 
-    if (!access.ok) {
-      return toAccessDeniedResponse(access)
-    }
-
-    const modules = await CourseService.getCourseModules(
-      courseId,
-      access.viaAdmin ? undefined : access.user.id
-    )
-
-    const totalModules = modules.length
-    const completedModules = modules.reduce(
-      (count, module) => count + ('completed' in module && module.completed ? 1 : 0),
-      0
-    )
-    const progress = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0
+    const userId = access.viaAdmin ? undefined : access.user.id
+    const [modules, styles] = await Promise.all([
+      CourseService.getCourseModules(courseId, userId),
+      CourseService.getCourseStyles(courseId, userId),
+    ])
+    const units = [...modules, ...styles]
+    const completedUnits = units.filter((unit) => 'completed' in unit && unit.completed).length
+    const progress = units.length > 0 ? Math.round((completedUnits / units.length) * 100) : 0
 
     return NextResponse.json({
       success: true,
-      data: {
-        modules,
-        progress,
-      },
-      count: modules.length,
+      data: { modules, styles, contentStructure: course.contentStructure, progress },
+      count: units.length,
     })
   } catch (error) {
-    console.error('Error fetching course modules:', error)
-    return NextResponse.json({ success: false, error: 'Failed to fetch modules' }, { status: 500 })
+    console.error('Error fetching course content:', error)
+    return NextResponse.json({ success: false, error: 'Failed to fetch course content' }, { status: 500 })
   }
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { getSafeNotificationActionUrl } from './notification-action-url'
 
 interface Notification {
   id: string
@@ -10,6 +11,9 @@ interface Notification {
   message: string
   isRead: boolean
   createdAt: string
+  actionUrl?: string | null
+  priority?: string | number | null
+  readAt?: string | null
 }
 
 const POLL_INTERVAL = 15_000 // 15 seconds
@@ -53,13 +57,40 @@ export function NotificationBell() {
     }
   }, [])
 
-  const handleMarkAsRead = async (notificationId: string) => {
+  const markNotificationAsRead = async (notificationId: string, keepalive = false) => {
+    setNotifications((currentNotifications) =>
+      currentNotifications.map((notification) =>
+        notification.id === notificationId
+          ? { ...notification, isRead: true, readAt: notification.readAt ?? new Date().toISOString() }
+          : notification
+      )
+    )
+
     try {
-      await fetch(`/api/notifications/${notificationId}/read`, { method: 'POST' })
-      fetchNotifications()
+      const response = await fetch(`/api/notifications/${notificationId}/read`, {
+        method: 'POST',
+        keepalive,
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to mark notification as read')
+      }
     } catch {
-      // ignore
+      void fetchNotifications()
     }
+  }
+
+  const handleMarkAsRead = async (notificationId: string) => {
+    await markNotificationAsRead(notificationId)
+    void fetchNotifications()
+  }
+
+  const handleActionActivation = (notification: Notification) => {
+    if (!notification.isRead) {
+      void markNotificationAsRead(notification.id, true)
+    }
+
+    setIsOpen(false)
   }
 
   const handleMarkAllAsRead = async () => {
@@ -125,34 +156,51 @@ export function NotificationBell() {
                 Sin notificaciones
               </div>
             ) : (
-              notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={`flex gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-white/5 ${
-                    !n.isRead ? 'bg-[#B16E34]/10' : ''
-                  }`}
-                  onClick={() => !n.isRead && handleMarkAsRead(n.id)}
-                >
-                  <span className="text-base leading-none mt-0.5 shrink-0">
-                    {typeIcon[n.type] ?? '🔔'}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#FAF4EA] truncate">{n.title}</p>
-                    <p className="text-xs text-white/50 mt-0.5 line-clamp-2">{n.message}</p>
-                    <p className="text-[10px] text-white/30 mt-1">
-                      {new Date(n.createdAt).toLocaleDateString('es-AR', {
-                        day: '2-digit',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
+              notifications.map((n) => {
+                const actionUrl = getSafeNotificationActionUrl(n.actionUrl)
+
+                return (
+                  <div
+                    key={n.id}
+                    className={`flex gap-3 px-4 py-3 cursor-pointer transition-colors hover:bg-white/5 ${
+                      !n.isRead ? 'bg-[#B16E34]/10' : ''
+                    }`}
+                    onClick={() => !n.isRead && handleMarkAsRead(n.id)}
+                  >
+                    <span className="text-base leading-none mt-0.5 shrink-0">
+                      {typeIcon[n.type] ?? '🔔'}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[#FAF4EA] truncate">{n.title}</p>
+                      <p className="text-xs text-white/50 mt-0.5 line-clamp-2">{n.message}</p>
+                      <p className="text-[10px] text-white/30 mt-1">
+                        {new Date(n.createdAt).toLocaleDateString('es-AR', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                      {actionUrl && (
+                        <Link
+                          href={actionUrl}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            handleActionActivation(n)
+                          }}
+                          className="mt-1.5 inline-flex rounded-md border border-[#B16E34]/40 bg-[#B16E34]/10 px-2 py-1 text-[10px] font-semibold text-[#d7934e] transition hover:border-[#B16E34]/70 hover:bg-[#B16E34]/20 hover:text-[#f0b370] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d7934e] focus-visible:ring-offset-2 focus-visible:ring-offset-[#1F1C19]"
+                          aria-label={`Ver detalle: ${n.title}`}
+                        >
+                          Ver detalle
+                        </Link>
+                      )}
+                    </div>
+                    {!n.isRead && (
+                      <div className="w-2 h-2 rounded-full bg-[#B16E34] shrink-0 mt-1.5" />
+                    )}
                   </div>
-                  {!n.isRead && (
-                    <div className="w-2 h-2 rounded-full bg-[#B16E34] shrink-0 mt-1.5" />
-                  )}
-                </div>
-              ))
+                )
+              })
             )}
           </div>
 

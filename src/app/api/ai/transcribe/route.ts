@@ -54,14 +54,14 @@ export async function POST(request: NextRequest) {
       }
       videoFileUrl = lesson.videoFileUrl || lesson.videoUrl
     } else if (moduleId) {
-      const module = await db.module.findUnique({
+      const mod = await db.module.findUnique({
         where: { id: moduleId },
         select: { videoFileUrl: true, videoUrl: true },
       })
-      if (!module) {
+      if (!mod) {
         return NextResponse.json({ success: false, error: 'Module not found' }, { status: 404 })
       }
-      videoFileUrl = module.videoFileUrl || module.videoUrl
+      videoFileUrl = mod.videoFileUrl || mod.videoUrl
     }
 
     if (!videoFileUrl) {

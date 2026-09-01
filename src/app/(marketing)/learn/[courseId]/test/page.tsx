@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
 import { useCourseAccess } from "@/app/components/useCourseAccess";
+import { toast } from "sonner";
 
 interface TestQuestion {
   id: string;
@@ -88,7 +89,7 @@ export default function TestPage() {
     );
 
     if (unanswered.length > 0) {
-      alert(
+      toast.error(
         `Por favor completa todas las preguntas requeridas. Faltan ${unanswered.length}.`
       );
       return;
@@ -136,7 +137,7 @@ export default function TestPage() {
         router.push(`/learn/${courseId}`);
       }, 2000);
     } catch (err) {
-      alert(
+      toast.error(
         `Error al enviar el examen: ${
           err instanceof Error ? err.message : "Unknown error"
         }`

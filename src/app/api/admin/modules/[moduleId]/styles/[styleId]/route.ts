@@ -11,14 +11,14 @@ const UpdateStyleSchema = z.object({
   isActive: z.boolean().optional(),
 })
 
-async function getUniqueStyleSlug(moduleId: string, name: string, styleId: string) {
+async function getUniqueStyleSlug(courseId: string, name: string, styleId: string) {
   const baseSlug = slugifyStyleName(name)
   let slug = baseSlug
   let suffix = 2
 
   while (true) {
     const existing = await db.moduleStyle.findUnique({
-      where: { moduleId_slug: { moduleId, slug } },
+      where: { courseId_slug: { courseId, slug } },
       select: { id: true },
     })
     if (!existing || existing.id === styleId) return slug
@@ -39,16 +39,17 @@ export async function PUT(
 
     const existing = await db.moduleStyle.findUnique({
       where: { id: styleId },
-      select: { id: true, moduleId: true },
+      select: { id: true, courseId: true },
     })
 
-    if (!existing || existing.moduleId !== moduleId) {
+    const courseModule = await db.module.findUnique({ where: { id: moduleId }, select: { courseId: true, styleId: true } })
+    if (!existing || !courseModule || existing.courseId !== courseModule.courseId || courseModule.styleId !== styleId) {
       return NextResponse.json({ success: false, error: 'Style not found' }, { status: 404 })
     }
 
     const body = await request.json()
     const data = UpdateStyleSchema.parse(body)
-    const slug = data.name ? await getUniqueStyleSlug(moduleId, data.name, styleId) : undefined
+    const slug = data.name ? await getUniqueStyleSlug(courseModule.courseId, data.name, styleId) : undefined
 
     const updated = await db.moduleStyle.update({
       where: { id: styleId },
@@ -89,17 +90,18 @@ export async function DELETE(
 
     const existing = await db.moduleStyle.findUnique({
       where: { id: styleId },
-      select: { id: true, moduleId: true, name: true },
+      select: { id: true, courseId: true, name: true },
     })
 
-    if (!existing || existing.moduleId !== moduleId) {
+    const courseModule = await db.module.findUnique({ where: { id: moduleId }, select: { courseId: true, styleId: true } })
+    if (!existing || !courseModule || existing.courseId !== courseModule.courseId || courseModule.styleId !== styleId) {
       return NextResponse.json({ success: false, error: 'Style not found' }, { status: 404 })
     }
 
-    const styleCount = await db.moduleStyle.count({ where: { moduleId } })
-    if (styleCount <= 1) {
+    const moduleCount = await db.module.count({ where: { styleId } })
+    if (moduleCount > 0) {
       return NextResponse.json(
-        { success: false, error: 'Cannot delete the only style in a module' },
+        { success: false, error: 'Move or delete the style modules before deleting this style' },
         { status: 400 }
       )
     }

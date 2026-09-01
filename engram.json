@@ -1,26 +1,62 @@
 [
   {
-    "what": "Inicialización del proyecto",
+    "what": "Inicializacion del proyecto",
     "why": "Establecer la arquitectura AI-First para escalar a largo plazo",
     "where": "Todo el repositorio",
-    "learned": "El sistema usará Skills Registry, Context.md y Ramas Aisladas (feature) para evitar el colapso del contexto y la rotura de producción."
+    "learned": "El sistema usara Skills Registry, Context.md y Ramas Aisladas (feature) para evitar el colapso del contexto y la rotura de produccion."
   },
   {
-    "what": "Decisión sobre BillingRule.AUTHORIZE",
-    "why": "El enum era ambiguo (¿retención de tarjeta o pago presencial?); el spec 07 lo planteó como Human Gate",
-    "where": "specs/07-stripe-payments-hardening.md §2.3; src/app/api/stripe/checkout/route.ts, src/app/api/bookings/draft/route.ts",
-    "learned": "AUTHORIZE = 'pago en persona' (Opción A): la cita se agenda sin cobro online y se paga en el salón. Se mantiene el comportamiento actual del código. La retención real de tarjeta (capture_method=manual) queda como backlog ligado a la política de no-show (spec 05)."
+    "what": "Decision sobre BillingRule.AUTHORIZE",
+    "why": "El enum era ambiguo (retencion de tarjeta o pago presencial); el spec 07 lo planteo como Human Gate",
+    "where": "specs/07-stripe-payments-hardening.md; src/app/api/stripe/checkout/route.ts, src/app/api/bookings/draft/route.ts",
+    "learned": "AUTHORIZE = pago en persona: la cita se agenda sin cobro online y se paga en el salon. La retencion real de tarjeta queda como backlog ligado a la politica de no-show."
   },
   {
-    "what": "Política de comisión de Stripe (feeMode)",
-    "why": "Comisión inconsistente: curso y link añadían fee al cliente, la cita no; se necesitaba una única política",
-    "where": "specs/07-stripe-payments-hardening.md §2.5/T7; src/lib/fees.ts, Settings.feeMode",
-    "learned": "Decisión de negocio: SURCHARGE (el cliente paga la comisión) en los tres flujos; hay que homogeneizar la cita, que hoy no la aplica. ADVERTENCIA asumida por el negocio: repercutir la comisión de tarjeta al consumidor está restringido en la UE (Reg. UE 2015/751 / PSD2) — pendiente de revisión legal antes de producción."
+    "what": "Politica de comision de Stripe",
+    "why": "La comision era inconsistente entre cita, curso y links de pago y se necesitaba una politica unica",
+    "where": "specs/07-stripe-payments-hardening.md; src/lib/fees.ts, Settings.feeMode",
+    "learned": "La decision de negocio fue SURCHARGE en los tres flujos. Sigue pendiente validacion legal antes de produccion para el caso UE."
+  },
+  {
+    "what": "Recuperacion de contrasena con invalidacion de sesiones JWT",
+    "why": "Permitir que cuentas con credenciales recuperen acceso sin exponer enumeracion de usuarios ni dejar sesiones antiguas activas",
+    "where": "Auth, Prisma, mail transaccional y pantallas publicas",
+    "learned": "Con NextAuth en estrategia JWT, invalidar sesiones previas requiere persistir un sessionVersion en User y contrastarlo en callbacks.jwt/session. Para rate limiting consistente en forgot-password conviene registrar intentos por email e IP en base de datos."
+  },
+  {
+    "what": "Automatizacion de jobs de mantenimiento",
+    "why": "Centralizar cron jobs sin infraestructura nueva y evitar alertas duplicadas",
+    "where": "src/app/api/cron/[job]/route.ts, src/server/jobs/*, prisma/schema.prisma",
+    "learned": "Los jobs de mantenimiento funcionan mejor como un endpoint unico autenticado por CRON_SECRET y disparado por Vercel Cron. El estado de alertas se persiste en Settings.cronAlertState para notificar solo en transicion a fallo."
+  },
+  {
+    "what": "Ciclo de vida completo del webhook de Stripe",
+    "why": "Sincronizar reembolsos, fallos, expiraciones y disputas sin duplicar efectos secundarios",
+    "where": "prisma/schema.prisma, src/app/api/stripe/webhook/route.ts, src/server/services/stripe-webhook-service.ts",
+    "learned": "El patron mas estable fue separar la reconciliacion core en base de datos de las notificaciones no criticas: primero se consolida Payment, Appointment y CourseAccess y se registra WebhookEvent para idempotencia auditable; despues se disparan emails y notificaciones tolerantes a fallo."
   },
   {
     "what": "Página de cuenta del usuario (/account) — decisiones de diseño",
     "why": "El icono de usuario del menú (MobileDrawer/Sidebar) no enlazaba a nada; no existía página privada editable ni endpoints GET/PATCH /api/me",
     "where": "specs/08-user-account-page.md; src/app/(dashboard)/components/{mobile/MobileDrawer,Sidebar}.tsx; prisma/schema.prisma (User)",
     "learned": "El bloque de usuario del menú enlazará a una nueva ruta /account privada y editable. Decisiones confirmadas: (1) se añade User.phone (editable en /account, reutilizable en el wizard de reserva); (2) el email SÍ es editable pero con reverificación (nuevo modelo EmailChangeRequest + token, depende de la infra del spec 01), y se BLOQUEA para cuentas solo-Google (password=null) porque su email lo gestiona Google. El email nunca se cambia por PATCH /api/me; va por flujo dedicado."
+  },
+  {
+    "what": "Exact certificate template and required course slogan",
+    "why": "The certificate must use the approved Elizabeth Rizos visual model and avoid publishing a course without its certificate copy.",
+    "where": "docs/academy-certificate-template.md; prisma/migrations/20260805120000_add_certificate_slogan; src/lib/pdf.ts; admin course APIs",
+    "learned": "certificateSlogan is nullable only for drafts. Publishing requires a trimmed non-empty slogan of at most 100 characters, server-side. Certificates embed local visual assets and fonts, use the course slogan in the specialization position, and generate a verification QR for /verify/certificate/{code}. Existing courses without a slogan are deactivated by the migration; existing access is not revoked."
+  },
+  {
+    "what": "Cumplimiento GDPR para borrado de cuenta y retencion de invitados",
+    "why": "Ejecutar derecho al olvido sin romper historial operativo ni relaciones existentes",
+    "where": "Prisma, auth, rutas /api/account/delete* y job /api/cron/gdpr-purge-guests",
+    "learned": "La estrategia mas estable fue anonimizar filas existentes en lugar de borrar el User. Eso preserva FKs para pagos, comunidad y auditoria, evita cascadas destructivas y deja la limpieza de blobs en R2 como un paso posterior no bloqueante al commit transaccional de base de datos."
+  },
+  {
+    "what": "Confirmacion UX y correo final de borrado de cuenta",
+    "why": "Evitar falsas confirmaciones y hacer mas clara la ultima accion destructiva para usuarios con password",
+    "where": "src/app/account/AccountDeletionPanel.tsx y src/server/services/gdpr-service.ts",
+    "learned": "El modal de confirmacion funciona mejor que un fragmento inline para la ultima credencial sensible, y el correo de exito debe dispararse solo despues de completar la anonimización y la limpieza asociada sin fallos pendientes."
   }
 ]

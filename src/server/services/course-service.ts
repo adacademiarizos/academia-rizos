@@ -4,7 +4,9 @@
 
 import { db } from '@/lib/db'
 import { addStripeFees } from '@/lib/fees'
-import type { Course, Module } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
+
+type CourseAccessClient = Pick<Prisma.TransactionClient, 'course' | 'courseAccess'>
 
 export class CourseService {
   /**
@@ -18,6 +20,7 @@ export class CourseService {
           _count: {
             select: {
               modules: true,
+              styles: true,
               resources: true,
               access: true,
             },
@@ -54,8 +57,9 @@ export class CourseService {
         isActive: course.isActive,
         createdAt: course.createdAt,
         updatedAt: course.updatedAt,
-        moduleCount: course._count.modules,
-        totalHours: (course._count.modules * 1.5),
+        contentStructure: course.contentStructure,
+        moduleCount: course._count.modules + course._count.styles,
+        totalHours: ((course._count.modules + course._count.styles) * 1.5),
         hasTest: !!course.test,
       }
     })
@@ -70,6 +74,7 @@ export class CourseService {
         where: { id: courseId },
         include: {
           modules: {
+            where: { styleId: null },
             select: {
               id: true,
               order: true,
@@ -78,9 +83,19 @@ export class CourseService {
             },
             orderBy: { order: 'asc' },
           },
+          styles: {
+            select: {
+              id: true,
+              order: true,
+              name: true,
+              description: true,
+            },
+            orderBy: { order: 'asc' },
+          },
           _count: {
             select: {
               modules: true,
+              styles: true,
               resources: true,
               access: true,
             },
@@ -105,13 +120,14 @@ export class CourseService {
       feeFixedCents,
     })
 
-    const totalModules = course._count.modules
+    const totalModules = course._count.modules + course._count.styles
     const totalHours = totalModules * 1.5
 
     return {
       id: course.id,
       title: course.title,
       description: course.description,
+      learningOutcomes: course.learningOutcomes,
       trailerUrl: course.trailerUrl,
       thumbnailUrl: course.thumbnailUrl,
       priceCents: course.priceCents,
@@ -120,6 +136,7 @@ export class CourseService {
       currency: course.currency,
       rentalDays: course.rentalDays,
       isActive: course.isActive,
+      contentStructure: course.contentStructure,
       createdAt: course.createdAt,
       updatedAt: course.updatedAt,
       moduleCount: totalModules,
@@ -162,32 +179,88 @@ export class CourseService {
    */
   static async getCourseModules(courseId: string, userId?: string) {
     const modules = await db.module.findMany({
-      where: { courseId },
+      where: { courseId, styleId: null },
       select: {
         id: true,
         order: true,
         title: true,
         description: true,
-        videoUrl: true,
+        videoFileUrl: true,
+        lessons: { where: { styleId: null }, select: { id: true } },
       },
       orderBy: { order: 'asc' },
     })
 
     if (!userId) {
-      return modules
+      return modules.map(({ lessons, ...module }) => {
+        void lessons
+        return module
+      })
     }
 
-    // Get progress for user
-    const progress = await db.moduleProgress.findMany({
-      where: { userId },
-      select: { moduleId: true, completed: true },
+    // Derived from LessonProgress, the same source the styles use and the same
+    // one that gates the final exam. Reading the separate ModuleProgress table
+    // let a module show as completed while every lesson in it was still
+    // pending, so the course page and the exam gate disagreed.
+    const progress = await db.lessonProgress.findMany({
+      where: { userId, lesson: { courseId, moduleId: { not: null } } },
+      select: { lessonId: true, completed: true },
+    })
+    const completedLessonIds = new Set(
+      progress.filter((item) => item.completed).map((item) => item.lessonId)
+    )
+
+    return modules.map(({ lessons, ...module }) => ({
+      ...module,
+      completed: lessons.length > 0 && lessons.every((lesson) => completedLessonIds.has(lesson.id)),
+    }))
+  }
+
+  /**
+   * Get the course-level style sections and their completion state. Styles are
+   * independent from modules and complete when all their direct lessons do.
+   */
+  static async getCourseStyles(courseId: string, userId?: string) {
+    const course = await db.course.findUnique({ where: { id: courseId }, select: { contentStructure: true } })
+    if (!course || (course.contentStructure !== 'STYLES' && course.contentStructure !== 'BOTH')) {
+      return []
+    }
+
+    const styles = await db.moduleStyle.findMany({
+      where: { courseId },
+      select: {
+        id: true,
+        order: true,
+        name: true,
+        description: true,
+        _count: { select: { lessons: { where: { moduleId: null } } } },
+        lessons: { where: { moduleId: null }, select: { id: true } },
+      },
+      orderBy: { order: 'asc' },
     })
 
-    const progressMap = new Map(progress.map((p) => [p.moduleId, p.completed]))
+    if (!userId) {
+      return styles.map((style) => ({
+        id: style.id,
+        order: style.order,
+        name: style.name,
+        description: style.description,
+        lessonCount: style._count.lessons,
+      }))
+    }
 
-    return modules.map((module) => ({
-      ...module,
-      completed: progressMap.get(module.id) || false,
+    const progress = await db.lessonProgress.findMany({
+      where: { userId, lesson: { courseId, moduleId: null } },
+      select: { lessonId: true, completed: true },
+    })
+    const completedLessonIds = new Set(
+      progress.filter((item) => item.completed).map((item) => item.lessonId)
+    )
+
+    return styles.map(({ lessons, _count, ...style }) => ({
+      ...style,
+      lessonCount: _count.lessons,
+      completed: lessons.length > 0 && lessons.every((lesson) => completedLessonIds.has(lesson.id)),
     }))
   }
 
@@ -238,14 +311,17 @@ export class CourseService {
     }
 
     // Get module count
-    const moduleCount = await db.module.count({
-      where: { courseId },
-    })
+    const [modules, styles] = await Promise.all([
+      this.getCourseModules(courseId, userId),
+      this.getCourseStyles(courseId, userId),
+    ])
+    const moduleCount = modules.length + styles.length
 
     // Get completed modules
-    const completedCount = await db.moduleProgress.count({
-      where: { userId, module: { courseId } },
-    })
+    const completedCount = [
+      ...modules.filter((module) => 'completed' in module && module.completed),
+      ...styles.filter((style) => 'completed' in style && style.completed),
+    ].length
 
     // Get submission status
     const test = await db.test.findUnique({
@@ -298,9 +374,9 @@ export class CourseService {
   /**
    * Create course access (after purchase)
    */
-  static async createCourseAccess(userId: string, courseId: string) {
+  static async createCourseAccess(userId: string, courseId: string, client: CourseAccessClient = db) {
     // Check course exists
-    const course = await db.course.findUnique({
+    const course = await client.course.findUnique({
       where: { id: courseId },
       select: { rentalDays: true },
     })
@@ -310,24 +386,25 @@ export class CourseService {
     }
 
     // Check if already has access
-    const existing = await db.courseAccess.findUnique({
+    const existing = await client.courseAccess.findUnique({
       where: { userId_courseId: { userId, courseId } },
     })
 
-    if (existing && !existing.accessUntil) {
+    if (existing && !existing.accessUntil && !existing.revokedAt) {
       // Already has lifetime access
       return existing
     }
 
     if (existing) {
-      // Extend access
+      // Extend access. Paying again also lifts an earlier revocation —
+      // otherwise a refunded student could never re-purchase the course.
       const newAccessUntil = course.rentalDays
         ? new Date(Date.now() + course.rentalDays * 24 * 60 * 60 * 1000)
         : null
 
-      return db.courseAccess.update({
+      return client.courseAccess.update({
         where: { id: existing.id },
-        data: { accessUntil: newAccessUntil },
+        data: { accessUntil: newAccessUntil, revokedAt: null },
       })
     }
 
@@ -336,12 +413,26 @@ export class CourseService {
       ? new Date(Date.now() + course.rentalDays * 24 * 60 * 60 * 1000)
       : null
 
-    return db.courseAccess.create({
+    return client.courseAccess.create({
       data: {
         userId,
         courseId,
         accessUntil,
       },
+    })
+  }
+
+  /**
+   * Revoke course access (after a refund or chargeback).
+   *
+   * Idempotent by design: webhooks retry, and matching only rows that are not
+   * revoked yet keeps the original revocation timestamp instead of pushing it
+   * forward on every replay. A missing row is a no-op rather than a throw.
+   */
+  static async revokeCourseAccess(userId: string, courseId: string, client: CourseAccessClient = db) {
+    return client.courseAccess.updateMany({
+      where: { userId, courseId, revokedAt: null },
+      data: { revokedAt: new Date() },
     })
   }
 }

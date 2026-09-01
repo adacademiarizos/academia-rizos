@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
+import { normalizeCertificateSlogan } from '@/validators/course.schema'
 import { generateAndSaveCertificate } from '@/server/services/certificate.service'
-import { NotificationService } from '@/server/services/notification-service'
 
 export const maxDuration = 60;
 
@@ -47,19 +47,34 @@ export async function POST(
       )
     }
 
-    // Delete the pending placeholder and generate the real certificate
-    await db.certificate.delete({ where: { id } })
-    const issued = await generateAndSaveCertificate(cert.userId, cert.courseId)
+    const course = await db.course.findUnique({
+      where: { id: cert.courseId },
+      select: { certificateSlogan: true },
+    })
+    if (!normalizeCertificateSlogan(course?.certificateSlogan)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'El curso todavía no tiene slogan de certificado, así que no se puede emitir. Completalo en la edición del curso y volvé a aprobar.',
+        },
+        { status: 409 }
+      )
+    }
 
-    // Notify the student
-    await NotificationService.triggerOnCertificateIssued(cert.userId, cert.courseId)
+    // Generate first, delete the placeholder only once the real certificate
+    // exists. Deleting first destroyed the pending record whenever generation
+    // failed, leaving nothing to retry. The placeholder has valid=false, so it
+    // never satisfies the idempotency check inside generateAndSaveCertificate.
+    const issued = await generateAndSaveCertificate(cert.userId, cert.courseId)
+    await db.certificate.delete({ where: { id } })
 
     return NextResponse.json({ success: true, data: issued })
   } catch (error) {
     console.error('Certificate approval failed:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to approve certificate' },
-      { status: 500 }
+      { success: false, error: 'No se pudo emitir el certificado. El pendiente sigue disponible para reintentar.' },
+      { status: 502 }
     )
   }
 }

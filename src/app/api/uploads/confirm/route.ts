@@ -7,21 +7,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin-auth'
 import { db } from '@/lib/db'
+import {
+  assertValidUploadFileSize,
+  parseUploadType,
+  UploadContractError,
+} from '@/lib/upload-contract'
+import { assertDeferredResourceUploadTarget } from '@/server/services/resource-upload-contract-service'
 
 export async function POST(req: NextRequest) {
   const auth = await checkAdminAuth()
   if (!auth.authorized) return auth.response
 
   try {
-    const { fileUrl, fileName, fileSize, mimeType, uploadType, moduleId, lessonId, courseId } =
+    const { fileUrl, fileName, fileSize, mimeType, uploadType: rawUploadType, moduleId, lessonId, courseId, deferPersistence, learningScope, learningScopeId } =
       await req.json()
 
-    if (!fileUrl || !uploadType) {
+    if (!fileUrl || !rawUploadType) {
       return NextResponse.json(
         { ok: false, error: 'fileUrl and uploadType are required' },
         { status: 400 }
       )
     }
+
+    const uploadType = parseUploadType(rawUploadType)
+    assertValidUploadFileSize(uploadType, fileSize)
+    await assertDeferredResourceUploadTarget({ deferPersistence, uploadType, courseId, learningScope, learningScopeId })
 
     // Determine DB file type label
     let fileType = 'other'
@@ -32,7 +42,11 @@ export async function POST(req: NextRequest) {
     else if (mimeType?.includes('sheet') || mimeType?.includes('spreadsheetml')) fileType = 'document'
 
     // Update DB
-    if (uploadType === 'video') {
+    if (deferPersistence === true) {
+      // The unified learning-content API owns persistence for resources at any
+      // hierarchy level. This preserves the direct-to-R2 upload path without
+      // accidentally creating a legacy CourseResource/ModuleResource row.
+    } else if (uploadType === 'video') {
       if (lessonId && lessonId !== 'temp') {
         await db.lesson.update({ where: { id: lessonId }, data: { videoFileUrl: fileUrl } })
       } else if (moduleId && moduleId !== 'temp') {
@@ -40,24 +54,6 @@ export async function POST(req: NextRequest) {
       }
       // If lessonId/moduleId is 'temp', the caller stores the URL locally until the entity is saved
 
-      // Trigger transcription in background (non-blocking)
-      if (process.env.INTERNAL_TRANSCRIBE_SECRET) {
-        const target =
-          lessonId && lessonId !== 'temp' ? { lessonId }
-          : moduleId && moduleId !== 'temp' ? { moduleId }
-          : null
-        if (target) {
-          const baseUrl = req.nextUrl.origin
-          fetch(`${baseUrl}/api/ai/transcribe`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-internal-secret': process.env.INTERNAL_TRANSCRIBE_SECRET,
-            },
-            body: JSON.stringify(target),
-          }).catch((err: unknown) => console.error('Transcription trigger failed:', err))
-        }
-      }
     } else if (uploadType === 'resource') {
       if (moduleId && moduleId !== 'temp') {
         await db.moduleResource.create({
@@ -95,6 +91,9 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof UploadContractError) {
+      return NextResponse.json({ ok: false, error: error.message, code: error.code }, { status: error.status })
+    }
     console.error('[upload confirm] error:', error)
     return NextResponse.json(
       { ok: false, error: 'Failed to confirm upload' },

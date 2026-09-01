@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin-auth'
+import { parseAnalyticsDateRange } from '@/lib/analytics/date-range'
 
 export function parseDateRange(url: URL) {
-  const fromStr = url.searchParams.get('from')
-  const toStr = url.searchParams.get('to')
+  const range = parseAnalyticsDateRange(
+    url.searchParams.get('from'),
+    url.searchParams.get('to')
+  )
 
-  const from = fromStr ? new Date(fromStr) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-  const to = toStr ? new Date(toStr) : new Date()
-
-  // Validate dates
-  if (isNaN(from.getTime()) || isNaN(to.getTime())) {
-    return { error: 'Fechas inválidas. Use formato YYYY-MM-DD.' }
-  }
-
-  return { from, to }
+  if (!range.ok) return { error: range.error }
+  return { from: range.value.from, to: range.value.to }
 }
 
 export async function withAnalyticsAuth(

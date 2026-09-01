@@ -124,39 +124,96 @@ function isGmailConfigured() {
   return Boolean(env.GMAIL_USER && env.GMAIL_REFRESH_TOKEN);
 }
 
-// ──────────────────────────────────────────────────────────
-// 1. Recibo de pago
-// ──────────────────────────────────────────────────────────
-type PaymentReceiptParams = {
-  to: string;
-  paymentId: string;
-  amountCents: number;
-  currency: string;
-  concept: "Cita" | "Curso" | "Pago";
-  stripePaymentIntentId?: string;
-};
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
-export async function sendPaymentReceiptEmail(params: PaymentReceiptParams) {
-  if (!isGmailConfigured()) { warn("sendPaymentReceiptEmail", params); return; }
-
-  const amount = (params.amountCents / 100).toFixed(2);
-  const symbol = params.currency === "EUR" ? "€" : params.currency;
-
-  const rows: Array<[string, string]> = [
-    ["Concepto", params.concept],
-    ["Monto",    `${symbol}${amount}`],
-    ["Referencia", params.paymentId],
-  ];
-  if (params.stripePaymentIntentId) {
-    rows.push(["Stripe ID", params.stripePaymentIntentId]);
+function toAbsoluteInternalActionUrl(actionUrl: string) {
+  if (!actionUrl.startsWith("/") || actionUrl.startsWith("//")) {
+    throw new Error("Notification email action URL must be an internal relative URL");
   }
 
+  return new URL(actionUrl, env.NEXT_PUBLIC_APP_URL).toString();
+}
+
+export type NotificationEmailParams = {
+  to: string;
+  title: string;
+  message: string;
+  actionUrl?: string | null;
+};
+
+/**
+ * Generic, durable-outbox email for transactional notifications. Password-reset
+ * emails retain their dedicated template because their sensitive token payload
+ * must not be serialized into NotificationDelivery.
+ */
+export async function sendNotificationEmail(params: NotificationEmailParams) {
+  if (!isGmailConfigured()) {
+    throw new Error("Gmail notification delivery is not configured");
+  }
+
+  const title = escapeHtml(params.title);
+  const message = escapeHtml(params.message).replace(/\n/g, "<br/>");
+  const actionUrl = params.actionUrl
+    ? toAbsoluteInternalActionUrl(params.actionUrl)
+    : undefined;
+  const action = actionUrl
+    ? `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px"><tr><td>${ctaButton("Ver detalle", actionUrl)}</td></tr></table>`
+    : "";
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: params.title,
+    html: shell(
+      title,
+      `${emailTitle(title)}${para(message)}${action}${divider()}${para("Este mensaje fue generado automáticamente por la plataforma.", true)}`,
+    ),
+  });
+}
+
+type PaymentFailedEmailParams = {
+  to: string;
+  customerName?: string;
+  concept: string;
+  amountCents?: number;
+  currency?: string;
+  failureReason?: string;
+  retryUrl?: string;
+};
+
+export async function sendPaymentFailedEmail(params: PaymentFailedEmailParams) {
+  if (!isGmailConfigured()) { warn("sendPaymentFailedEmail", params); return; }
+
+  const rows: Array<[string, string]> = [["Concepto", params.concept]];
+  if (typeof params.amountCents === "number" && params.currency) {
+    const amount = (params.amountCents / 100).toFixed(2);
+    const symbol = params.currency === "EUR" ? "€" : params.currency;
+    rows.push(["Monto", `${symbol}${amount}`]);
+  }
+  if (params.failureReason) {
+    rows.push(["Motivo", params.failureReason]);
+  }
+
+  const cta = params.retryUrl
+    ? `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px"><tr><td>${ctaButton("Reintentar pago", params.retryUrl)}</td></tr></table>`
+    : "";
+
   const body = `
-    ${emailTitle("Pago confirmado")}
-    ${para("Tu pago fue procesado correctamente.")}
+    ${emailTitle("No pudimos completar tu pago")}
+    ${para(`Hola <strong>${params.customerName ?? "cliente"}</strong>, tu intento de pago no se completó.`)}
     ${dataTable(rows)}
+    ${cta}
     ${divider()}
-    ${para("¿Necesitas ayuda? Responde a este correo.", true)}
+    ${para("Puedes intentarlo nuevamente cuando quieras. Si el problema persiste, responde a este correo para ayudarte.", true)}
   `;
 
   const transport = await createGmailTransport();
@@ -164,8 +221,8 @@ export async function sendPaymentReceiptEmail(params: PaymentReceiptParams) {
     from: env.EMAIL_FROM,
     to: params.to,
     replyTo: params.to,
-    subject: `Comprobante de pago — ${params.concept}`,
-    html: shell(`Comprobante de pago — ${params.concept}`, body),
+    subject: `Pago fallido — ${params.concept}`,
+    html: shell(`Pago fallido — ${params.concept}`, body),
   });
 }
 
@@ -217,9 +274,93 @@ export async function sendAppointmentConfirmationEmail(params: AppointmentConfir
   });
 }
 
+type AppointmentCancelledEmailParams = {
+  to: string;
+  customerName: string;
+  serviceName: string;
+  staffName: string;
+  startAt: Date;
+  endAt: Date;
+  reason?: string;
+};
+
+export async function sendAppointmentCancelledEmail(params: AppointmentCancelledEmailParams) {
+  if (!isGmailConfigured()) { warn("sendAppointmentCancelledEmail", params); return; }
+
+  const dateStr = params.startAt.toLocaleDateString("es-ES", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+  const startTime = params.startAt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  const endTime = params.endAt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+
+  const rows: Array<[string, string]> = [
+    ["Servicio", params.serviceName],
+    ["Especialista", params.staffName],
+    ["Fecha", dateStr.charAt(0).toUpperCase() + dateStr.slice(1)],
+    ["Horario", `${startTime} – ${endTime}`],
+  ];
+  if (params.reason) {
+    rows.push(["Motivo", params.reason]);
+  }
+
+  const body = `
+    ${emailTitle("Tu cita fue cancelada")}
+    ${para(`Hola <strong>${params.customerName}</strong>, la cita asociada a este pago fue cancelada.`)}
+    ${dataTable(rows)}
+    ${divider()}
+    ${para("Si deseas agendar una nueva cita, puedes responder a este correo y te ayudaremos con el siguiente paso.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: `Cita cancelada — ${params.serviceName}`,
+    html: shell(`Cita cancelada — ${params.serviceName}`, body),
+  });
+}
+
 // ──────────────────────────────────────────────────────────
 // 2b. Notificación de nueva cita (para staff y admins)
 // ──────────────────────────────────────────────────────────
+type PasswordResetEmailParams = {
+  to: string;
+  resetUrl: string;
+};
+
+export async function sendPasswordResetEmail(params: PasswordResetEmailParams) {
+  if (!isGmailConfigured()) { warn("sendPasswordResetEmail", params); return; }
+
+  const body = `
+    ${emailTitle("Restablece tu contrasena")}
+    ${para("Recibimos una solicitud para actualizar la contrasena de tu cuenta.")}
+    ${para("Si fuiste tu, usa este enlace para crear una nueva contrasena. Vence en 1 hora y solo puede usarse una vez.")}
+    <table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px">
+      <tr>
+        <td>${ctaButton("Restablecer contrasena", params.resetUrl)}</td>
+      </tr>
+    </table>
+    ${para("Si el boton no funciona, copia y pega este enlace en tu navegador:", true)}
+    ${insetBlock(`
+      <p style="font-family:Arial,sans-serif;font-size:13px;line-height:1.6;color:${C.ivoryMid};margin:0;word-break:break-all">
+        ${params.resetUrl}
+      </p>
+    `)}
+    ${divider()}
+    ${para("Si no solicitaste este cambio, puedes ignorar este correo con seguridad.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: "Restablece tu contrasena",
+    html: shell("Restablece tu contrasena", body),
+  });
+}
+
 type AppointmentNotificationParams = {
   to: string | string[];
   customerName: string;
@@ -494,5 +635,81 @@ export async function sendAdminAlertEmail(params: AdminAlertEmailParams) {
     to: params.to,
     subject: params.subject,
     html: shell(params.title, body),
+  });
+}
+
+type AccountDeletionVerificationEmailParams = {
+  to: string;
+  name?: string | null;
+  confirmUrl: string;
+  expiresAt: Date;
+};
+
+export async function sendAccountDeletionVerificationEmail(
+  params: AccountDeletionVerificationEmailParams
+) {
+  if (!isGmailConfigured()) {
+    warn("sendAccountDeletionVerificationEmail", params);
+    return;
+  }
+
+  const expiry = params.expiresAt.toLocaleString("es-ES", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+  const body = `
+    ${emailTitle("Confirma la eliminacion de tu cuenta")}
+    ${para(`Hola <strong>${params.name ?? "usuario"}</strong>, recibimos una solicitud para eliminar tu cuenta de Apoteosicas.`)}
+    ${para("Para continuar, confirma la solicitud desde el enlace seguro de abajo. Si no fuiste tu, puedes ignorar este correo.")}
+    ${insetBlock(`
+      <p style="font-family:Arial,sans-serif;font-size:13px;color:${C.ivoryDim};margin:0 0 8px">Este enlace vence el</p>
+      <p style="font-family:Arial,sans-serif;font-size:15px;color:${C.ivory};margin:0;font-weight:bold">${expiry}</p>
+    `)}
+    <table cellpadding="0" cellspacing="0" border="0"><tr><td>
+      ${ctaButton("Confirmar eliminacion", params.confirmUrl)}
+    </td></tr></table>
+    ${divider()}
+    ${para("Seguiran conservandose solo los registros que la ley exige retener, como ciertos datos contables anonimizados.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: "Confirma la eliminacion de tu cuenta",
+    html: shell("Confirma la eliminacion de tu cuenta", body),
+  });
+}
+
+type AccountDeletionConfirmationEmailParams = {
+  to: string;
+  name?: string | null;
+};
+
+export async function sendAccountDeletionConfirmationEmail(
+  params: AccountDeletionConfirmationEmailParams
+) {
+  if (!isGmailConfigured()) {
+    warn("sendAccountDeletionConfirmationEmail", params);
+    return;
+  }
+
+  const body = `
+    ${emailTitle("Tu solicitud de eliminacion fue procesada")}
+    ${para(`Hola <strong>${params.name ?? "usuario"}</strong>, confirmamos que tu cuenta y los datos personales asociados fueron anonimizados.`)}
+    ${para("Los registros que debamos conservar por obligaciones fiscales o contables permanecen guardados de forma minimizada y desvinculada de tu identidad.")}
+    ${divider()}
+    ${para("Si necesitas constancia adicional de este proceso, responde a este correo y te ayudaremos.", true)}
+  `;
+
+  const transport = await createGmailTransport();
+  await transport.sendMail({
+    from: env.EMAIL_FROM,
+    to: params.to,
+    replyTo: params.to,
+    subject: "Confirmacion de eliminacion de cuenta",
+    html: shell("Confirmacion de eliminacion de cuenta", body),
   });
 }

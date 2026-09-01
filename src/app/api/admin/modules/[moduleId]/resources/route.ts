@@ -53,11 +53,11 @@ export async function GET(
     }
 
     // Verify module exists
-    const module = await db.module.findUnique({
+    const mod = await db.module.findUnique({
       where: { id: moduleId },
     })
 
-    if (!module) {
+    if (!mod) {
       return NextResponse.json(
         { success: false, error: 'Module not found' },
         { status: 404 }
@@ -103,11 +103,11 @@ export async function POST(
     }
 
     // Verify module exists
-    const module = await db.module.findUnique({
+    const mod = await db.module.findUnique({
       where: { id: moduleId },
     })
 
-    if (!module) {
+    if (!mod) {
       return NextResponse.json(
         { success: false, error: 'Module not found' },
         { status: 404 }

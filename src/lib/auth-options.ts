@@ -1,9 +1,12 @@
-﻿import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
+import { isSessionVersionStale } from "@/lib/password-reset";
+import { NotificationEventService } from "@/server/services/notification-event-service";
+import { hasCompletedDeletionForEmail } from "@/server/services/gdpr-service";;
 
 export const authOptions: NextAuthOptions = {
   secret: env.NEXTAUTH_SECRET,
@@ -29,7 +32,7 @@ export const authOptions: NextAuthOptions = {
         if (!email || !password) return null;
 
         const user = await db.user.findUnique({ where: { email } });
-        if (!user) return null;
+        if (!user || await hasCompletedDeletionForEmail(email)) return null;
 
         const passwordMatch = user.password
           ? await bcrypt.compare(password, user.password)
@@ -42,6 +45,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           email: user.email,
           image: user.image,
+          sessionVersion: user.sessionVersion,
         };
       },
     }),
@@ -49,10 +53,17 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "google" && user.email) {
-        await db.user.upsert({
-          where: { email: user.email.toLowerCase() },
+        const normalizedEmail = user.email.toLowerCase();
+        if (await hasCompletedDeletionForEmail(normalizedEmail)) return false;
+        const existingUser = await db.user.findUnique({
+          where: { email: normalizedEmail },
+          select: { id: true, deletedAt: true },
+        });
+        if (existingUser?.deletedAt) return false;
+        const dbUser = await db.user.upsert({
+          where: { email: normalizedEmail },
           create: {
-            email: user.email.toLowerCase(),
+            email: normalizedEmail,
             name: user.name,
             image: user.image,
             role: "STUDENT",
@@ -62,29 +73,56 @@ export const authOptions: NextAuthOptions = {
             image: user.image ?? undefined,
           },
         });
+
+        if (!existingUser) {
+          // Low-priority, in-app only administration signal. The notification
+          // service catches its own errors so OAuth sign-in stays available.
+          await NotificationEventService.userRegistered(dbUser.id, "Google");
+        }
       }
       return true;
     },
-    async jwt({ token }) {
+    async jwt({ token, user }) {
       if (!token.email) return token;
 
       const dbUser = await db.user.findUnique({
         where: { email: token.email.toLowerCase() },
-        select: { id: true, role: true },
+        select: { id: true, role: true, sessionVersion: true, deletedAt: true },
       });
 
-      if (dbUser) {
-        token.userId = dbUser.id;
-        token.role = dbUser.role;
+      if (!dbUser || (dbUser as { deletedAt?: Date | null }).deletedAt) {
+        return { sessionInvalidated: true };
       }
+
+      if (!user && isSessionVersionStale(token.sessionVersion, dbUser.sessionVersion)) {
+        return { sessionInvalidated: true };
+      }
+
+      token.userId = dbUser.id;
+      token.role = dbUser.role;
+      token.sessionVersion = dbUser.sessionVersion;
+      token.deletedAt = null;
+      token.invalidated = false;
+
       return token;
     },
     async session({ session, token }) {
+      if (token.invalidated || token.sessionInvalidated || !session.user) {
+        return {
+          ...session,
+          error: "SessionInvalidated",
+          user: undefined,
+        };
+      }
+
       if (session.user) {
-        // @ts-expect-error
-        session.user.id = token.userId;
-        // @ts-expect-error
-        session.user.role = token.role;
+        const sessionUser = session.user as typeof session.user & {
+          id: string;
+          role: "ADMIN" | "STAFF" | "STUDENT";
+        };
+
+        sessionUser.id = token.userId ?? "";
+        sessionUser.role = token.role ?? "STUDENT";
       }
       return session;
     },

@@ -1,0 +1,5 @@
+{"type":"owner-pid-invalid","pid":1,"reason":"dead at startup"}
+{"type":"server-started","port":56824,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:56824","screen_dir":"C:\\Users\\ramse\\.codex\\worktrees\\bb1d\\elizabeth-rizos-platform\\.superpowers\\brainstorm\\321-1785974598\\content","state_dir":"C:\\Users\\ramse\\.codex\\worktrees\\bb1d\\elizabeth-rizos-platform\\.superpowers\\brainstorm\\321-1785974598\\state"}
+{"type":"screen-added","file":"C:\\Users\\ramse\\.codex\\worktrees\\bb1d\\elizabeth-rizos-platform\\.superpowers\\brainstorm\\321-1785974598\\content\\course-style-module-map.html"}
+{"type":"screen-added","file":"C:\\Users\\ramse\\.codex\\worktrees\\bb1d\\elizabeth-rizos-platform\\.superpowers\\brainstorm\\321-1785974598\\content\\waiting-for-data-model.html"}
+{"type":"server-stopped","reason":"idle timeout"}

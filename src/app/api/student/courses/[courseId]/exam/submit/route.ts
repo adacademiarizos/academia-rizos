@@ -8,6 +8,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 import { z } from 'zod'
+import { NotificationService } from '@/server/services/notification-service'
 
 const SubmitExamSchema = z.object({
   answers: z.record(
@@ -65,9 +66,10 @@ export async function POST(
       where: {
         userId_courseId: { userId: user.id, courseId },
       },
+      select: { revokedAt: true },
     })
 
-    if (!courseAccess) {
+    if (!courseAccess || courseAccess.revokedAt) {
       return NextResponse.json(
         { success: false, error: 'Course access required' },
         { status: 403 }
@@ -130,6 +132,17 @@ export async function POST(
         },
       })
     }
+
+    await NotificationService.triggerOnAssessmentSubmission({
+      userId: user.id,
+      courseId,
+      submissionId: submission.id,
+      assessmentType: 'FINAL_EXAM',
+      requiresReview: true,
+      // Re-submission updates the same record, so submittedAt distinguishes
+      // a new review request from the prior notification occurrence.
+      submissionVersion: submission.submittedAt.toISOString(),
+    })
 
     return NextResponse.json({
       success: true,

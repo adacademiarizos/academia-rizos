@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useEffect, useState, useRef } from "react";
+import { toast } from "sonner";
 
 // ─── tipos ────────────────────────────────────────────────────────────────────
 type AppointmentStatus = "PENDING" | "CONFIRMED" | "CANCELLED" | "NO_SHOW" | "COMPLETED";
@@ -397,7 +398,7 @@ export default function AppointmentsTable({
       const updated = await apiPatch(id, status);
       setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status: updated.status } : r)));
     } catch (e: any) {
-      alert(e.message ?? "Error");
+      toast.error(e.message ?? "Error");
     } finally {
       setBusyId(null);
     }
@@ -564,7 +565,7 @@ export default function AppointmentsTable({
                   {/* notas */}
                   {r.notes && (
                     <div className="rounded-xl bg-white/5 px-3 py-2">
-                      <p className="text-xs text-white/50 italic">"{r.notes}"</p>
+                      <p className="text-xs text-white/50 italic">&ldquo;{r.notes}&rdquo;</p>
                     </div>
                   )}
                 </div>

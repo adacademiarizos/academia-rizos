@@ -1,0 +1,2 @@
+{"type":"server-started","port":61511,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:61511","screen_dir":"C:\\Users\\ramse\\.codex\\worktrees\\bb1d\\elizabeth-rizos-platform\\.superpowers\\brainstorm\\upload-feedback-20260807-1300\\content","state_dir":"C:\\Users\\ramse\\.codex\\worktrees\\bb1d\\elizabeth-rizos-platform\\.superpowers\\brainstorm\\upload-feedback-20260807-1300\\state"}
+{"type":"server-stopped","reason":"idle timeout"}

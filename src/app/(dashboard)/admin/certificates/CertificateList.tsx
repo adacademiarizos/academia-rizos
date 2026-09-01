@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle, XCircle, Download, Clock } from "lucide-react";
+import { toast } from "sonner";
 
 type Certificate = {
   id: string;
@@ -34,7 +35,7 @@ export default function CertificateList({ certificates }: { certificates: Certif
     const res = await fetch(`/api/admin/certificates/${id}/approve`, { method: "POST" });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      alert("Error al aprobar: " + (data.error ?? "Error desconocido"));
+      toast.error("Error al aprobar: " + (data.error ?? "Error desconocido"));
       return;
     }
     router.refresh();

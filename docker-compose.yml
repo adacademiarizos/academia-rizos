@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: elizabeth-rizos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dark
+      POSTGRES_DB: elizabeth
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - elizabeth_rizos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d elizabeth"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  elizabeth_rizos_pgdata:

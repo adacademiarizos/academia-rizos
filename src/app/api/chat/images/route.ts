@@ -1,33 +1,41 @@
 /**
  * POST /api/chat/images
  * Upload a chat image (max 3 MB, images only)
+ * Returns a public URL stored in S3/R2
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { authorizeChatRoomAccessByRoomId, toAccessDeniedResponse } from '@/lib/course-access-control'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
+import { db } from '@/lib/db'
 import { uploadFile } from '@/lib/storage'
 
-const MAX_SIZE = 3 * 1024 * 1024
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+const MAX_SIZE = 3 * 1024 * 1024 // 3 MB
+const ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+]
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData()
-    const file = formData.get('file') as File
-    const roomId = formData.get('roomId')
-
-    if (typeof roomId !== 'string' || roomId.length === 0) {
-      return NextResponse.json({ success: false, error: 'roomId is required' }, { status: 400 })
+    const session = await getServerSession(authOptions)
+    if (!session?.user?.email) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
 
-    const access = await authorizeChatRoomAccessByRoomId(roomId, {
-      allowAdmin: true,
-      requireActiveAccess: true,
+    const user = await db.user.findUnique({
+      where: { email: session.user.email },
+      select: { id: true },
     })
 
-    if (!access.ok) {
-      return toAccessDeniedResponse(access)
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
     }
+
+    const formData = await request.formData()
+    const file = formData.get('file') as File
 
     if (!file) {
       return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 })
@@ -35,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { success: false, error: 'Solo se permiten imagenes (JPEG, PNG, GIF, WebP)' },
+        { success: false, error: 'Solo se permiten imágenes (JPEG, PNG, GIF, WebP)' },
         { status: 400 }
       )
     }
@@ -49,7 +57,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const storagePath = `chat-images/${access.user.id}/${Date.now()}-${file.name}`
+    const storagePath = `chat-images/${user.id}/${Date.now()}-${file.name}`
     const imageUrl = await uploadFile(storagePath, buffer, file.type)
 
     return NextResponse.json({ success: true, data: { imageUrl } })

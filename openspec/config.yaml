@@ -1,0 +1,41 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Tech stack: Next.js 16 (App Router), React 19, TypeScript, Prisma 6 + PostgreSQL.
+  Auth: NextAuth (roles ADMIN/STAFF/STUDENT). Payments: Stripe. Email: Resend + nodemailer.
+  AI: OpenAI SDK. Charts: recharts. Styling: Tailwind CSS 4.
+  Architecture: Next.js App Router with route groups (dashboard)/(marketing), API routes under src/app/api.
+  Testing: Vitest (unit + integration configs), Prisma-backed integration DB, ESLint + tsc --noEmit.
+
+strict_tdd: true
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Flag any change touching auth, payments, or booking/billing logic as high risk
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+    - Consult postgresql skill for schema/migration design
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    guidelines:
+      - Follow existing code patterns (route groups, API route handlers, Prisma services)
+      - Apply vercel-react-best-practices for React/Next.js code
+      - Apply postgresql skill for schema/migration changes
+      - Apply work-unit-commits for commit granularity
+    tdd: true
+    test_command: "npm test"
+  verify:
+    test_command: "npm test"
+    integration_test_command: "npm run test:integration"
+    build_command: "npm run typecheck && npm run lint"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas

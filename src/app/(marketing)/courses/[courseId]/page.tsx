@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Course } from "@/types/academy";
 import { LikeButton } from "@/app/components/LikeButton";
 import { CommentsSection } from "@/app/components/CommentsSection";
+import { toast } from "sonner";
 
 interface CourseDetail extends Course {
   moduleCount: number;
@@ -54,7 +55,7 @@ export default function CourseLandingPage() {
       try {
         const [courseRes, modulesRes] = await Promise.all([
           fetch(`/api/courses/${courseId}`),
-          fetch(`/api/courses/${courseId}/modules?preview=true`),
+          fetch(`/api/courses/${courseId}/modules`),
         ]);
         if (!courseRes.ok) throw new Error("Course not found");
         const courseData = await courseRes.json();
@@ -113,12 +114,12 @@ export default function CourseLandingPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(`Error: ${data.error || "Checkout failed"}`);
+        toast.error(`Error: ${data.error || "Checkout failed"}`);
         return;
       }
       window.location.href = data.data.checkoutUrl;
     } catch (error) {
-      alert(
+      toast.error(
         "Error al iniciar el pago: " +
           (error instanceof Error ? error.message : "Error desconocido")
       );
@@ -165,6 +166,7 @@ export default function CourseLandingPage() {
   const priceFormatted = (totalPriceCents / 100).toFixed(2);
   const basePriceFormatted = (course.priceCents / 100).toFixed(2);
   const feeFormatted = (feeCents / 100).toFixed(2);
+  const learningOutcomes = course.learningOutcomes ?? [];
   const isLifetime = !course.rentalDays;
   const accessLabel = isLifetime ? "Acceso de por vida" : `${course.rentalDays} días de acceso`;
 
@@ -300,30 +302,25 @@ export default function CourseLandingPage() {
         </div>
       )}
 
-      {/* What You'll Learn */}
-      <section className="px-6 py-16">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl font-bold text-ap-ivory mb-8">
-            Lo que aprenderás
-          </h2>
+      {/* What You'll Learn — authored per course; hidden when the course has none */}
+      {learningOutcomes.length > 0 && (
+        <section className="px-6 py-16">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-3xl font-bold text-ap-ivory mb-8">
+              Lo que aprenderás
+            </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              "Técnicas fundamentales de cuidado de rizos",
-              "Productos adecuados para tu tipo de rizo",
-              "Métodos de secado sin daño",
-              "Styling profesional paso a paso",
-              "Nutrición y salud del cabello rizado",
-              "Solución de problemas comunes",
-            ].map((item, idx) => (
-              <div key={idx} className="flex gap-3">
-                <span className="text-ap-copper text-xl flex-shrink-0">✓</span>
-                <span className="text-white/70">{item}</span>
-              </div>
-            ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {learningOutcomes.map((item, idx) => (
+                <div key={idx} className="flex gap-3">
+                  <span className="text-ap-copper text-xl flex-shrink-0">✓</span>
+                  <span className="text-white/70">{item}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Modules Preview */}
       <section className="px-6 py-16 bg-white/5 border-y border-white/8">

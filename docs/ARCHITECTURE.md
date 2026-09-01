@@ -27,6 +27,7 @@ Servicios externos:
   Cloudflare R2 — archivos (videos, PDFs, imágenes, certificados)
   OpenAI   — transcripción, sinopsis, chat IA
   Gmail / Nodemailer — emails transaccionales
+  Vercel Cron — mantenimiento periódico /api/cron/*
 ```
 
 ---
@@ -55,7 +56,7 @@ Todas las rutas están protegidas server-side. Solo usuarios con `role = ADMIN` 
 
 | Ruta | Descripción |
 |------|-------------|
-| `/admin` | Overview con métricas generales |
+| `/admin` | Overview ejecutivo de website y academia |
 | `/admin/services` | CRUD de servicios |
 | `/admin/staff` | Staff y precios por servicio |
 | `/admin/appointments` | Gestión de citas |
@@ -71,6 +72,17 @@ Todas las rutas están protegidas server-side. Solo usuarios con `role = ADMIN` 
 | `/admin/settings` | Configuración de comisiones |
 | `/admin/manuales` | Hub de manuales (admin + staff) |
 | `/admin/manual` | Manual del administrador |
+
+#### Overview ejecutivo de website + academia
+
+`/admin` está diseñado para la primera decisión administrativa, no como inventario de analíticas. Muestra un único rango de fechas (30 días por defecto, con 7, 90 o selección manual), comparado contra el intervalo anterior de igual duración.
+
+- Resultado: facturación bruta de cursos por moneda, compras confirmadas, conversión a compra y alumnos activos.
+- Recorrido: sesiones únicas → sesiones que ven un curso → compras confirmadas.
+- Salud académica: retención de cohortes maduras, progreso, tiempo a certificación, ranking de cursos y revisiones que bloquean certificados.
+- Citas, pagos de salón y links de pago no forman parte de este overview; siguen en sus flujos específicos.
+
+`AdminExecutiveOverviewService` agrupa las consultas de negocio en servidor. El período se valida mediante `src/lib/analytics/date-range.ts`, que interpreta el día completo en la zona `ANALYTICS_TIME_ZONE` (por defecto `Europe/Madrid`). Las rutas de analítica conservan `from`, `to` y `scope=academy` al profundizar.
 
 ### Rutas compartidas (todos los roles)
 `src/app/(dashboard)/`
@@ -106,6 +118,14 @@ Todos los endpoints validan autenticación y permisos server-side. Patrón de re
 { success: false, error: string }
 ```
 
+Además existe un endpoint interno de mantenimiento `GET /api/cron/[job]`, protegido con `Authorization: Bearer CRON_SECRET`, invocado por Vercel Cron para tareas operativas:
+
+| Job | Propósito |
+|------|-------------|
+| `expire-access` | Revisa accesos de cursos con `accessUntil` vencido y deja trazabilidad operativa del backlog expirado |
+| `issue-certificates` | Reemite como red de seguridad certificados faltantes para aprobaciones finales ya registradas |
+| `send-receipts` | Reintenta recibos pendientes para pagos `PAID` cuyo email no quedó marcado como enviado |
+
 ---
 
 ## Modelos de datos principales
@@ -138,7 +158,14 @@ Payment
   type: APPOINTMENT | COURSE | PAYMENT_LINK
   status: REQUIRES_PAYMENT | PROCESSING | PAID | FAILED | ...
   amountCents, currency
+  paidAt? (momento de confirmación, usado para analíticas)
   stripeCheckoutSessionId?, stripePaymentIntentId?
+
+WebhookEvent
+  stripeEventId (único)
+  type
+  receivedAt, processedAt
+  payload? (debug / auditoría)
 
 BusinessHours  — horarios semanales (dayOfWeek, openTime, closeTime)
 BusinessOffDay — días libres globales
@@ -151,12 +178,12 @@ Course
   title, description, thumbnailUrl
   priceCents, rentalDays?
   isActive
-  └─ Module[]
-     └─ Lesson[]        (videoUrl, synopsis)
+  ├─ Module[]           (videoFileUrl, lecciones directas)
+  └─ ModuleStyle[]      (lecciones directas)
      └─ ModuleTest[]    (tests por módulo)
      └─ ModuleResource[] (PDFs, docs descargables)
   └─ CourseTest[]       (tests globales, isFinalExam?)
-  └─ CourseAccess[]     (userId, expiresAt?)
+  └─ CourseAccess[]     (userId, expiresAt?, revokedAt?)
 
 ModuleProgress  — userId + moduleId, completed
 CourseTestSubmission / ExamSubmission — respuestas del estudiante, status: PENDING | APPROVED | REVISION_REQUESTED
@@ -167,23 +194,6 @@ Certificate
   valid
   QR → /verify/certificate/[code]
 ```
-
-#### Modelo academico actual
-
-La jerarquia academica vigente es:
-
-```
-Course
-  Module[]              -- secciones del curso
-    ModuleStyle[]       -- agrupadores editables por seccion
-      Lesson[]          -- contenido reproducible
-    ModuleTest[]
-    ModuleResource[]
-```
-
-`ModuleStyle` permite agrupar lecciones por estilo (`General`, `Rizos`, `Lacio`, etc.) dentro de cada seccion. No es una ruta exclusiva del estudiante. `ModuleProgress`, tests, recursos, likes, comentarios, chat y certificados siguen asociados a `Module`/`Course`.
-
-Durante la transicion, `Lesson.moduleId` se mantiene como columna legacy desnormalizada para endpoints antiguos. La relacion canonica nueva es `Lesson.styleId -> ModuleStyle.id`. Ver [`ACADEMY_CONTENT_MODEL.md`](ACADEMY_CONTENT_MODEL.md) para el detalle de migracion, APIs y reglas.
 
 ### Comunidad
 
@@ -215,16 +225,20 @@ Settings        — feePercent, feeFixedCents, defaultCurrency
 2. POST /api/bookings/draft  — crea Appointment(PENDING) + Payment(REQUIRES_PAYMENT)
 3. Redirige a Stripe Checkout
 4. Stripe llama al webhook POST /api/stripe/webhook
-5. Webhook actualiza Payment(PAID) + Appointment(CONFIRMED)
-6. Email confirmación al cliente
+5. El webhook registra WebhookEvent(stripeEventId) para deduplicación
+6. Webhook actualiza Payment(PAID) + Appointment(CONFIRMED)
+7. Si Stripe luego envía `checkout.session.expired`, `payment_intent.payment_failed`, `charge.refunded` o disputas, el mismo webhook sincroniza Payment + Appointment automáticamente
+8. Email confirmación al cliente
 ```
 
 ### Flujo de compra de curso
 ```
 1. Cliente va a /learn/[courseId] → clic en Comprar
 2. GET /api/courses/[courseId]/checkout — crea Stripe session
-3. Stripe webhook → crea CourseAccess
-4. Email recibo al cliente
+3. Stripe webhook → confirma `Payment.paidAt`, atribuye el evento y crea o reactiva `CourseAccess` en una misma transacción
+4. Stripe webhook intenta enviar recibo inmediatamente
+5. Vercel Cron `send-receipts` reintenta cualquier recibo pendiente
+6. Si el pago se reembolsa o se pierde una disputa, el webhook marca Payment(REFUNDED) y revoca CourseAccess.revokedAt
 ```
 
 ### Flujo de examen y certificado
@@ -237,8 +251,16 @@ Settings        — feePercent, feeFixedCents, defaultCurrency
    - Sube a R2
    - Crea Certificate(valid=true, pdfUrl)
    - Envía email con link al PDF
-5. Estudiante descarga desde /learn/[courseId]
-6. Verificación pública en /verify/certificate/[code]
+5. Vercel Cron `issue-certificates` actúa como red de seguridad si una aprobación quedó sin certificado válido
+6. Estudiante descarga desde /learn/[courseId]
+7. Verificación pública en /verify/certificate/[code]
+```
+
+### Flujo de expiración de acceso
+```
+1. Stripe webhook o checkout crea CourseAccess con accessUntil según Course.rentalDays
+2. Las rutas de lectura validan accessUntil directamente para bloquear video al vencer
+3. Vercel Cron `expire-access` revisa accesos vencidos y deja logging estructurado centralizado
 ```
 
 ---
@@ -247,7 +269,7 @@ Settings        — feePercent, feeFixedCents, defaultCurrency
 
 - **Autenticación**: NextAuth con Google OAuth + credenciales (bcrypt).
 - **Autorización**: verificada en cada Server Component y API route vía `getServerSession()`.
-- **Webhooks Stripe**: verificados con `stripe.webhooks.constructEvent()` y el secret del endpoint.
+- **Webhooks Stripe**: verificados con `stripe.webhooks.constructEvent()` y el secret del endpoint. La confirmación usa `Payment.paidAt` y `ConversionEvent.paymentId` único para que una reentrega no duplique ingresos, atribución ni acceso académico.
 - **Uploads**: validación de tipo MIME y tamaño antes de subir a R2.
 - **Variables sensibles**: nunca en el cliente (prefijo `NEXT_PUBLIC_` solo para las necesarias).
 

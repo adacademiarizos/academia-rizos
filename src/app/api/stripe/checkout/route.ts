@@ -106,6 +106,21 @@ export async function POST(req: Request) {
 
     const currency = (price.currency || "EUR").toLowerCase();
     const baseUrl = getBaseUrl(req);
+    const metadata = {
+      type: "APPOINTMENT",
+      appointmentId: appointment.id,
+      serviceId: appointment.serviceId,
+      staffId: appointment.staffId,
+      billingRule,
+      baseAmountCents: String(baseAmount),
+      chargeAmountCents: String(chargeAmount),
+      currency: price.currency,
+      analyticsSessionId: body.analyticsSessionId || '',
+      utmSource: body.utmSource || '',
+      utmMedium: body.utmMedium || '',
+      utmCampaign: body.utmCampaign || '',
+      analyticsReferrer: body.referrer || '',
+    };
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -125,35 +140,24 @@ export async function POST(req: Request) {
           },
         },
       ],
-      metadata: {
-        type: "APPOINTMENT",
-        appointmentId: appointment.id,
-        serviceId: appointment.serviceId,
-        staffId: appointment.staffId,
-        billingRule,
-        baseAmountCents: String(baseAmount),
-        chargeAmountCents: String(chargeAmount),
-        currency: price.currency,
-        analyticsSessionId: body.analyticsSessionId || '',
-        utmSource: body.utmSource || '',
-        utmMedium: body.utmMedium || '',
-        utmCampaign: body.utmCampaign || '',
-        analyticsReferrer: body.referrer || '',
+      payment_intent_data: {
+        metadata,
       },
+      metadata,
     });
 
     // registrar pago en DB
     await db.payment.create({
       data: {
         type: "APPOINTMENT",
-        status: "PROCESSING",
+        status: "REQUIRES_PAYMENT",
         amountCents: chargeAmount,
         currency: price.currency,
         stripeCheckoutSessionId: session.id,
         appointmentId: appointment.id,
         payerEmail: appointment.customer?.email ?? appointment.customerEmail ?? undefined,
         payerId: appointment.customerId,
-        metadata: session.metadata as any,
+        metadata,
       },
     });
 

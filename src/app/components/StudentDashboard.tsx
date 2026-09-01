@@ -6,6 +6,7 @@ import Link from 'next/link'
 interface DashboardData {
   stats: {
     coursesEnrolled: number
+    lessonsCompleted: number
     modulesCompleted: number
     testsPassed: number
     lastActivityAt: string | null
@@ -68,7 +69,7 @@ export function StudentDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { value: data.stats.coursesEnrolled, label: 'Cursos inscritos' },
-          { value: data.stats.modulesCompleted, label: 'Módulos completados' },
+          { value: data.stats.lessonsCompleted, label: 'Lecciones completadas' },
           { value: data.stats.testsPassed, label: 'Tests aprobados' },
           { value: data.engagementStats.commentsCount, label: 'Comentarios' },
         ].map(({ value, label }) => (

@@ -4,6 +4,8 @@ export type Course = {
   id: string
   title: string
   description?: string | null
+  /** Bullets shown as "Lo que aprenderás" on the public course page. */
+  learningOutcomes?: string[]
   trailerUrl?: string | null
   thumbnailUrl?: string | null
   priceCents: number       // net price admin receives
@@ -12,6 +14,7 @@ export type Course = {
   currency: string
   rentalDays?: number | null
   isActive: boolean
+  contentStructure?: 'MODULES' | 'STYLES' | 'BOTH' | null
   moduleCount?: number
   totalHours?: number
   createdAt: Date
@@ -21,18 +24,18 @@ export type Course = {
 export type Module = {
   id: string
   courseId: string
+  styleId?: string | null
   order: number
   title: string
   description?: string | null
-  videoUrl?: string | null
-  transcript?: string | null
+  videoFileUrl?: string | null
   createdAt: Date
   updatedAt: Date
 }
 
 export type ModuleStyle = {
   id: string
-  moduleId: string
+  courseId: string
   order: number
   name: string
   slug: string
@@ -45,14 +48,13 @@ export type ModuleStyle = {
 
 export type Lesson = {
   id: string
-  moduleId: string
-  styleId: string
+  courseId: string
+  moduleId?: string | null
+  styleId?: string | null
   order: number
   title: string
   description?: string | null
-  videoUrl?: string | null
   videoFileUrl?: string | null
-  transcript?: string | null
   styleName?: string
   createdAt: Date
   updatedAt: Date
@@ -202,6 +204,7 @@ export type CreateCourseRequest = {
   priceCents: number
   currency?: string
   rentalDays?: number
+  contentStructure: 'MODULES' | 'STYLES' | 'BOTH'
 }
 
 export type UpdateCourseRequest = Partial<CreateCourseRequest>
@@ -211,33 +214,32 @@ export type CreateModuleRequest = {
   order: number
   title: string
   description?: string
-  videoUrl: string
-  transcript?: string
+  videoFileUrl?: string | null
 }
 
 export type UpdateModuleRequest = Partial<CreateModuleRequest>
 
 export type CreateModuleStyleRequest = {
-  moduleId: string
+  courseId: string
   name: string
   description?: string | null
   order?: number
   isActive?: boolean
 }
 
-export type UpdateModuleStyleRequest = Partial<Omit<CreateModuleStyleRequest, 'moduleId'>>
+export type UpdateModuleStyleRequest = Partial<Omit<CreateModuleStyleRequest, 'courseId'>>
 
 export type CreateLessonRequest = {
-  styleId: string
+  courseId: string
+  styleId?: string
+  moduleId?: string
   title: string
   description?: string | null
-  videoUrl?: string | null
   videoFileUrl?: string | null
-  transcript?: string | null
   order?: number
 }
 
-export type UpdateLessonRequest = Partial<Omit<CreateLessonRequest, 'styleId'>>
+export type UpdateLessonRequest = Partial<Omit<CreateLessonRequest, 'courseId' | 'styleId' | 'moduleId'>>
 
 export type CreateTestRequest = {
   courseId: string

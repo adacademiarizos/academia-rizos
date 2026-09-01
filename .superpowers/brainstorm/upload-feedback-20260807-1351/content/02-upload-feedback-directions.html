@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Patrón de carga — Apoteósicas · propuesta</title>
+  <style>
+    :root { --ink:#121110; --panel:#201f1d; --panel-raised:#292725; --line:rgba(255,255,255,.12); --muted:#aaa7a1; --olive:#747844; --olive-soft:#a2a75d; --coral:#ffa2a0; --paper:#f5f1e9; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 16% 4%, rgba(116,120,68,.14), transparent 30%), var(--ink); color:var(--paper); font-family:Inter, ui-sans-serif, system-ui, sans-serif; }
+    main { max-width:1240px; margin:0 auto; padding:48px 28px 64px; }
+    .eyebrow { color:var(--olive-soft); font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; }
+    h1 { margin:10px 0 12px; font-family:Georgia, serif; font-size:38px; line-height:1.05; letter-spacing:-.035em; }
+    .intro { max-width:760px; margin:0; color:#c5c1ba; font-size:16px; line-height:1.6; }
+    .question { display:flex; align-items:center; gap:10px; margin:30px 0 18px; padding:14px 16px; border:1px solid rgba(162,167,93,.28); border-radius:14px; background:rgba(116,120,68,.08); color:#d8dba8; font-weight:650; }
+    .choices { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:18px; }
+    .choice { cursor:pointer; overflow:hidden; border:1px solid var(--line); border-radius:20px; background:var(--panel); transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+    .choice:hover { transform:translateY(-3px); border-color:rgba(162,167,93,.72); box-shadow:0 18px 35px rgba(0,0,0,.25); }
+    .choice:focus { outline:2px solid var(--olive-soft); outline-offset:3px; }
+    .choice-head { display:flex; gap:11px; align-items:center; padding:17px 18px 0; }
+    .letter { display:grid; place-items:center; width:27px; height:27px; border-radius:50%; background:rgba(162,167,93,.16); border:1px solid rgba(162,167,93,.45); color:#e1e5a9; font-size:12px; font-weight:850; }
+    .choice h2 { margin:0; font-size:15px; letter-spacing:-.02em; }
+    .choice > p { min-height:50px; margin:8px 18px 17px; color:var(--muted); font-size:13px; line-height:1.45; }
+    .mockup { margin:0 14px 14px; min-height:345px; padding:16px; border:1px solid rgba(255,255,255,.08); border-radius:14px; background:linear-gradient(145deg, #2a2927, #1c1b19); }
+    .field { color:#ddd9d1; font-size:12px; font-weight:700; }
+    .file { margin-top:9px; padding:12px; border:1px dashed rgba(255,255,255,.24); border-radius:12px; color:#c9c5bb; font-size:12px; text-align:center; }
+    .upload-card { margin-top:12px; padding:13px; border:1px solid rgba(255,255,255,.13); border-radius:13px; background:rgba(255,255,255,.025); }
+    .name { color:#f4f0e8; font-size:13px; font-weight:750; }
+    .meta, .details { display:flex; flex-wrap:wrap; gap:9px; margin-top:6px; color:#a8a49d; font-size:10px; }
+    .progress-copy { display:flex; justify-content:space-between; gap:12px; margin-top:15px; color:#dedbd5; font-size:10px; font-weight:700; }
+    .bar { height:7px; margin-top:7px; overflow:hidden; border-radius:99px; background:#484642; }
+    .bar span { display:block; height:100%; border-radius:99px; background:linear-gradient(90deg, #8c914d, var(--olive)); }
+    .cancel { display:inline-block; margin-top:13px; color:var(--coral); font-size:11px; font-weight:700; }
+    .status-row { display:flex; align-items:center; gap:9px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,.08); }
+    .status-row:last-child { border-bottom:0; }
+    .dot { width:10px; height:10px; flex:none; border-radius:50%; border:2px solid #77736d; }
+    .dot.complete { border-color:#9ea357; background:#9ea357; box-shadow:0 0 0 3px rgba(158,163,87,.12); }
+    .dot.live { border-color:#dfe69a; background:#dfe69a; box-shadow:0 0 0 5px rgba(223,230,154,.11); }
+    .row-text { flex:1; color:#e8e4dc; font-size:12px; font-weight:700; }
+    .row-state { color:#aaa7a1; font-size:10px; }
+    .mini-bar { width:66px; height:5px; overflow:hidden; border-radius:99px; background:#484642; }
+    .mini-bar b { display:block; width:68%; height:100%; background:var(--olive); }
+    .header-line { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .badge { padding:5px 8px; border-radius:999px; background:rgba(162,167,93,.14); color:#dfe69a; font-size:10px; font-weight:800; }
+    .active-tile { padding:15px; border:1px solid rgba(162,167,93,.42); border-radius:13px; background:rgba(116,120,68,.10); }
+    .success-tile { display:flex; align-items:center; gap:9px; margin-top:10px; padding:10px; border:1px solid rgba(255,255,255,.08); border-radius:10px; color:#cbc7c0; font-size:11px; }
+    .check { display:grid; place-items:center; width:19px; height:19px; border-radius:50%; background:#8c914d; color:#181713; font-size:12px; font-weight:900; }
+    .recommend { margin-top:22px; padding:16px 18px; border-left:3px solid var(--olive-soft); background:rgba(255,255,255,.035); color:#cac6be; font-size:13px; line-height:1.55; }
+    .recommend b { color:#f5f1e9; }
+    @media (max-width:900px) { .choices { grid-template-columns:1fr; } .mockup { min-height:240px; } h1 { font-size:32px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="eyebrow">Apoteósicas · sistema de cargas</div>
+    <h1>Que cada archivo explique<br />qué está pasando.</h1>
+    <p class="intro">La misma experiencia debe acompañar una miniatura, un video, un PDF, una foto de servicio o una entrega de estudiante: elección, datos del archivo, avance, resultado y una salida clara ante errores.</p>
+    <div class="question">¿Qué patrón debería convertirse en el estándar de toda la plataforma?</div>
+
+    <section class="choices">
+      <article class="choice" data-choice="a-ficha-viva" onclick="toggleSelect(this)" tabindex="0">
+        <div class="choice-head"><div class="letter">A</div><h2>Ficha viva</h2></div>
+        <p>El archivo se vuelve una tarjeta detallada. Mantiene la lectura clara en cargas largas y en edición de cursos.</p>
+        <div class="mockup">
+          <div class="field">Video del módulo</div>
+          <div class="file">Carga en curso…<br /><span style="color:#88847e">MP4 · hasta 10 GB · multipart segura</span></div>
+          <div class="upload-card">
+            <div class="name">CLIENTA 8 RESULTADO CLIP.mp4</div>
+            <div class="meta"><span>121.5 MB</span><span>Duración 0:08</span><span>3840 × 2160</span></div>
+            <div class="progress-copy"><span>Subiendo 32%</span><span>38.3 MB de 121.5 MB</span></div>
+            <div class="bar"><span style="width:32%"></span></div>
+            <div class="details"><span>4.8 MB/s</span><span>Tiempo restante: 18 s</span></div>
+            <span class="cancel">Cancelar carga</span>
+          </div>
+        </div>
+      </article>
+
+      <article class="choice" data-choice="b-trayecto" onclick="toggleSelect(this)" tabindex="0">
+        <div class="choice-head"><div class="letter">B</div><h2>Trayecto compacto</h2></div>
+        <p>Una lista de hitos hace visibles los pasos técnicos. Ideal cuando hay varios archivos simultáneos.</p>
+        <div class="mockup">
+          <div class="header-line"><div class="field">Archivos del curso</div><span class="badge">1 de 3 en curso</span></div>
+          <div class="status-row"><span class="dot complete"></span><span class="row-text">Miniatura.webp</span><span class="row-state">Lista</span></div>
+          <div class="status-row"><span class="dot live"></span><span class="row-text">Clase 01.mp4</span><span class="mini-bar"><b></b></span><span class="row-state">68%</span></div>
+          <div class="status-row"><span class="dot"></span><span class="row-text">Guía PDF</span><span class="row-state">En espera</span></div>
+          <div style="margin-top:19px; padding:12px; border-radius:12px; background:rgba(255,255,255,.035); color:#aaa7a1; font-size:11px; line-height:1.5;">Cada archivo muestra el estado sin expandir la página. Al abrirlo, aparecen detalles y acciones.</div>
+        </div>
+      </article>
+
+      <article class="choice" data-choice="c-panel-contextual" onclick="toggleSelect(this)" tabindex="0">
+        <div class="choice-head"><div class="letter">C</div><h2>Panel contextual</h2></div>
+        <p>El selector permanece ligero; el feedback aparece como una pieza independiente y persistente durante la tarea.</p>
+        <div class="mockup">
+          <div class="field">Miniatura del curso</div>
+          <div class="file">Reemplazar imagen<br /><span style="color:#88847e">JPG, PNG o WebP · máx. 5 MB</span></div>
+          <div class="active-tile">
+            <div class="header-line"><span class="name">Portada-nueva.webp</span><span class="badge">Subiendo</span></div>
+            <div class="progress-copy"><span>Preparando imagen</span><span>72%</span></div>
+            <div class="bar"><span style="width:72%"></span></div>
+            <div class="details"><span>2.4 MB de 3.3 MB</span><span>7 s restantes</span></div>
+          </div>
+          <div class="success-tile"><span class="check">✓</span><span>Miniatura anterior guardada hasta confirmar el cambio.</span></div>
+        </div>
+      </article>
+    </section>
+
+    <div class="recommend"><b>Mi recomendación: A, Ficha viva.</b> Ya habla el lenguaje del cargador de videos que te gustó: muestra el archivo, sus datos y el avance sin obligar a interpretar pasos técnicos. Para cargas múltiples, puede agruparse dentro de una lista como la variante B.</div>
+  </main>
+</body>
+</html>

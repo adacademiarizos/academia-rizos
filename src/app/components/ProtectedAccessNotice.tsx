@@ -7,6 +7,7 @@ export type ProtectedAccessReason =
   | 'STUDENT_DASHBOARD_UNAVAILABLE'
   | 'COURSE_PURCHASE_REQUIRED'
   | 'COURSE_ACCESS_EXPIRED'
+  | 'COURSE_ACCESS_REVOKED'
 
 function getAccessCopy(reason: ProtectedAccessReason, from?: string) {
   switch (reason) {
@@ -44,9 +45,15 @@ function getAccessCopy(reason: ProtectedAccessReason, from?: string) {
       }
     case 'COURSE_ACCESS_EXPIRED':
       return {
-        title: 'Tu acceso al curso expiró',
+        title: 'Tu acceso al curso expiro',
         description:
           'La compra de este curso ya no tiene acceso activo. Si quieres continuar, necesitas renovar o volver a comprar el acceso.',
+      }
+    case 'COURSE_ACCESS_REVOKED':
+      return {
+        title: 'Tu acceso al curso fue revocado',
+        description:
+          'Este acceso ya no esta disponible porque el pago fue reembolsado, disputado o invalidado. Si necesitas ayuda, contacta al equipo o vuelve a comprar el curso.',
       }
   }
 }

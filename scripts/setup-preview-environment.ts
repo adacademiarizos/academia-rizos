@@ -18,11 +18,11 @@ function slugify(value: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-async function ensureStyle(moduleId: string, name: string, order: number, description: string) {
+async function ensureStyle(courseId: string, name: string, order: number, description: string) {
   const slug = slugify(name);
 
   return prisma.moduleStyle.upsert({
-    where: { moduleId_slug: { moduleId, slug } },
+    where: { courseId_slug: { courseId, slug } },
     update: {
       name,
       order,
@@ -30,7 +30,7 @@ async function ensureStyle(moduleId: string, name: string, order: number, descri
       isActive: true,
     },
     create: {
-      moduleId,
+      courseId,
       name,
       slug,
       order,
@@ -41,7 +41,6 @@ async function ensureStyle(moduleId: string, name: string, order: number, descri
 }
 
 async function ensureLesson(
-  moduleId: string,
   styleId: string,
   order: number,
   title: string,
@@ -63,9 +62,20 @@ async function ensureLesson(
     });
   }
 
+  // Lessons are course-scoped as well as style-scoped, so the course is read
+  // off the style instead of being threaded through every caller.
+  const style = await prisma.moduleStyle.findUnique({
+    where: { id: styleId },
+    select: { courseId: true },
+  });
+
+  if (!style) {
+    throw new Error(`Cannot create lesson "${title}": style ${styleId} not found`);
+  }
+
   return prisma.lesson.create({
     data: {
-      moduleId,
+      courseId: style.courseId,
       styleId,
       order,
       title,
@@ -119,39 +129,34 @@ async function main() {
   }
 
   const firstStyles = await Promise.all([
-    ensureStyle(firstModule.id, "General", 0, "Base comun de la seccion."),
-    ensureStyle(firstModule.id, "Rizos", 1, "Lecciones enfocadas en cabello rizado."),
-    ensureStyle(firstModule.id, "Lacio", 2, "Comparativas y adaptaciones para cabello lacio."),
-    ensureStyle(firstModule.id, "Ondulado", 3, "Variantes y tecnica para cabello ondulado."),
+    ensureStyle(course.id, "Rizos", 0, "Lecciones enfocadas en cabello rizado."),
+    ensureStyle(course.id, "Lacio", 1, "Comparativas y adaptaciones para cabello lacio."),
+    ensureStyle(course.id, "Ondulado", 2, "Variantes y tecnica para cabello ondulado."),
   ]);
 
   await ensureLesson(
-    firstModule.id,
-    firstStyles[1].id,
+    firstStyles[0].id,
     0,
     "Diagnostico de rizos tipo 2C-3A",
     "Como observar patron, densidad y frizz en alumnas con rizos suaves.",
     "Preview lesson for the Rizos style."
   );
   await ensureLesson(
-    firstModule.id,
-    firstStyles[1].id,
+    firstStyles[0].id,
     1,
     "Rutina inicial para definicion",
     "Secuencia corta para preparar la fibra y definir sin apelmazar.",
     "Preview lesson showing multiple lessons under one style."
   );
   await ensureLesson(
-    firstModule.id,
-    firstStyles[2].id,
+    firstStyles[1].id,
     0,
     "Adaptando el contenido a cabello lacio",
     "Ejemplo visual de como un estilo puede agrupar una variante distinta del mismo tema.",
     "Preview lesson for the Lacio style."
   );
   await ensureLesson(
-    firstModule.id,
-    firstStyles[3].id,
+    firstStyles[2].id,
     0,
     "Ondas y transicion de tecnica",
     "Caso de uso para alumnas con ondas que necesitan menos producto.",
@@ -160,22 +165,19 @@ async function main() {
 
   if (secondModule) {
     const secondStyles = await Promise.all([
-      ensureStyle(secondModule.id, "General", 0, "Base comun de la seccion."),
-      ensureStyle(secondModule.id, "Afro", 1, "Contenido agrupado para alta densidad y coil patterns."),
-      ensureStyle(secondModule.id, "Transicion", 2, "Lecciones para mezcla de texturas y cambio de rutina."),
+      ensureStyle(course.id, "Afro", 3, "Contenido agrupado para alta densidad y coil patterns."),
+      ensureStyle(course.id, "Transicion", 4, "Lecciones para mezcla de texturas y cambio de rutina."),
     ]);
 
     await ensureLesson(
-      secondModule.id,
-      secondStyles[1].id,
+      secondStyles[0].id,
       0,
       "Analisis de alta densidad",
       "Observaciones clave para trabajar volumen, contraccion y seccionado.",
       "Preview lesson for the Afro style."
     );
     await ensureLesson(
-      secondModule.id,
-      secondStyles[2].id,
+      secondStyles[1].id,
       0,
       "Rutina para cabello en transicion",
       "Ejemplo de estructura cuando el modulo mezcla estilos especializados.",
@@ -205,16 +207,10 @@ async function main() {
   const refreshedCourse = await prisma.course.findUnique({
     where: { id: course.id },
     include: {
-      modules: {
+      modules: { orderBy: { order: "asc" } },
+      styles: {
         orderBy: { order: "asc" },
-        include: {
-          styles: {
-            orderBy: { order: "asc" },
-            include: {
-              _count: { select: { lessons: true } },
-            },
-          },
-        },
+        include: { _count: { select: { lessons: true } } },
       },
     },
   });
@@ -226,11 +222,11 @@ async function main() {
   console.log(`Course URL: /learn/${course.id}`);
   console.log(`First module URL: /learn/${course.id}/modules/${firstModule.id}`);
 
-  for (const module of refreshedCourse?.modules ?? []) {
-    console.log(`Module ${module.order}: ${module.title}`);
-    for (const style of module.styles) {
-      console.log(`  - Style ${style.order}: ${style.name} (${style._count.lessons} lessons)`);
-    }
+  for (const courseModule of refreshedCourse?.modules ?? []) {
+    console.log(`Module ${courseModule.order}: ${courseModule.title}`);
+  }
+  for (const style of refreshedCourse?.styles ?? []) {
+    console.log(`Style ${style.order}: ${style.name} (${style._count.lessons} lessons)`);
   }
 }
 

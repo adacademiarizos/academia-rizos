@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import { SessionProvider } from 'next-auth/react'
 import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider'
 import { CookieConsent } from '@/components/analytics/CookieConsent'
+import { Toaster } from 'sonner'
 
 interface ProvidersProps {
   children: React.ReactNode
@@ -17,6 +18,7 @@ export function Providers({ children }: ProvidersProps) {
         <AnalyticsProvider />
       </Suspense>
       <CookieConsent />
+      <Toaster position="bottom-right" richColors theme="dark" closeButton />
     </SessionProvider>
   )
 }

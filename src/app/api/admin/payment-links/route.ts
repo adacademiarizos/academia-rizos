@@ -51,8 +51,16 @@ export async function POST(req: Request) {
       baseAmountCents,
       totalAmountCents: totalCents,
       status: "REQUIRES_PAYMENT",
+      createdById: auth.user.id,
     },
   });
+  const metadata = {
+    type: "PAYMENT_LINK",
+    paymentLinkId: link.id,
+    baseAmountCents: String(baseAmountCents),
+    totalAmountCents: String(totalCents),
+    currency,
+  };
 
   // Crear Checkout Session
   const session = await stripe.checkout.sessions.create({
@@ -73,13 +81,10 @@ export async function POST(req: Request) {
         },
       },
     ],
-    metadata: {
-      type: "PAYMENT_LINK",
-      paymentLinkId: link.id,
-      baseAmountCents: String(baseAmountCents),
-      totalAmountCents: String(totalCents),
-      currency,
+    payment_intent_data: {
+      metadata,
     },
+    metadata,
   });
 
   await db.paymentLink.update({
@@ -87,17 +92,17 @@ export async function POST(req: Request) {
     data: { stripeCheckoutSessionId: session.id },
   });
 
-  // también creamos Payment en PROCESSING (opcional pero recomendable)
+  // También creamos Payment en estado pendiente para reconciliar expiraciones/fallos.
   await db.payment.create({
     data: {
       type: "PAYMENT_LINK",
-      status: "PROCESSING",
+      status: "REQUIRES_PAYMENT",
       amountCents: totalCents,
       currency,
       stripeCheckoutSessionId: session.id,
       paymentLinkId: link.id,
       payerEmail: customerEmail || null,
-      metadata: session.metadata as any,
+      metadata,
     },
   });
 

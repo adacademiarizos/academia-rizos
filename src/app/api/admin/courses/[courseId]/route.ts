@@ -8,10 +8,16 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 import { z } from 'zod'
+import {
+  certificateSloganSchema,
+  getCoursePublicationError,
+  normalizeCertificateSlogan,
+} from '@/validators/course.schema'
 
 const UpdateCourseSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
+  certificateSlogan: certificateSloganSchema.optional(),
   trailerUrl: z.string().url().optional().or(z.literal('')),
   thumbnailUrl: z.string().url().optional().or(z.literal('')),
   priceCents: z.number().int().min(0).optional(),
@@ -63,6 +69,18 @@ export async function PUT(
 
     const body = await request.json()
     const data = UpdateCourseSchema.parse(body)
+    const certificateSlogan = data.certificateSlogan === undefined
+      ? course.certificateSlogan
+      : normalizeCertificateSlogan(data.certificateSlogan)
+    const isActive = data.isActive ?? course.isActive
+    const publicationError = getCoursePublicationError(isActive, certificateSlogan)
+
+    if (publicationError) {
+      return NextResponse.json(
+        { success: false, error: publicationError },
+        { status: 400 }
+      )
+    }
 
     // Update course
     const updated = await db.course.update({
@@ -70,6 +88,7 @@ export async function PUT(
       data: {
         ...(data.title && { title: data.title }),
         ...(data.description !== undefined && { description: data.description }),
+        ...(data.certificateSlogan !== undefined && { certificateSlogan }),
         ...(data.trailerUrl !== undefined && { trailerUrl: data.trailerUrl || null }),
         ...(data.thumbnailUrl !== undefined && { thumbnailUrl: data.thumbnailUrl || null }),
         ...(data.priceCents !== undefined && { priceCents: data.priceCents }),

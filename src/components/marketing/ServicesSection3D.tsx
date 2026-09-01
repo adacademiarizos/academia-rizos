@@ -159,10 +159,17 @@ export default function ServicesSection3D() {
     return Array.from({ length: count }, (_, i) => filteredServices[i % filteredServices.length]);
   }, [filteredServices]);
 
-  const randomIndexes = useMemo(
-    () => cards.map((s) => (s.imageUrls.length > 0 ? Math.floor(Math.random() * s.imageUrls.length) : -1)),
-    [cards]
+  // Los índices aleatorios se calculan tras el montaje (en efecto) para no
+  // introducir impureza en el render y evitar mismatches de hidratación SSR.
+  // Valor inicial determinista (primera imagen) hasta que el efecto randomiza.
+  const [randomIndexes, setRandomIndexes] = useState<number[]>(() =>
+    cards.map((s) => (s.imageUrls.length > 0 ? 0 : -1))
   );
+  useEffect(() => {
+    setRandomIndexes(
+      cards.map((s) => (s.imageUrls.length > 0 ? Math.floor(Math.random() * s.imageUrls.length) : -1))
+    );
+  }, [cards]);
 
   const carouselRef = useRef<HTMLDivElement>(null);
   const angleRef = useRef(0);

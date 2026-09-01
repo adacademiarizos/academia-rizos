@@ -11,7 +11,11 @@ export default async function AccessDeniedPage({
     <ProtectedAccessNotice
       reason={reason ?? 'SIGN_IN_REQUIRED'}
       from={from}
-      showSignIn={reason !== 'COURSE_PURCHASE_REQUIRED' && reason !== 'COURSE_ACCESS_EXPIRED'}
+      showSignIn={
+        reason !== 'COURSE_PURCHASE_REQUIRED' &&
+        reason !== 'COURSE_ACCESS_EXPIRED' &&
+        reason !== 'COURSE_ACCESS_REVOKED'
+      }
     />
   )
 }

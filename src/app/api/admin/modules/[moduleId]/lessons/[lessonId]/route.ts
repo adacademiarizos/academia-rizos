@@ -6,16 +6,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
+import { lessonAuthoringSelect } from '@/lib/academy-content-selects'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 
 const UpdateLessonSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
-  videoUrl: z.string().optional().nullable(),
   videoFileUrl: z.string().optional().nullable(),
-  order: z.number().int().min(0).optional(),
   transcript: z.string().optional().nullable(),
+  order: z.number().int().min(0).optional(),
 })
 
 async function verifyAdmin() {
@@ -45,8 +45,9 @@ export async function PUT(
       )
     }
 
-    const lesson = await db.lesson.findFirst({
+    const lesson = await db.lesson.findUnique({
       where: { id: lessonId, moduleId },
+      select: { id: true },
     })
     if (!lesson) {
       return NextResponse.json(
@@ -63,11 +64,11 @@ export async function PUT(
       data: {
         ...(data.title !== undefined && { title: data.title }),
         ...(data.description !== undefined && { description: data.description }),
-        ...(data.videoUrl !== undefined && { videoUrl: data.videoUrl }),
         ...(data.videoFileUrl !== undefined && { videoFileUrl: data.videoFileUrl }),
-        ...(data.order !== undefined && { order: data.order }),
         ...(data.transcript !== undefined && { transcript: data.transcript }),
+        ...(data.order !== undefined && { order: data.order }),
       },
+      select: lessonAuthoringSelect,
     })
 
     return NextResponse.json({ success: true, data: updated })
@@ -101,8 +102,9 @@ export async function DELETE(
       )
     }
 
-    const lesson = await db.lesson.findFirst({
+    const lesson = await db.lesson.findUnique({
       where: { id: lessonId, moduleId },
+      select: { id: true },
     })
     if (!lesson) {
       return NextResponse.json(
@@ -111,7 +113,7 @@ export async function DELETE(
       )
     }
 
-    await db.lesson.delete({ where: { id: lessonId } })
+    await db.lesson.delete({ where: { id: lessonId }, select: { id: true } })
 
     return NextResponse.json({ success: true })
   } catch (error) {

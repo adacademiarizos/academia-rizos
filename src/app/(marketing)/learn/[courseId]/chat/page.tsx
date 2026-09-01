@@ -4,13 +4,10 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ChatPanel } from '@/app/components/ChatPanel'
-import { ProtectedAccessNotice } from '@/app/components/ProtectedAccessNotice'
-import { useCourseAccess } from '@/app/components/useCourseAccess'
 
 export default function CourseChatPage() {
   const params = useParams()
   const courseId = params.courseId as string
-  const access = useCourseAccess(courseId)
 
   const [roomId, setRoomId] = useState<string | null>(null)
   const [courseName, setCourseName] = useState<string>('')
@@ -19,10 +16,6 @@ export default function CourseChatPage() {
 
   useEffect(() => {
     const init = async () => {
-      if (access.loading || !access.hasAccess) {
-        return
-      }
-
       try {
         // Fetch course name and room in parallel
         const [roomRes, courseRes] = await Promise.all([
@@ -49,33 +42,7 @@ export default function CourseChatPage() {
     }
 
     init()
-  }, [access.hasAccess, access.loading, courseId])
-
-  if (access.loading || (access.hasAccess && loadingRoom)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-ap-ink px-6">
-        <p className="text-zinc-400 text-sm">Conectando al chat...</p>
-      </div>
-    )
-  }
-
-  if (access.reason) {
-    return (
-      <ProtectedAccessNotice
-        reason={access.reason}
-        from={`/learn/${courseId}/chat`}
-        showSignIn={access.reason === 'SIGN_IN_REQUIRED'}
-      />
-    )
-  }
-
-  if (access.error) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-ap-ink px-6">
-        <p className="max-w-md text-center text-sm text-zinc-400">{access.error}</p>
-      </div>
-    )
-  }
+  }, [courseId])
 
   return (
     <div className="flex flex-col h-screen bg-ap-ink">

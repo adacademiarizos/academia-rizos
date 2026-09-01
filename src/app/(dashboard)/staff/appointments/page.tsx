@@ -35,6 +35,7 @@ const PAY_STATUS: Record<string, { label: string; style: string }> = {
   AUTHORIZED:       { label: "Autorizado",  style: "bg-indigo-500/20 text-indigo-300" },
   FAILED:           { label: "Fallido",     style: "bg-red-500/20 text-red-300" },
   REFUNDED:         { label: "Reembolsado", style: "bg-zinc-500/20 text-zinc-300" },
+  CANCELED:         { label: "Cancelado",   style: "bg-zinc-500/20 text-zinc-300" },
 };
 
 function formatDate(d: string) {
@@ -205,7 +206,7 @@ export default function StaffAppointmentsPage() {
                   {/* Notas */}
                   {appt.notes && (
                     <div className="sm:col-span-2 rounded-xl bg-white/5 px-3 py-2">
-                      <p className="text-xs text-white/50 italic">"{appt.notes}"</p>
+                      <p className="text-xs text-white/50 italic">&ldquo;{appt.notes}&rdquo;</p>
                     </div>
                   )}
                 </div>

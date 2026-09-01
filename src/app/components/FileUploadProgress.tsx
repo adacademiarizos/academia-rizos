@@ -1,6 +1,13 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
+import { UploadFeedbackCard } from './UploadFeedbackCard'
+import type { UploadFeedbackStatus } from '@/lib/upload-feedback'
+import {
+  assertValidUploadFileSize,
+  buildUploadRequestMetadata,
+  type LearningUploadScope,
+} from '@/lib/upload-contract'
 
 interface FileUploadProgressProps {
   onUploadComplete: (file: UploadedFile) => void
@@ -8,8 +15,11 @@ interface FileUploadProgressProps {
   moduleId?: string
   lessonId?: string
   courseId?: string
+  deferPersistence?: boolean
+  learningScope?: LearningUploadScope
+  learningScopeId?: string
   accept?: string
-  maxSize?: number // in MB
+  maxSize?: number
 }
 
 export interface UploadedFile {
@@ -21,11 +31,10 @@ export interface UploadedFile {
 }
 
 const MB = 1024 * 1024
-
 const RESOURCE_ACCEPT = '.pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt'
 const VIDEO_ACCEPT = 'video/*'
 const RESOURCE_MAX_MB = 100
-const VIDEO_MAX_MB = 3072 // 3 GB
+const VIDEO_MAX_MB = 3072
 
 export default function FileUploadProgress({
   onUploadComplete,
@@ -33,247 +42,175 @@ export default function FileUploadProgress({
   moduleId,
   lessonId,
   courseId,
+  deferPersistence,
+  learningScope,
+  learningScopeId,
   accept,
   maxSize,
 }: FileUploadProgressProps) {
   const effectiveAccept = accept ?? (uploadType === 'video' ? VIDEO_ACCEPT : RESOURCE_ACCEPT)
   const effectiveMaxSize = maxSize ?? (uploadType === 'video' ? VIDEO_MAX_MB : RESOURCE_MAX_MB)
-
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
+  const [status, setStatus] = useState<UploadFeedbackStatus>('idle')
+  const [loaded, setLoaded] = useState(0)
+  const [total, setTotal] = useState(0)
+  const [startedAt, setStartedAt] = useState<number | undefined>()
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const activeRequestRef = useRef<XMLHttpRequest | null>(null)
+  const controllerRef = useRef<AbortController | null>(null)
 
-  const handleFileSelect = (file: File) => {
+  const isUploading = status === 'preparing' || status === 'uploading' || status === 'saving'
+
+  function clearSelection() {
+    setSelectedFile(null)
+    setStatus('idle')
+    setLoaded(0)
+    setTotal(0)
+    setStartedAt(undefined)
     setError(null)
-    setSuccess(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function handleFileSelect(file: File) {
+    setError(null)
+    try {
+      assertValidUploadFileSize(uploadType, file.size)
+    } catch (validationError) {
+      setStatus('error')
+      setSelectedFile(null)
+      setError(validationError instanceof Error ? validationError.message : 'El tamaño del archivo no es válido.')
+      return
+    }
     if (file.size > effectiveMaxSize * MB) {
-      setError(`Archivo demasiado grande. Máx ${effectiveMaxSize} MB`)
+      setStatus('error')
+      setSelectedFile(null)
+      setError(`Archivo demasiado grande. Máximo ${effectiveMaxSize} MB.`)
       return
     }
     setSelectedFile(file)
+    setLoaded(0)
+    setTotal(file.size)
+    setStartedAt(undefined)
+    setStatus('ready')
+    void handleUpload(file)
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.currentTarget.files
-    if (files && files[0]) handleFileSelect(files[0])
+  function handleInputChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0]
+    if (file) handleFileSelect(file)
   }
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }
+  async function handleUpload(fileToUpload = selectedFile) {
+    if (!fileToUpload || isUploading) return
 
-  const handleDragLeave = () => setIsDragging(false)
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setIsDragging(false)
-    const files = e.dataTransfer.files
-    if (files && files[0]) handleFileSelect(files[0])
-  }
-
-  const handleUpload = async () => {
-    if (!selectedFile) return
-    setIsUploading(true)
+    const controller = new AbortController()
+    controllerRef.current = controller
     setError(null)
-    setUploadProgress(0)
+    setLoaded(0)
+    setTotal(fileToUpload.size)
+    setStartedAt(Date.now())
+    setStatus('preparing')
 
     try {
-      // Step 1: Get presigned PUT URL from server (tiny request, no file data)
+      const uploadMetadata = buildUploadRequestMetadata(fileToUpload, {
+        uploadType,
+        moduleId,
+        lessonId,
+        courseId,
+        deferPersistence,
+        learningScope,
+        learningScopeId,
+      })
       const presignedRes = await fetch('/api/uploads/presigned', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contentType: selectedFile.type,
-          fileSize: selectedFile.size,
-          uploadType,
-          moduleId,
-          lessonId,
-          courseId,
-          fileName: selectedFile.name,
-        }),
+        body: JSON.stringify(uploadMetadata),
+        signal: controller.signal,
       })
 
-      if (!presignedRes.ok) {
-        const d = await presignedRes.json().catch(() => ({}))
-        throw new Error(d.error || 'Error al obtener URL de subida')
-      }
+      const presignedPayload = await presignedRes.json().catch(() => ({}))
+      if (!presignedRes.ok) throw new Error(presignedPayload.error || 'No se pudo preparar la carga.')
+      const { presignedUrl, fileUrl } = presignedPayload.data
 
-      const { data: { presignedUrl, fileUrl } } = await presignedRes.json()
-
-      // Step 2: Upload file directly to R2 via presigned URL (bypasses Vercel — supports up to 3GB)
-      // Using XHR instead of fetch so we get real upload progress events
+      setStatus('uploading')
       await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest()
-        xhr.open('PUT', presignedUrl)
-        xhr.setRequestHeader('Content-Type', selectedFile.type)
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            setUploadProgress(Math.round((e.loaded / e.total) * 95))
+        const request = new XMLHttpRequest()
+        activeRequestRef.current = request
+        request.open('PUT', presignedUrl)
+        request.setRequestHeader('Content-Type', fileToUpload.type)
+        request.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            setLoaded(event.loaded)
+            setTotal(event.total)
           }
         }
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve()
-          } else {
-            reject(new Error(`Error al subir archivo (${xhr.status})`))
-          }
+        request.onload = () => {
+          activeRequestRef.current = null
+          if (request.status >= 200 && request.status < 300) resolve()
+          else reject(new Error(`R2 rechazó la carga (${request.status}).`))
         }
-        xhr.onerror = () => reject(new Error('Error de red al subir archivo'))
-        xhr.send(selectedFile)
+        request.onerror = () => { activeRequestRef.current = null; reject(new Error('Se perdió la conexión durante la carga.')) }
+        request.onabort = () => { activeRequestRef.current = null; reject(new DOMException('Carga cancelada.', 'AbortError')) }
+        request.send(fileToUpload)
       })
 
-      // Step 3: Confirm with server to update the DB
+      setStatus('saving')
       const confirmRes = await fetch('/api/uploads/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...uploadMetadata,
           fileUrl,
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          mimeType: selectedFile.type,
-          uploadType,
-          moduleId,
-          lessonId,
-          courseId,
+          mimeType: fileToUpload.type,
         }),
+        signal: controller.signal,
       })
+      const confirmPayload = await confirmRes.json().catch(() => ({}))
+      if (!confirmRes.ok) throw new Error(confirmPayload.error || 'No se pudo guardar el archivo.')
 
-      if (!confirmRes.ok) {
-        const d = await confirmRes.json().catch(() => ({}))
-        throw new Error(d.error || 'Error al confirmar subida')
+      setLoaded(fileToUpload.size)
+      setTotal(fileToUpload.size)
+      setStatus('complete')
+      onUploadComplete(confirmPayload.data)
+    } catch (uploadError) {
+      if (uploadError instanceof DOMException && uploadError.name === 'AbortError') {
+        setStatus('cancelled')
+        return
       }
-
-      const { data } = await confirmRes.json()
-      setUploadProgress(100)
-      setSuccess(true)
-      onUploadComplete(data)
-
-      setTimeout(() => {
-        setSelectedFile(null)
-        setUploadProgress(0)
-        setSuccess(false)
-        if (fileInputRef.current) fileInputRef.current.value = ''
-      }, 2000)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al subir')
-      setUploadProgress(0)
+      setStatus('error')
+      setError(uploadError instanceof Error ? uploadError.message : 'No se pudo subir el archivo.')
     } finally {
-      setIsUploading(false)
+      activeRequestRef.current = null
+      controllerRef.current = null
     }
   }
 
-  const getFileIcon = (file: File) => {
-    if (file.type.startsWith('image/')) return '🖼️'
-    if (file.type === 'application/pdf') return '📄'
-    if (file.type.startsWith('video/')) return '🎥'
-    if (file.type.includes('word') || file.type.includes('document')) return '📝'
-    if (file.type.includes('sheet') || file.type.includes('excel')) return '📊'
-    if (file.type.includes('presentation') || file.type.includes('powerpoint')) return '📊'
-    if (file.type === 'application/zip') return '🗜️'
-    return '📎'
+  function cancelUpload() {
+    controllerRef.current?.abort()
+    activeRequestRef.current?.abort()
   }
 
-  return (
-    <div className="flex flex-col gap-3">
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`rounded-2xl border border-dashed p-6 text-center transition-colors ${
-          isDragging
-            ? 'border-white/40 bg-white/10'
-            : 'border-white/20 bg-white/5 hover:border-white/30'
-        }`}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={effectiveAccept}
-          onChange={handleInputChange}
-          className="hidden"
-          id="file-upload-input"
-        />
-
-        {!selectedFile ? (
-          <label htmlFor="file-upload-input" className="cursor-pointer block">
-            <div className="text-3xl mb-2">
-              {uploadType === 'video' ? '🎥' : '📁'}
-            </div>
-            <p className="text-sm text-white/50">
-              Arrastrá un archivo o{' '}
-              <button
-                type="button"
-                className="text-[#c8cf94] hover:text-white transition underline"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                seleccioná uno
-              </button>
-            </p>
-            <p className="text-xs text-white/25 mt-1">
-              {uploadType === 'resource'
-                ? 'PDF, imágenes, Word, Excel, PPT, ZIP · máx ' + effectiveMaxSize + ' MB'
-                : 'MP4, WebM, MOV · máx ' + effectiveMaxSize + ' MB'}
-            </p>
-          </label>
-        ) : (
-          <div className="flex flex-col items-center gap-2">
-            <div className="text-2xl">{getFileIcon(selectedFile)}</div>
-            <p className="text-sm text-white/80 break-all">{selectedFile.name}</p>
-            <p className="text-xs text-white/40">
-              {(selectedFile.size / MB).toFixed(2)} MB
-            </p>
-
-            {isUploading && (
-              <div className="w-full bg-white/10 rounded-full h-1.5 mt-1">
-                <div
-                  className="bg-[#646a40] h-1.5 rounded-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
-            )}
-
-            {!isUploading && (
-              <div className="flex gap-2 mt-1">
-                <button
-                  type="button"
-                  onClick={handleUpload}
-                  className="px-4 py-1.5 rounded-xl bg-[#646a40] text-xs font-semibold text-white hover:opacity-90 transition"
-                >
-                  Subir
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedFile(null)
-                    setError(null)
-                    if (fileInputRef.current) fileInputRef.current.value = ''
-                  }}
-                  className="px-4 py-1.5 rounded-xl bg-white/10 text-xs text-white/60 hover:bg-white/15 transition"
-                >
-                  Cancelar
-                </button>
-              </div>
-            )}
-
-            {isUploading && (
-              <p className="text-xs text-white/40">Subiendo… {uploadProgress}%</p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {error && (
-        <p className="text-xs text-red-400 px-1">{error}</p>
-      )}
-
-      {success && (
-        <p className="text-xs text-green-400 px-1">✓ Archivo subido correctamente</p>
-      )}
+  return <div className="space-y-3">
+    <div
+      onDragOver={(event) => { event.preventDefault(); if (!isUploading) setIsDragging(true) }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={(event) => {
+        event.preventDefault()
+        setIsDragging(false)
+        const file = event.dataTransfer.files?.[0]
+        if (file && !isUploading) handleFileSelect(file)
+      }}
+      className={`${isUploading ? 'hidden' : ''} rounded-2xl border border-dashed p-6 text-center transition-colors ${isDragging ? 'border-ap-copper bg-ap-copper/5' : 'border-white/20 bg-white/[0.03] hover:border-white/35'}`}
+    >
+      <input ref={fileInputRef} type="file" accept={effectiveAccept} onChange={handleInputChange} className="sr-only" id={`file-upload-${uploadType}-${moduleId ?? courseId ?? 'new'}`} disabled={isUploading} />
+      <label htmlFor={`file-upload-${uploadType}-${moduleId ?? courseId ?? 'new'}`} className={`block ${isUploading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+        <span className="text-sm font-medium text-ap-copper">{selectedFile ? 'Reemplazar archivo' : 'Seleccionar archivo'}</span>
+        <span className="mt-2 block text-xs text-white/45">{uploadType === 'resource' ? `PDF, imágenes, Word, Excel, PPT o ZIP · máximo ${effectiveMaxSize} MB` : `MP4, WebM o MOV · máximo ${effectiveMaxSize} MB`}</span>
+      </label>
     </div>
-  )
+    {selectedFile ? <UploadFeedbackCard file={selectedFile} status={status} loaded={loaded} total={total} startedAt={startedAt} error={error} onStart={() => void handleUpload()} onRetry={() => void handleUpload()} onCancel={cancelUpload} onRemove={clearSelection} completedActionLabel="Cargar otro archivo" completedActionTone="default" /> : null}
+    {!selectedFile && error ? <p role="alert" className="text-sm text-red-300">{error}</p> : null}
+  </div>
 }

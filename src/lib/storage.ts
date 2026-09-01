@@ -9,8 +9,10 @@
  * - R2_BUCKET_NAME
  */
 
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3"
+import { AbortMultipartUploadCommand, CompleteMultipartUploadCommand, CreateMultipartUploadCommand, DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client, UploadPartCommand, type CompletedPart } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
+import { mkdir, unlink, writeFile } from "node:fs/promises"
+import { dirname, isAbsolute, relative, resolve } from "node:path"
 
 interface StorageConfig {
   endpoint: string
@@ -21,6 +23,49 @@ interface StorageConfig {
 }
 
 let s3Client: S3Client | null = null
+
+export class StorageConfigurationError extends Error {
+  constructor(message = 'Cloudflare R2 is not configured') {
+    super(message)
+    this.name = 'StorageConfigurationError'
+  }
+}
+
+export function isR2Configured() {
+  return Boolean(
+    process.env.R2_ENDPOINT &&
+    process.env.R2_ACCESS_KEY_ID &&
+    process.env.R2_SECRET_ACCESS_KEY &&
+    process.env.R2_BUCKET_NAME
+  )
+}
+
+function useLocalStorage() {
+  return process.env.NODE_ENV !== 'production' && !isR2Configured()
+}
+
+function getLocalUploadPath(key: string) {
+  const normalizedKey = key.replaceAll('\\', '/').replace(/^\/+/, '')
+  if (!normalizedKey || normalizedKey.split('/').includes('..')) {
+    throw new Error('Invalid upload key')
+  }
+
+  const uploadsDir = resolve(process.env.LOCAL_UPLOADS_DIR ?? 'public/uploads')
+  const targetPath = resolve(uploadsDir, normalizedKey)
+  const relativePath = relative(uploadsDir, targetPath)
+  if (!relativePath || relativePath.startsWith('..') || isAbsolute(relativePath)) {
+    throw new Error('Invalid upload key')
+  }
+
+  return { normalizedKey, targetPath }
+}
+
+async function uploadLocalFile(key: string, body: Buffer | string) {
+  const { normalizedKey, targetPath } = getLocalUploadPath(key)
+  await mkdir(dirname(targetPath), { recursive: true })
+  await writeFile(targetPath, body)
+  return `/uploads/${normalizedKey}`
+}
 
 /**
  * Initialize S3/R2 client
@@ -33,7 +78,9 @@ function getStorageClient(): S3Client {
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
 
   if (!endpoint || !accessKeyId || !secretAccessKey) {
-    throw new Error('Missing R2/S3 environment variables')
+    throw new StorageConfigurationError(
+      'Cloudflare R2 is not configured. Add R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME.'
+    )
   }
 
   s3Client = new S3Client({
@@ -48,6 +95,21 @@ function getStorageClient(): S3Client {
   return s3Client
 }
 
+function getBucketName() {
+  const bucketName = process.env.R2_BUCKET_NAME
+  if (!bucketName) throw new StorageConfigurationError('R2_BUCKET_NAME not configured')
+  return bucketName
+}
+
+export function getPublicFileUrl(key: string) {
+  const publicBase = process.env.R2_PUBLIC_URL
+  if (publicBase) return `${publicBase.replace(/\/$/, '')}/${key}`
+
+  const endpoint = process.env.R2_ENDPOINT
+  const bucketName = getBucketName()
+  return `${endpoint}/${bucketName}/${key}`
+}
+
 /**
  * Upload file to R2/S3
  * @param key - File path in bucket (e.g., "courses/123/video.mp4")
@@ -60,13 +122,13 @@ export async function uploadFile(
   body: Buffer | string,
   contentType: string
 ): Promise<string> {
+  if (useLocalStorage()) {
+    return uploadLocalFile(key, body)
+  }
+
   try {
     const client = getStorageClient()
-    const bucketName = process.env.R2_BUCKET_NAME
-
-    if (!bucketName) {
-      throw new Error('R2_BUCKET_NAME not configured')
-    }
+    const bucketName = getBucketName()
 
     await client.send(
       new PutObjectCommand({
@@ -81,13 +143,9 @@ export async function uploadFile(
     // - Use R2_PUBLIC_URL if configured (recommended for video playback — set after enabling
     //   "Public Access" on your R2 bucket, which gives you a pub-XXXXX.r2.dev URL)
     // - Fall back to the API endpoint URL (works for admin preview, not for <video> tags from browsers)
-    const publicBase = process.env.R2_PUBLIC_URL
-    if (publicBase) {
-      return `${publicBase.replace(/\/$/, '')}/${key}`
-    }
-    const endpoint = process.env.R2_ENDPOINT
-    return `${endpoint}/${bucketName}/${key}`
+    return getPublicFileUrl(key)
   } catch (error) {
+    if (error instanceof StorageConfigurationError) throw error
     console.error('Upload error:', error)
     throw new Error('Failed to upload file')
   }
@@ -107,11 +165,7 @@ export async function generateUploadPresignedUrl(
 ): Promise<string> {
   try {
     const client = getStorageClient()
-    const bucketName = process.env.R2_BUCKET_NAME
-
-    if (!bucketName) {
-      throw new Error('R2_BUCKET_NAME not configured')
-    }
+    const bucketName = getBucketName()
 
     const url = await getSignedUrl(
       client,
@@ -126,8 +180,50 @@ export async function generateUploadPresignedUrl(
     return url
   } catch (error) {
     console.error('Presigned upload URL error:', error)
+    if (error instanceof StorageConfigurationError) throw error
     throw new Error('Failed to generate upload URL')
   }
+}
+
+export async function createMultipartUpload(key: string, contentType: string) {
+  const client = getStorageClient()
+  const response = await client.send(new CreateMultipartUploadCommand({
+    Bucket: getBucketName(),
+    Key: key,
+    ContentType: contentType,
+  }))
+
+  if (!response.UploadId) throw new Error('R2 no devolvió un identificador para la carga multipart.')
+  return response.UploadId
+}
+
+export async function generateMultipartPartPresignedUrl(key: string, uploadId: string, partNumber: number, expirationSeconds = 3600) {
+  const client = getStorageClient()
+  return getSignedUrl(client, new UploadPartCommand({
+    Bucket: getBucketName(),
+    Key: key,
+    UploadId: uploadId,
+    PartNumber: partNumber,
+  }), { expiresIn: expirationSeconds })
+}
+
+export async function completeMultipartUpload(key: string, uploadId: string, parts: CompletedPart[]) {
+  const client = getStorageClient()
+  await client.send(new CompleteMultipartUploadCommand({
+    Bucket: getBucketName(),
+    Key: key,
+    UploadId: uploadId,
+    MultipartUpload: { Parts: parts },
+  }))
+}
+
+export async function abortMultipartUpload(key: string, uploadId: string) {
+  const client = getStorageClient()
+  await client.send(new AbortMultipartUploadCommand({
+    Bucket: getBucketName(),
+    Key: key,
+    UploadId: uploadId,
+  }))
 }
 
 /**
@@ -165,10 +261,41 @@ export async function getSignedDownloadUrl(
 }
 
 /**
+ * Recover the storage key from a URL previously returned by uploadFile().
+ * uploadFile() stores either `${R2_PUBLIC_URL}/${key}` or `${R2_ENDPOINT}/${bucket}/${key}`,
+ * so this strips whichever base is currently configured to get back the raw key.
+ * @param url - Full URL as stored in the database
+ * @returns The storage key, or null if it doesn't match a known base
+ */
+export function getStorageKeyFromUrl(url: string): string | null {
+  const bases = [process.env.R2_PUBLIC_URL, `${process.env.R2_ENDPOINT}/${process.env.R2_BUCKET_NAME}`]
+
+  for (const base of bases) {
+    if (!base) continue
+    const normalizedBase = `${base.replace(/\/$/, '')}/`
+    if (url.startsWith(normalizedBase)) {
+      return url.slice(normalizedBase.length)
+    }
+  }
+
+  return null
+}
+
+/**
  * Delete file from R2/S3
  * @param key - File path in bucket
  */
 export async function deleteFile(key: string): Promise<void> {
+  if (useLocalStorage()) {
+    const { targetPath } = getLocalUploadPath(key)
+    try {
+      await unlink(targetPath)
+    } catch (error: any) {
+      if (error?.code !== 'ENOENT') throw error
+    }
+    return
+  }
+
   try {
     const client = getStorageClient()
     const bucketName = process.env.R2_BUCKET_NAME

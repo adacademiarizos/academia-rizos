@@ -2,6 +2,7 @@ import { Role } from '@prisma/client'
 import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
 import { authOptions } from '@/lib/auth-options'
+import { isCourseAccessActive } from '@/lib/course-access'
 import { db } from '@/lib/db'
 
 export type AppUser = {
@@ -15,9 +16,11 @@ export type AccessFailureCode =
   | 'USER_NOT_FOUND'
   | 'COURSE_NOT_FOUND'
   | 'MODULE_NOT_FOUND'
+  | 'STYLE_NOT_FOUND'
   | 'CHAT_ROOM_NOT_FOUND'
   | 'COURSE_PURCHASE_REQUIRED'
   | 'COURSE_ACCESS_EXPIRED'
+  | 'COURSE_ACCESS_REVOKED'
 
 type AccessFailure = {
   ok: false
@@ -46,6 +49,14 @@ type ModuleAccessSuccess = CourseAccessSuccess & {
 
 export type CourseAccessResult = CourseAccessSuccess | AccessFailure
 export type ModuleAccessResult = ModuleAccessSuccess | AccessFailure
+export type StyleAccessResult = (CourseAccessSuccess & {
+  style: {
+    id: string
+    courseId: string
+    order?: number
+    name?: string
+  }
+}) | AccessFailure
 export type ChatRoomAccessResult =
   | (CourseAccessSuccess & {
       room: {
@@ -147,6 +158,7 @@ export async function authorizeCourseAccessByCourseId(
     },
     select: {
       accessUntil: true,
+      revokedAt: true,
     },
   })
 
@@ -161,7 +173,16 @@ export async function authorizeCourseAccessByCourseId(
 
   const isExpired = !!(access.accessUntil && access.accessUntil < new Date())
 
-  if (requireActiveAccess && isExpired) {
+  if (access.revokedAt) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'COURSE_ACCESS_REVOKED',
+      message: 'Tu acceso a este curso fue revocado porque el pago ya no es válido.',
+    }
+  }
+
+  if (requireActiveAccess && !isCourseAccessActive(access)) {
     return {
       ok: false,
       status: 403,
@@ -172,10 +193,10 @@ export async function authorizeCourseAccessByCourseId(
 
   return {
     ok: true,
-      user: appUser,
-      courseId,
-      accessUntil: access.accessUntil,
-      isExpired,
+    user: appUser,
+    courseId,
+    accessUntil: access.accessUntil,
+    isExpired,
     viaAdmin: false,
   }
 }
@@ -228,6 +249,7 @@ export async function authorizeCourseAccessByModuleId(
     },
     select: {
       accessUntil: true,
+      revokedAt: true,
     },
   })
 
@@ -242,7 +264,16 @@ export async function authorizeCourseAccessByModuleId(
 
   const isExpired = !!(access.accessUntil && access.accessUntil < new Date())
 
-  if (requireActiveAccess && isExpired) {
+  if (access.revokedAt) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'COURSE_ACCESS_REVOKED',
+      message: 'Tu acceso a este curso fue revocado porque el pago ya no es válido.',
+    }
+  }
+
+  if (requireActiveAccess && !isCourseAccessActive(access)) {
     return {
       ok: false,
       status: 403,
@@ -253,13 +284,40 @@ export async function authorizeCourseAccessByModuleId(
 
   return {
     ok: true,
-      user: appUser,
-      courseId: courseModule.courseId,
-      accessUntil: access.accessUntil,
-      isExpired,
+    user: appUser,
+    courseId: courseModule.courseId,
+    accessUntil: access.accessUntil,
+    isExpired,
     viaAdmin: false,
     module: courseModule,
   }
+}
+
+export async function authorizeCourseAccessByStyleId(
+  styleId: string,
+  options: {
+    allowAdmin?: boolean
+    requireActiveAccess?: boolean
+  } = {}
+): Promise<StyleAccessResult> {
+  const style = await db.moduleStyle.findUnique({
+    where: { id: styleId },
+    select: { id: true, courseId: true, order: true, name: true },
+  })
+
+  if (!style) {
+    return {
+      ok: false,
+      status: 404,
+      code: 'STYLE_NOT_FOUND',
+      message: 'El estilo solicitado no existe.',
+    }
+  }
+
+  const courseAccess = await authorizeCourseAccessByCourseId(style.courseId, options)
+  if (!courseAccess.ok) return courseAccess
+
+  return { ...courseAccess, style }
 }
 
 export async function authorizeChatRoomAccessByRoomId(
