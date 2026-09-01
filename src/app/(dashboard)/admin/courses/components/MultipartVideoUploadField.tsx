@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
-import { validateVideoUpload } from '@/lib/video-upload'
+import { MAX_VIDEO_LABEL, validateVideoUpload } from '@/lib/video-upload'
 import { UploadFeedbackCard } from '@/app/components/UploadFeedbackCard'
 import type { UploadFeedbackStatus } from '@/lib/upload-feedback'
 
@@ -348,7 +348,7 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
       <label htmlFor={inputId} className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/25 bg-white/[0.03] px-5 py-7 text-center transition hover:border-ap-copper/70 hover:bg-ap-copper/5 ${isUploading ? 'hidden' : ''}`}>
         <input id={inputId} type="file" accept="video/mp4,video/webm,video/quicktime,video/mpeg" className="sr-only" disabled={isUploading} onChange={selectVideo} />
         <span className="text-sm font-medium text-ap-copper">{value ? 'Reemplazar video' : 'Seleccionar video'}</span>
-        <span className="text-xs text-white/45">MP4, WebM, MOV o MPEG · máximo 10 GB · carga multipart segura</span>
+        <span className="text-xs text-white/45">MP4, WebM, MOV o MPEG · máximo {MAX_VIDEO_LABEL} · carga multipart segura</span>
       </label>
     </div> : null}
 

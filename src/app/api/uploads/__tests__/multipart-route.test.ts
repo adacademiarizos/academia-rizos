@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MAX_VIDEO_BYTES } from '@/lib/video-upload'
 
 vi.mock('@/lib/admin-auth', () => ({
   checkAdminAuth: vi.fn().mockResolvedValue({ authorized: true }),
@@ -57,12 +58,12 @@ describe('POST /api/uploads/multipart', () => {
     expect(key).toMatch(/^courses\/course-1\/video\//)
   })
 
-  it('rejects a video over the 10 GB limit before touching storage', async () => {
+  it('rejects a video over the size limit before touching storage', async () => {
     const res = await POST(request({
       action: 'create',
       courseId: 'course-1',
       fileName: 'huge.mp4',
-      fileSize: 11 * 1024 * 1024 * 1024,
+      fileSize: MAX_VIDEO_BYTES + 1,
       contentType: 'video/mp4',
     }))
     const body = await res.json()
