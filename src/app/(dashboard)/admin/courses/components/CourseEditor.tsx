@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { UploadFeedbackField } from '@/app/components/UploadFeedbackField'
 import type { CourseContentStructure, CourseDraftPayload, DraftLesson, DraftModule, DraftStyle } from '@/lib/course-draft'
 import { isSameCourseEditorNavigation, shouldBlockEditorNavigation } from '@/lib/editor-navigation'
 import { MultipartVideoUploadField } from './MultipartVideoUploadField'
@@ -366,7 +365,7 @@ export default function CourseEditor({ level }: { level: EditorLevel }) {
       {error ? <p role="alert" className="rounded-xl border border-red-400/30 bg-red-500/15 px-4 py-3 text-sm text-red-200">{error}</p> : null}
       {notice ? <p className="rounded-xl border border-ap-copper/30 bg-ap-copper/10 px-4 py-3 text-sm text-ap-copper">{notice}</p> : null}
 
-      {level === 'course' ? <CoursePanelWithUpload payload={payload} onChange={(course) => replacePayload((current) => ({ ...current, course: { ...current.course, ...course } }))} onRemoveThumbnail={() => replacePayload((current) => ({ ...current, course: { ...current.course, thumbnailUrl: null } }))} onAddModule={() => attemptNavigation(newModuleUrl)} onAddStyle={() => attemptNavigation(newStyleUrl)} onNavigate={attemptNavigation} moduleUrl={moduleUrl} styleUrl={styleUrl} /> : null}
+      {level === 'course' ? <CoursePanelWithUpload payload={payload} onChange={(course) => replacePayload((current) => ({ ...current, course: { ...current.course, ...course } }))} onAddModule={() => attemptNavigation(newModuleUrl)} onAddStyle={() => attemptNavigation(newStyleUrl)} onNavigate={attemptNavigation} moduleUrl={moduleUrl} styleUrl={styleUrl} /> : null}
       {level === 'module' && currentModule ? <ModulePanel module={currentModule} courseId={courseId} onChange={(change) => updateModule(draftRouteId(currentModule), (module) => ({ ...module, ...change }))} /> : null}
       {level === 'style' && currentStyle ? <StylePanel style={currentStyle} courseId={courseId} onChange={(change) => updateStyle(draftRouteId(currentStyle), (style) => ({ ...style, ...change }))} /> : null}
 
@@ -422,7 +421,7 @@ function LearningOutcomesEditor({ outcomes, onChange }: { outcomes: string[]; on
   )
 }
 
-function CoursePanelWithUpload({ payload, onChange, onRemoveThumbnail, onAddModule, onAddStyle, onNavigate, moduleUrl, styleUrl }: { payload: CourseDraftPayload; onChange: (change: Partial<CourseDraftPayload['course']>) => void; onRemoveThumbnail: () => void; onAddModule: () => void; onAddStyle: () => void; onNavigate: (url: string) => void; moduleUrl: (module: DraftModule) => string; styleUrl: (style: DraftStyle) => string }) {
+function CoursePanelWithUpload({ payload, onChange, onAddModule, onAddStyle, onNavigate, moduleUrl, styleUrl }: { payload: CourseDraftPayload; onChange: (change: Partial<CourseDraftPayload['course']>) => void; onAddModule: () => void; onAddStyle: () => void; onNavigate: (url: string) => void; moduleUrl: (module: DraftModule) => string; styleUrl: (style: DraftStyle) => string }) {
   const { course } = payload
 
   return (
@@ -454,33 +453,12 @@ function CoursePanelWithUpload({ payload, onChange, onRemoveThumbnail, onAddModu
               puede emitir el certificado cuando alguien aprueba el examen final.
             </p>
           </Field>
-          <Field label="Miniatura del curso">
-            <div className="space-y-4">
-              {course.thumbnailUrl ? (
-                <div className="flex flex-wrap items-start gap-4">
-                  <div className="h-36 w-full max-w-[240px] overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-                    <img src={course.thumbnailUrl} alt={'Miniatura de ' + course.title} className="h-full w-full object-cover" />
-                  </div>
-                  <button type="button" onClick={onRemoveThumbnail} className="pt-2 text-sm text-red-300 hover:text-red-200">Quitar miniatura</button>
-                </div>
-              ) : null}
-              <UploadFeedbackField
-                label={course.thumbnailUrl ? 'Cambiar miniatura' : 'Cargar miniatura'}
-                helperText="JPG, PNG, WebP o GIF · máximo 5 MB"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                allowedTypes={['image/jpeg', 'image/png', 'image/webp', 'image/gif']}
-                maxBytes={5 * 1024 * 1024}
-                endpoint="/api/admin/uploads/image"
-                createFormData={(image) => { const form = new FormData(); form.set('image', image); return form }}
-                getResult={(payload) => {
-                  const result = payload as { ok?: boolean; data?: { url?: string }; error?: { message?: string } }
-                  if (!result.ok || !result.data?.url) throw new Error(result.error?.message || 'No se pudo subir la miniatura')
-                  return result.data.url
-                }}
-                onUploaded={(thumbnailUrl) => onChange({ thumbnailUrl })}
-              />
-            </div>
-          </Field>
+          <PresentationImageUploadField
+            label="Miniatura del curso"
+            itemName="miniatura"
+            value={course.thumbnailUrl}
+            onChange={(thumbnailUrl) => onChange({ thumbnailUrl })}
+          />
           <div className="grid gap-5 sm:grid-cols-2">
             <Field label="Precio (USD)">
               <input type="number" min="0" step="0.01" value={(course.priceCents / 100).toFixed(2)} onChange={(event) => onChange({ priceCents: Math.max(0, Math.round(Number(event.target.value || 0) * 100)) })} className={inputClass} />
@@ -506,11 +484,6 @@ function CoursePanelWithUpload({ payload, onChange, onRemoveThumbnail, onAddModu
       ) : null}
     </div>
   )
-}
-
-function CoursePanel({ payload, thumbnailPickerVisible, uploadingThumbnail, onChange, onShowThumbnailPicker, onThumbnailUpload, onRemoveThumbnail, onAddModule, onAddStyle, onNavigate, moduleUrl, styleUrl }: { payload: CourseDraftPayload; thumbnailPickerVisible: boolean; uploadingThumbnail: boolean; onChange: (change: Partial<CourseDraftPayload['course']>) => void; onShowThumbnailPicker: () => void; onThumbnailUpload: (event: ChangeEvent<HTMLInputElement>) => void; onRemoveThumbnail: () => void; onAddModule: () => void; onAddStyle: () => void; onNavigate: (url: string) => void; moduleUrl: (module: DraftModule) => string; styleUrl: (style: DraftStyle) => string }) {
-  const { course } = payload
-  return <div className="space-y-7"><section className={cardClass}><div className="grid gap-5"><Field label="Título"><input value={course.title} onChange={(event) => onChange({ title: event.target.value })} className={inputClass} /></Field><Field label="Descripción"><textarea value={course.description ?? ''} onChange={(event) => onChange({ description: event.target.value || null })} className={inputClass} rows={5} /></Field><Field label="Miniatura del curso"><div className="flex flex-col gap-4 sm:flex-row sm:items-start"><div className="flex h-36 w-full max-w-[240px] items-center justify-center overflow-hidden rounded-2xl border border-dashed border-white/20 bg-white/5">{course.thumbnailUrl ? <img src={course.thumbnailUrl} alt={`Miniatura de ${course.title}`} className="h-full w-full object-cover" /> : <span className="px-4 text-center text-sm text-white/40">Este curso aún no tiene miniatura.</span>}</div><div className="flex flex-col items-start gap-2"><button type="button" onClick={onShowThumbnailPicker} className="rounded-xl border border-ap-copper/60 px-3 py-2 text-sm font-medium text-ap-copper hover:bg-ap-copper/10">{course.thumbnailUrl ? 'Cambiar miniatura' : 'Seleccionar miniatura'}</button>{course.thumbnailUrl ? <button type="button" onClick={onRemoveThumbnail} className="px-2 py-1 text-sm text-red-300 hover:text-red-200">Quitar miniatura</button> : null}{thumbnailPickerVisible ? <label className="mt-1 cursor-pointer rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white/75 hover:bg-white/10"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" disabled={uploadingThumbnail} onChange={onThumbnailUpload} />{uploadingThumbnail ? 'Subiendo imagen…' : 'JPG, PNG, WebP o GIF · máx. 5 MB'}</label> : null}</div></div></Field><div className="grid gap-5 sm:grid-cols-2"><Field label="Precio (USD)"><input type="number" min="0" step="0.01" value={(course.priceCents / 100).toFixed(2)} onChange={(event) => onChange({ priceCents: Math.max(0, Math.round(Number(event.target.value || 0) * 100)) })} className={inputClass} /></Field><Field label="Días de acceso (vacío = de por vida)"><input type="number" min="1" value={course.rentalDays ?? ''} onChange={(event) => onChange({ rentalDays: event.target.value ? Number(event.target.value) : null })} className={inputClass} /></Field></div><label className="flex w-fit items-center gap-2 text-sm text-white/75"><input type="checkbox" checked={course.isActive} onChange={(event) => onChange({ isActive: event.target.checked })} /> Curso activo al publicar</label></div></section>{allowsModules(course.contentStructure) ? <ContentCollection title="Módulos" description="Unidades de aprendizaje con video propio y lecciones." emptyText="Todavía no hay módulos." addLabel="+ Nuevo módulo" onAdd={onAddModule}>{payload.modules.map((module) => <ContentRow key={module.clientId} title={`${module.order + 1}. ${module.title}`} subtitle={`${module.lessons.length} lección${module.lessons.length === 1 ? '' : 'es'} · ${module.videoFileUrl ? 'Video agregado' : 'Sin video'}`} onEdit={() => onNavigate(moduleUrl(module))} />)}</ContentCollection> : null}{allowsStyles(course.contentStructure) ? <ContentCollection title="Estilos" description="Cada estilo reúne directamente sus lecciones." emptyText="Todavía no hay estilos." addLabel="+ Nuevo estilo" onAdd={onAddStyle}>{payload.styles.map((style) => <ContentRow key={style.clientId} title={style.name} subtitle={`${style.lessons.length} lección${style.lessons.length === 1 ? '' : 'es'}`} onEdit={() => onNavigate(styleUrl(style))} />)}</ContentCollection> : null}</div>
 }
 
 function ContentCollection({ title, description, emptyText, addLabel, onAdd, children }: { title: string; description: string; emptyText: string; addLabel: string; onAdd: () => void; children: ReactNode }) {
