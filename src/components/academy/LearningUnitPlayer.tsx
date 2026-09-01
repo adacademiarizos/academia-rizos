@@ -9,6 +9,7 @@ import { AI_ASSISTANT_ENABLED } from '@/lib/feature-flags'
 import { LearningAssessmentPanel } from '@/app/components/LearningAssessmentPanel'
 import { ProtectedAccessNotice } from '@/app/components/ProtectedAccessNotice'
 import { useCourseAccess } from '@/app/components/useCourseAccess'
+import { VideoPlayer } from '@/components/academy/VideoPlayer'
 
 type UnitType = 'module' | 'style'
 type Lesson = { id: string; order: number; title: string; description: string | null; videoFileUrl: string | null; completed?: boolean }
@@ -50,6 +51,10 @@ export function LearningUnitPlayer({ unitType }: { unitType: UnitType }) {
   // main column renders one of them at a time instead of stacking everything.
   const [view, setView] = useState<'lesson' | 'unit-content' | 'unit-tests'>('lesson')
   const [savingProgress, setSavingProgress] = useState(false)
+  // Course videos live in a private bucket, so the URL is minted per request
+  // after the server re-checks the student's access instead of being embedded.
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [loadingVideo, setLoadingVideo] = useState(false)
 
   // The server refuses when a required lesson assessment is still pending, so
   // the button is always offered and the refusal explains why.
@@ -129,9 +134,34 @@ export function LearningUnitPlayer({ unitType }: { unitType: UnitType }) {
     () => lessons.find((lesson) => lesson.id === activeLessonId) ?? null,
     [activeLessonId, lessons]
   )
-  const videoSource = activeLesson?.videoFileUrl ?? unit?.videoFileUrl ?? null
+  const hasVideo = Boolean(activeLesson?.videoFileUrl ?? unit?.videoFileUrl)
   const completedCount = lessons.filter((lesson) => lesson.completed).length
   const unitName = unit?.title ?? unit?.name ?? ''
+
+  // Signed URLs expire, so they are fetched per lesson rather than up front
+  // with the rest of the unit.
+  useEffect(() => {
+    if (!hasVideo) { setVideoUrl(null); setLoadingVideo(false); return }
+    let cancelled = false
+    setLoadingVideo(true)
+    const endpoint = activeLesson
+      ? `/api/student/lessons/${activeLesson.id}/video-url`
+      : `/api/student/modules/${unitId}/video-url`
+    const loadVideo = async () => {
+      try {
+        const response = await fetch(endpoint, { cache: 'no-store' })
+        if (!response.ok) throw new Error('No se pudo cargar el video')
+        const payload = await response.json()
+        if (!cancelled) setVideoUrl(payload.data?.videoUrl ?? null)
+      } catch {
+        if (!cancelled) setVideoUrl(null)
+      } finally {
+        if (!cancelled) setLoadingVideo(false)
+      }
+    }
+    void loadVideo()
+    return () => { cancelled = true }
+  }, [activeLesson, hasVideo, unitId])
 
   if (access.loading || (access.hasAccess && loading)) {
     return <main className="min-h-screen bg-ap-ink px-6 py-12 text-center text-ap-ivory">Cargando contenido...</main>
@@ -217,10 +247,16 @@ export function LearningUnitPlayer({ unitType }: { unitType: UnitType }) {
             <>
               {/* No placeholder when there is no video: an empty black box reads
                   as something that failed to load. */}
-              {videoSource && (
+              {hasVideo && (
                 <div className="overflow-hidden rounded-3xl border border-zinc-700 bg-black shadow-2xl">
                   <div className="aspect-video flex items-center justify-center">
-                    <video key={videoSource} src={videoSource} controls className="h-full w-full" />
+                    {loadingVideo ? (
+                      <p className="text-sm text-zinc-500">Cargando video...</p>
+                    ) : videoUrl ? (
+                      <VideoPlayer key={activeLesson?.id ?? unitId} src={videoUrl} />
+                    ) : (
+                      <p className="text-sm text-zinc-500">No se pudo cargar el video</p>
+                    )}
                   </div>
                 </div>
               )}
