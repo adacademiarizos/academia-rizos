@@ -5,8 +5,10 @@ export interface EditorNavigationRequest {
   hasModifier?: boolean
 }
 
+// The `new` module and style pages belong to the same editing flow as the
+// `edit` ones: reaching them saves the draft instead of prompting to leave.
 function courseEditorId(pathname: string) {
-  const match = pathname.match(/^\/admin\/courses\/([^/]+)\/(?:edit|modules\/[^/]+\/edit|styles\/[^/]+\/edit|modules\/[^/]+\/styles\/[^/]+\/edit)$/)
+  const match = pathname.match(/^\/admin\/courses\/([^/]+)\/(?:edit|modules\/new|styles\/new|modules\/[^/]+\/edit|styles\/[^/]+\/edit|modules\/[^/]+\/styles\/[^/]+\/edit)$/)
   return match?.[1] ?? null
 }
 
