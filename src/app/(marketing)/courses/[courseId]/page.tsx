@@ -256,13 +256,25 @@ export default function CourseLandingPage() {
 
             {/* Right: Thumbnail */}
             <div className="hidden md:flex items-center justify-center">
-              <div className="w-full aspect-square rounded-3xl overflow-hidden bg-gradient-to-br from-ap-copper/30 to-ap-olive/30 flex items-center justify-center">
+              <div className="relative w-full aspect-square rounded-3xl overflow-hidden bg-gradient-to-br from-ap-copper/30 to-ap-olive/30 flex items-center justify-center">
                 {course.thumbnailUrl ? (
-                  <img
-                    src={course.thumbnailUrl}
-                    alt={course.title}
-                    className="w-full h-full object-cover"
-                  />
+                  <>
+                    {/* Posters are not square. Rather than crop the artwork, the
+                        frame is filled with an enlarged, blurred copy of the same
+                        image, so its own colours become the backdrop. */}
+                    <img
+                      src={course.thumbnailUrl}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 w-full h-full scale-125 object-cover blur-2xl opacity-45 saturate-150"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-br from-ap-ink/40 via-transparent to-ap-ink/60" />
+                    <img
+                      src={course.thumbnailUrl}
+                      alt={course.title}
+                      className="relative w-full h-full object-contain drop-shadow-[0_18px_45px_rgba(0,0,0,0.55)]"
+                    />
+                  </>
                 ) : (
                   <div className="text-6xl text-ap-copper/50">{course.title.charAt(0)}</div>
                 )}
