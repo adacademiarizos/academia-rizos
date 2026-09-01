@@ -143,8 +143,6 @@ export function NotificationsList() {
         )}
       </div>
 
-      <NotificationPreferences />
-
       {/* Filters */}
       <div className="flex gap-2 mb-6">
         {(['all', 'unread', 'read'] as const).map((f) => (
@@ -260,6 +258,8 @@ export function NotificationsList() {
           </button>
         </div>
       )}
+
+      <NotificationPreferences />
     </div>
   )
 }

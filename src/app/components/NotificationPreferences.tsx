@@ -73,15 +73,17 @@ export function NotificationPreferences() {
   if (preferences.length === 0) return null
 
   return (
-    <section className="mb-6 rounded-2xl border border-white/10 bg-white/[0.035] p-4" aria-labelledby="notification-preferences-title">
-      <div className="mb-3">
-        <h2 id="notification-preferences-title" className="text-sm font-semibold text-[#FAF4EA]">
-          Preferencias opcionales
-        </h2>
-        <p className="mt-1 text-xs leading-relaxed text-white/45">
-          Los avisos de pagos, citas, seguridad y revisiones académicas siempre se mantienen activos.
-        </p>
-      </div>
+    // Settings the reader touches once should not stand between them and the
+    // notifications, so the panel opens on demand.
+    <details className="group mt-10 rounded-2xl border border-white/10 bg-white/[0.035]">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 text-sm font-semibold text-[#FAF4EA] [&::-webkit-details-marker]:hidden">
+        <span id="notification-preferences-title">Preferencias opcionales</span>
+        <span aria-hidden="true" className="text-white/40 transition-transform group-open:rotate-180">▾</span>
+      </summary>
+      <div className="px-4 pb-4">
+      <p className="mb-3 text-xs leading-relaxed text-white/45">
+        Los avisos de pagos, citas, seguridad y revisiones académicas siempre se mantienen activos.
+      </p>
       <div className="space-y-2">
         {preferences.map((preference) => {
           const label = labels[preference.category]
@@ -112,6 +114,7 @@ export function NotificationPreferences() {
           )
         })}
       </div>
-    </section>
+      </div>
+    </details>
   )
 }
