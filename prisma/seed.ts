@@ -82,6 +82,7 @@ async function seedModuleLessons(courseIds: string[]) {
     orderBy: [{ courseId: 'asc' }, { order: 'asc' }],
     select: {
       id: true,
+      courseId: true,
       title: true,
       description: true,
       videoUrl: true,
@@ -95,6 +96,7 @@ async function seedModuleLessons(courseIds: string[]) {
     if (existingLessons === 0) {
       await prisma.lesson.create({
         data: {
+          courseId: courseModule.courseId,
           moduleId: courseModule.id,
           order: 0,
           title: courseModule.title,

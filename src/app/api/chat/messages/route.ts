@@ -98,40 +98,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify the user has access to the room's course (admins bypass)
-    if (user.role !== 'ADMIN') {
-      const room = await db.chatRoom.findUnique({
-        where: { id: roomId },
-        select: { courseId: true, type: true },
+    // The room is needed by the access check and by the mention dispatch below,
+    // so it is resolved before the admin bypass rather than inside it.
+    const room = await db.chatRoom.findUnique({
+      where: { id: roomId },
+      select: { id: true, courseId: true, type: true },
+    })
+
+    if (!room) {
+      return NextResponse.json({ success: false, error: 'Sala no encontrada' }, { status: 404 })
+    }
+
+    // Verify the user has access to the room's course (admins bypass).
+    // COURSE rooms require enrollment; COMMUNITY rooms just require auth.
+    if (user.role !== 'ADMIN' && room.type === 'COURSE' && room.courseId) {
+      const access = await db.courseAccess.findUnique({
+        where: { userId_courseId: { userId: user.id, courseId: room.courseId } },
+        select: { accessUntil: true, revokedAt: true },
       })
 
-      if (!room) {
-        return NextResponse.json({ success: false, error: 'Sala no encontrada' }, { status: 404 })
-      }
-
-      // COURSE rooms require enrollment; COMMUNITY rooms just require auth
-      if (room.type === 'COURSE' && room.courseId) {
-        const access = await db.courseAccess.findUnique({
-          where: { userId_courseId: { userId: user.id, courseId: room.courseId } },
-          select: { accessUntil: true, revokedAt: true },
-        })
-
-        const hasAccess = isCourseAccessActive(access)
-
-        if (!hasAccess) {
-          return NextResponse.json(
-            { success: false, error: 'No tienes acceso a este chat' },
-            { status: 403 }
-          )
-        }
+      if (!isCourseAccessActive(access)) {
+        return NextResponse.json(
+          { success: false, error: 'No tienes acceso a este chat' },
+          { status: 403 }
+        )
       }
     }
 
     // Mention ids are embedded in visible canonical tokens. The service only
     // accepts people who already participated in this same authorized room.
     const mentionRecipientIds = await CommunityNotificationService.resolveChatMentionRecipientIds({
-      authorId: access.user.id,
-      room: access.room,
+      authorId: user.id,
+      room,
       body: messageBody || '',
     })
 
@@ -145,7 +143,7 @@ export async function POST(request: NextRequest) {
     await CommunityNotificationService.dispatchChatMentions({
       actor: message.user,
       message,
-      room: access.room,
+      room,
       recipientIds: mentionRecipientIds,
     }).catch((error) => {
       // Message persistence is already complete. A notification failure must

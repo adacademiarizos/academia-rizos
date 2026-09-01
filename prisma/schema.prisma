@@ -357,6 +357,9 @@ model Appointment {
   customerEmail String?
   customerPhone String?
 
+  // Set when GDPR retention scrubs the customer fields above.
+  anonymizedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

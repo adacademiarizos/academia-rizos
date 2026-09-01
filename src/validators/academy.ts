@@ -119,6 +119,9 @@ export const createCommentSchema = z.object({
   targetType: z.enum(['COURSE', 'MODULE']),
   courseId: z.string().cuid().optional(),
   moduleId: z.string().cuid().optional(),
+  // Set when the comment answers another one, so its author gets notified.
+  // Zod strips unknown keys, so omitting it here silently drops the reply link.
+  replyToCommentId: z.string().cuid().optional(),
 }).refine(
   (data) => data.courseId || data.moduleId,
   {

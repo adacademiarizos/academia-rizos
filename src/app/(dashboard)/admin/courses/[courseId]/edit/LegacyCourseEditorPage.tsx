@@ -1038,11 +1038,13 @@ export default function CourseEditPage() {
                   tabIndex={0}
                   title="Abrir miniatura en grande"
                   aria-label="Abrir miniatura en grande"
-                  onClick={() => window.open(courseForm.thumbnailUrl, '_blank', 'noopener,noreferrer')}
+                  onClick={() => {
+                    if (courseForm.thumbnailUrl) window.open(courseForm.thumbnailUrl, '_blank', 'noopener,noreferrer')
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault()
-                      window.open(courseForm.thumbnailUrl, '_blank', 'noopener,noreferrer')
+                      if (courseForm.thumbnailUrl) window.open(courseForm.thumbnailUrl, '_blank', 'noopener,noreferrer')
                     }
                   }}
                 >

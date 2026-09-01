@@ -62,8 +62,20 @@ async function ensureLesson(
     });
   }
 
+  // Lessons are course-scoped as well as style-scoped, so the course is read
+  // off the style instead of being threaded through every caller.
+  const style = await prisma.moduleStyle.findUnique({
+    where: { id: styleId },
+    select: { courseId: true },
+  });
+
+  if (!style) {
+    throw new Error(`Cannot create lesson "${title}": style ${styleId} not found`);
+  }
+
   return prisma.lesson.create({
     data: {
+      courseId: style.courseId,
       styleId,
       order,
       title,

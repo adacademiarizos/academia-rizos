@@ -390,20 +390,21 @@ export class CourseService {
       where: { userId_courseId: { userId, courseId } },
     })
 
-    if (existing && !existing.accessUntil) {
+    if (existing && !existing.accessUntil && !existing.revokedAt) {
       // Already has lifetime access
       return existing
     }
 
     if (existing) {
-      // Extend access
+      // Extend access. Paying again also lifts an earlier revocation —
+      // otherwise a refunded student could never re-purchase the course.
       const newAccessUntil = course.rentalDays
         ? new Date(Date.now() + course.rentalDays * 24 * 60 * 60 * 1000)
         : null
 
       return client.courseAccess.update({
         where: { id: existing.id },
-        data: { accessUntil: newAccessUntil },
+        data: { accessUntil: newAccessUntil, revokedAt: null },
       })
     }
 
@@ -418,6 +419,20 @@ export class CourseService {
         courseId,
         accessUntil,
       },
+    })
+  }
+
+  /**
+   * Revoke course access (after a refund or chargeback).
+   *
+   * Idempotent by design: webhooks retry, and matching only rows that are not
+   * revoked yet keeps the original revocation timestamp instead of pushing it
+   * forward on every replay. A missing row is a no-op rather than a throw.
+   */
+  static async revokeCourseAccess(userId: string, courseId: string, client: CourseAccessClient = db) {
+    return client.courseAccess.updateMany({
+      where: { userId, courseId, revokedAt: null },
+      data: { revokedAt: new Date() },
     })
   }
 }
