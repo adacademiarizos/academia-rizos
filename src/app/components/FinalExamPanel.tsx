@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from 'react'
 
 type FinalQuestion = {
   id: string
-  type: 'WRITTEN' | 'PHOTO' | 'VIDEO'
+  type: 'WRITTEN' | 'PHOTO' | 'VIDEO' | 'MULTIPLE_CHOICE'
   title: string
   description: string | null
   required: boolean
   order: number
+  /** Present only for MULTIPLE_CHOICE. The correct answer is never sent here. */
+  options?: string[] | null
 }
 
 type FinalExamData = {
@@ -126,7 +128,21 @@ export function FinalExamPanel({ courseId }: { courseId: string }) {
               <div key={question.id} className="space-y-2 rounded-xl border border-white/10 bg-black/10 p-4">
                 <label className="block text-sm font-semibold text-ap-ivory">{index + 1}. {question.title}{question.required && <span className="ml-1 text-ap-copper">*</span>}</label>
                 {question.description && <p className="text-sm text-zinc-400">{question.description}</p>}
-                {question.type === 'WRITTEN' ? (
+                {question.type === 'MULTIPLE_CHOICE' ? (
+                  <div className="space-y-2">
+                    {(question.options ?? []).map((option) => (
+                      <label key={option} className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-ap-ivory transition hover:border-ap-copper/50">
+                        <input
+                          type="radio"
+                          name={`final-question-${question.id}`}
+                          checked={textAnswers[question.id] === option}
+                          onChange={() => setTextAnswers((current) => ({ ...current, [question.id]: option }))}
+                        />
+                        {option}
+                      </label>
+                    ))}
+                  </div>
+                ) : question.type === 'WRITTEN' ? (
                   <textarea value={textAnswers[question.id] ?? ''} onChange={(event) => setTextAnswers((current) => ({ ...current, [question.id]: event.target.value }))} rows={5} className="w-full rounded-lg border border-white/15 bg-white/5 p-3 text-sm text-ap-ivory outline-none transition focus:border-ap-copper/70" placeholder="Escribe tu respuesta…" />
                 ) : (
                   <div className="flex flex-wrap items-center gap-3">

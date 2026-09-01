@@ -5,6 +5,8 @@ import {
   Prisma,
 } from '@prisma/client'
 import { db } from '@/lib/db'
+import { RESOURCE_MAX_BYTES } from '@/lib/upload-contract'
+import { normalizeCertificateSlogan } from '@/validators/course.schema'
 import { generateAndSaveCertificate } from '@/server/services/certificate.service'
 
 export type ScopeRef = {
@@ -162,7 +164,7 @@ export async function createLearningResource(
   if (!input.title.trim() || !input.fileUrl.trim() || !input.fileType.trim()) {
     throw new LearningContentError('Título, archivo y tipo de archivo son obligatorios.')
   }
-  if (!Number.isInteger(input.fileSize) || input.fileSize < 0) {
+  if (!Number.isInteger(input.fileSize) || input.fileSize <= 0 || input.fileSize > RESOURCE_MAX_BYTES) {
     throw new LearningContentError('El tamaño del archivo no es válido.')
   }
 
@@ -189,7 +191,14 @@ export async function deleteLearningResource(resourceId: string) {
   return resource
 }
 
-export async function listAssessments(ref: ScopeRef, options: { publishedOnly?: boolean } = {}) {
+/**
+ * `withAttempts` is admin-only on purpose: the student route calls this too, and
+ * including other people's attempts there would expose them.
+ */
+export async function listAssessments(
+  ref: ScopeRef,
+  options: { publishedOnly?: boolean; withAttempts?: boolean } = {}
+) {
   const target = await resolveScopeTarget(ref)
   return db.assessment.findMany({
     where: {
@@ -197,7 +206,25 @@ export async function listAssessments(ref: ScopeRef, options: { publishedOnly?: 
       ...toScopeData(target),
       ...(options.publishedOnly ? { publishedAt: { not: null, lte: new Date() } } : {}),
     },
-    include: { questions: { orderBy: { order: 'asc' } } },
+    include: {
+      questions: { orderBy: { order: 'asc' } },
+      ...(options.withAttempts
+        ? {
+            attempts: {
+              orderBy: { submittedAt: 'desc' as const },
+              select: {
+                id: true,
+                attemptNumber: true,
+                status: true,
+                score: true,
+                submittedAt: true,
+                student: { select: { id: true, name: true, email: true } },
+              },
+            },
+            revalidations: { select: { userId: true, attemptsGranted: true } },
+          }
+        : {}),
+    },
     orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
   })
 }
@@ -604,7 +631,26 @@ async function handleApprovedAttempt(
     if (!progress.finalEligible) {
       throw new LearningContentError('El examen final fue aprobado, pero aún faltan requisitos previos del curso.', 409, 'FINAL_PREREQUISITES_PENDING')
     }
-    await generateAndSaveCertificate(userId, assessment.courseId)
+
+    const course = await db.course.findUnique({ where: { id: assessment.courseId }, select: { certificateSlogan: true } })
+    if (!normalizeCertificateSlogan(course?.certificateSlogan)) {
+      throw new LearningContentError(
+        'El curso todavía no tiene slogan de certificado, así que no se puede emitir. Completalo en la edición del curso y volvé a aprobar este intento.',
+        409,
+        'COURSE_CERTIFICATE_SLOGAN_MISSING'
+      )
+    }
+
+    try {
+      await generateAndSaveCertificate(userId, assessment.courseId)
+    } catch (error) {
+      console.error('Error issuing certificate during assessment review:', error)
+      throw new LearningContentError(
+        'No se pudo emitir el certificado, así que el intento sigue pendiente de corrección. Volvé a intentarlo.',
+        502,
+        'CERTIFICATE_ISSUE_FAILED'
+      )
+    }
   }
 }
 
@@ -622,12 +668,16 @@ export async function reviewAssessmentAttempt(
     throw new LearningContentError('Este intento ya fue corregido.', 409, 'ATTEMPT_ALREADY_REVIEWED')
   }
   const status = input.approved ? AssessmentAttemptStatus.APPROVED : AssessmentAttemptStatus.NOT_PASSED
-  const reviewed = await db.assessmentAttempt.update({
+  // Side effects run BEFORE the attempt is marked. The status guard above rejects
+  // a second review, so marking first would strand the student on any failure —
+  // approved, with no certificate and no way to retry. Certificate issuance and
+  // lesson completion are both idempotent, so a failure after them is safe to retry.
+  if (status === AssessmentAttemptStatus.APPROVED) await handleApprovedAttempt(attempt.userId, attempt.assessment)
+
+  return db.assessmentAttempt.update({
     where: { id: attemptId },
     data: { status, reviewedById: reviewerId, reviewedAt: new Date(), reviewNote: input.reviewNote?.trim() || null },
   })
-  if (status === AssessmentAttemptStatus.APPROVED) await handleApprovedAttempt(attempt.userId, attempt.assessment)
-  return reviewed
 }
 
 export async function grantAssessmentRevalidation(

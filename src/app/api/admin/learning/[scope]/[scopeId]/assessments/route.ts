@@ -8,7 +8,7 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ scope:
     const ref = parseScope(scope, scopeId)
     const access = await requireAdminForScope(ref)
     if ('error' in access) return access.error
-    return NextResponse.json({ success: true, data: await listAssessments(ref) })
+    return NextResponse.json({ success: true, data: await listAssessments(ref, { withAttempts: true }) })
   } catch (error) {
     return learningErrorResponse(error)
   }

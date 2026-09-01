@@ -2,8 +2,10 @@
 
 import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react'
 import { validateVideoUpload } from '@/lib/video-upload'
+import { UploadFeedbackCard } from '@/app/components/UploadFeedbackCard'
+import type { UploadFeedbackStatus } from '@/lib/upload-feedback'
 
-type UploadStatus = 'idle' | 'analyzing' | 'ready' | 'preparing' | 'uploading' | 'finishing' | 'complete'
+type UploadStatus = 'idle' | 'analyzing' | 'ready' | 'preparing' | 'uploading' | 'finishing' | 'complete' | 'cancelled'
 
 interface VideoMetadata {
   file: File
@@ -29,13 +31,6 @@ interface MultipartSession {
 const SIGNED_PART_BATCH_SIZE = 8
 const PART_UPLOAD_RETRIES = 2
 
-function formatBytes(bytes: number) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB']
-  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
-  return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`
-}
-
 function formatDuration(seconds: number | null) {
   if (!seconds || !Number.isFinite(seconds)) return 'Duración no disponible'
   const totalSeconds = Math.round(seconds)
@@ -45,14 +40,6 @@ function formatDuration(seconds: number | null) {
   return hours > 0
     ? `${hours}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
     : `${minutes}:${String(remainingSeconds).padStart(2, '0')}`
-}
-
-function formatRemainingTime(seconds: number) {
-  if (!Number.isFinite(seconds) || seconds <= 0) return 'Calculando…'
-  const rounded = Math.ceil(seconds)
-  const minutes = Math.floor(rounded / 60)
-  const remainingSeconds = rounded % 60
-  return minutes > 0 ? `${minutes} min ${remainingSeconds} s` : `${remainingSeconds} s`
 }
 
 function getVideoMetadata(file: File): Promise<Pick<VideoMetadata, 'duration' | 'width' | 'height'>> {
@@ -132,10 +119,11 @@ async function uploadPartWithRetry(url: string, part: Blob, onProgress: (loaded:
 export function MultipartVideoUploadField({ courseId, label, value, onChange }: { courseId: string; label: string; value: string | null; onChange: (url: string | null) => void }) {
   const inputId = useId()
   const [selectedVideo, setSelectedVideo] = useState<VideoMetadata | null>(null)
+  const [isReplacing, setIsReplacing] = useState(false)
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [progress, setProgress] = useState<UploadProgress | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [uploadNotice, setUploadNotice] = useState<string | null>(null)
+  const [startedAt, setStartedAt] = useState<number | undefined>(undefined)
   const activeRequestRef = useRef<XMLHttpRequest | null>(null)
   const sessionRef = useRef<Pick<MultipartSession, 'uploadId' | 'key'> | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
@@ -144,8 +132,20 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
   const lastProgressUpdateRef = useRef(0)
 
   const isUploading = status === 'preparing' || status === 'uploading' || status === 'finishing'
-  const percentage = progress ? Math.min(100, Math.round((progress.loaded / progress.total) * 100)) : 0
-  const secondsRemaining = progress && progress.bytesPerSecond > 0 ? (progress.total - progress.loaded) / progress.bytesPerSecond : 0
+  const showUploader = !value || isReplacing
+  const feedbackStatus: UploadFeedbackStatus = status === 'analyzing'
+    ? 'analyzing'
+    : status === 'preparing' || status === 'finishing'
+      ? 'saving'
+      : status === 'uploading'
+        ? 'uploading'
+        : status === 'complete'
+          ? 'complete'
+          : status === 'cancelled'
+            ? 'cancelled'
+          : uploadError
+            ? 'error'
+            : 'ready'
 
   useEffect(() => () => {
     cancelledRef.current = true
@@ -162,6 +162,7 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
     if (!validation.valid) {
       setSelectedVideo(null)
       setStatus('idle')
+      setStartedAt(undefined)
       setUploadError(validation.error)
       return
     }
@@ -170,11 +171,13 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
     setStatus('analyzing')
     setProgress(null)
     setUploadError(null)
-    setUploadNotice(null)
+    setStartedAt(undefined)
+    const nextVideo: VideoMetadata = { file, duration: null, width: null, height: null }
+    setSelectedVideo(nextVideo)
+    void startUpload(nextVideo)
     const metadata = await getVideoMetadata(file)
     if (selection !== selectionRef.current) return
-    setSelectedVideo({ file, ...metadata })
-    setStatus('ready')
+    setSelectedVideo((currentVideo) => currentVideo?.file === file ? { ...currentVideo, ...metadata } : currentVideo)
   }
 
   function updateProgress(loaded: number, total: number, startedAt: number) {
@@ -185,18 +188,18 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
     setProgress({ loaded, total, bytesPerSecond: loaded / elapsedSeconds })
   }
 
-  async function startUpload() {
-    if (!selectedVideo || isUploading) return
+  async function startUpload(videoToUpload = selectedVideo) {
+    if (!videoToUpload || isUploading) return
 
-    const { file } = selectedVideo
+    const { file } = videoToUpload
     const controller = new AbortController()
-    const startedAt = performance.now()
+    const performanceStartedAt = performance.now()
     let session: MultipartSession | null = null
     cancelledRef.current = false
     controllerRef.current = controller
     lastProgressUpdateRef.current = 0
     setUploadError(null)
-    setUploadNotice(null)
+    setStartedAt(Date.now())
     setProgress({ loaded: 0, total: file.size, bytesPerSecond: 0 })
     setStatus('preparing')
 
@@ -224,10 +227,9 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
           const partStart = (partNumber - 1) * session.partSize
           const part = file.slice(partStart, Math.min(partStart + session.partSize, file.size), file.type)
           setStatus('uploading')
-          const eTag = await uploadPartWithRetry(presignedUrl, part, (partLoaded) => updateProgress(completedBytes + partLoaded, file.size, startedAt), (request) => { activeRequestRef.current = request }, (attempt) => setUploadNotice(`Reconectando la carga: reintentando una parte (${attempt}/${PART_UPLOAD_RETRIES})…`))
+          const eTag = await uploadPartWithRetry(presignedUrl, part, (partLoaded) => updateProgress(completedBytes + partLoaded, file.size, performanceStartedAt), (request) => { activeRequestRef.current = request }, () => undefined)
           completedBytes += part.size
-          updateProgress(completedBytes, file.size, startedAt)
-          setUploadNotice(null)
+          updateProgress(completedBytes, file.size, performanceStartedAt)
           uploadedParts.push({ partNumber, eTag })
         }
       }
@@ -239,9 +241,9 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
         parts: uploadedParts,
       }, controller.signal)
       onChange(completed.fileUrl)
-      setProgress({ loaded: file.size, total: file.size, bytesPerSecond: file.size / Math.max((performance.now() - startedAt) / 1000, 0.1) })
+      setProgress({ loaded: file.size, total: file.size, bytesPerSecond: file.size / Math.max((performance.now() - performanceStartedAt) / 1000, 0.1) })
       setStatus('complete')
-      setUploadNotice('Video cargado. Guardá el borrador o publicá para asociarlo a la lección.')
+      setIsReplacing(false)
     } catch (error) {
       if (cancelledRef.current || (error instanceof DOMException && error.name === 'AbortError')) return
       setStatus('ready')
@@ -261,10 +263,83 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
     activeRequestRef.current?.abort()
     const session = sessionRef.current
     if (session) void requestMultipart('abort', session).catch(() => undefined)
-    setStatus('ready')
+    setStatus('cancelled')
     setProgress(null)
-    setUploadNotice('Carga cancelada. Podés intentarlo de nuevo.')
+    setStartedAt(undefined)
   }
 
-  return <div className="space-y-3"><div className="space-y-2"><span className="text-sm font-medium text-white/75">{label}</span><label htmlFor={inputId} className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/25 bg-white/[0.03] px-5 py-7 text-center transition hover:border-ap-copper/70 hover:bg-ap-copper/5"><input id={inputId} type="file" accept="video/mp4,video/webm,video/quicktime,video/mpeg" className="sr-only" disabled={isUploading} onChange={selectVideo} /><span className="text-sm font-medium text-ap-copper">{isUploading ? 'Carga en curso…' : value ? 'Reemplazar video' : 'Seleccionar video'}</span><span className="text-xs text-white/45">MP4, WebM, MOV o MPEG · máximo 10 GB · carga multipart segura</span></label></div>{selectedVideo ? <article className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><p className="truncate text-sm font-semibold text-white">{selectedVideo.file.name}</p><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/55"><span>{formatBytes(selectedVideo.file.size)}</span><span>Duración: {formatDuration(selectedVideo.duration)}</span>{selectedVideo.width && selectedVideo.height ? <span>{selectedVideo.width} × {selectedVideo.height}</span> : null}</div></div>{status === 'ready' || status === 'complete' ? <button type="button" onClick={() => void startUpload()} className="shrink-0 rounded-xl bg-ap-copper px-4 py-2 text-sm font-semibold text-white hover:brightness-110">{status === 'complete' ? 'Subir nuevamente' : 'Iniciar carga'}</button> : null}</div>{isUploading || progress ? <div className="mt-4 space-y-2"><div className="flex items-center justify-between gap-3 text-xs text-white/60"><span>{status === 'preparing' ? 'Preparando carga segura…' : status === 'finishing' ? 'Finalizando video en R2…' : `Subiendo ${percentage}%`}</span><span>{formatBytes(progress?.loaded ?? 0)} de {formatBytes(selectedVideo.file.size)}</span></div><div className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-ap-copper transition-[width] duration-200" style={{ width: `${percentage}%` }} /></div>{progress && status === 'uploading' ? <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/45"><span>{formatBytes(progress.bytesPerSecond)}/s</span><span>Tiempo restante: {formatRemainingTime(secondsRemaining)}</span></div> : null}{isUploading ? <button type="button" onClick={cancelUpload} className="text-sm text-red-300 hover:text-red-200">Cancelar carga</button> : null}</div> : null}</article> : null}{status === 'analyzing' ? <p className="text-sm text-white/55">Leyendo duración y tamaño del video…</p> : null}{uploadError ? <p role="alert" className="text-sm text-red-300">{uploadError}</p> : null}{uploadNotice ? <p className="text-sm text-ap-copper">{uploadNotice}</p> : null}{value ? <div className="overflow-hidden rounded-xl border border-white/10 bg-black"><video controls preload="metadata" src={value} className="aspect-video w-full" /><button type="button" onClick={() => onChange(null)} className="px-3 py-2 text-sm text-red-300 hover:text-red-200">Quitar video</button></div> : null}</div>
+  function clearSelection() {
+    if (isUploading) cancelUpload()
+    selectionRef.current += 1
+    setSelectedVideo(null)
+    setStatus('idle')
+    setProgress(null)
+    setUploadError(null)
+    setStartedAt(undefined)
+  }
+
+  function beginReplacement() {
+    selectionRef.current += 1
+    setSelectedVideo(null)
+    setStatus('idle')
+    setProgress(null)
+    setUploadError(null)
+    setStartedAt(undefined)
+    setIsReplacing(true)
+  }
+
+  function removeVideo() {
+    selectionRef.current += 1
+    setSelectedVideo(null)
+    setStatus('idle')
+    setProgress(null)
+    setUploadError(null)
+    setStartedAt(undefined)
+    setIsReplacing(false)
+    onChange(null)
+  }
+
+  return <div className="space-y-3">
+    <span className="text-sm font-medium text-white/75">{label}</span>
+
+    {value && !isReplacing ? <div className="space-y-3">
+      <div className="overflow-hidden rounded-2xl border border-white/15 bg-black">
+        <video controls preload="metadata" src={value} className="aspect-video w-full" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={beginReplacement} className="h-10 rounded-xl bg-[#646a40] px-3 text-sm font-medium text-white transition hover:bg-[#747b4b]">Reemplazar</button>
+        <button type="button" onClick={removeVideo} className="h-10 rounded-xl border border-red-300/20 bg-red-400/10 px-3 text-sm font-medium text-red-300 transition hover:bg-red-400/20">Eliminar</button>
+      </div>
+    </div> : null}
+
+    {showUploader ? <div className="space-y-2">
+      <label htmlFor={inputId} className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/25 bg-white/[0.03] px-5 py-7 text-center transition hover:border-ap-copper/70 hover:bg-ap-copper/5 ${isUploading ? 'hidden' : ''}`}>
+        <input id={inputId} type="file" accept="video/mp4,video/webm,video/quicktime,video/mpeg" className="sr-only" disabled={isUploading} onChange={selectVideo} />
+        <span className="text-sm font-medium text-ap-copper">{value ? 'Reemplazar video' : 'Seleccionar video'}</span>
+        <span className="text-xs text-white/45">MP4, WebM, MOV o MPEG · máximo 10 GB · carga multipart segura</span>
+      </label>
+    </div> : null}
+
+    {selectedVideo && feedbackStatus !== 'complete' ? <UploadFeedbackCard
+      file={selectedVideo.file}
+      status={feedbackStatus}
+      loaded={progress?.loaded ?? 0}
+      total={progress?.total ?? selectedVideo.file.size}
+      startedAt={startedAt}
+      error={uploadError}
+      metadata={<>
+        <span>Duración: {formatDuration(selectedVideo.duration)}</span>
+        {selectedVideo.width && selectedVideo.height ? <span>{selectedVideo.width} × {selectedVideo.height}</span> : null}
+      </>}
+      onRetry={() => void startUpload()}
+      onCancel={cancelUpload}
+      onRemove={clearSelection}
+      completedActionLabel="Cargar otro archivo"
+      completedActionTone="default"
+    /> : null}
+
+    {!selectedVideo && uploadError ? <p role="alert" className="text-sm text-red-300">{uploadError}</p> : null}
+
+    {value && isReplacing ? <button type="button" onClick={() => setIsReplacing(false)} className="text-sm text-white/55 transition hover:text-white/80">Cancelar reemplazo</button> : null}
+  </div>
 }

@@ -19,7 +19,10 @@ function dedupeCandidates(candidates: CertificateCandidate[]) {
 }
 
 export async function issueCertificateJob(): Promise<MaintenanceJobResult> {
-  const [legacyExamCandidates, courseTestCandidates] = await Promise.all([
+  // finalExamAttempt and assessmentAttempt are included so an approval whose
+  // certificate failed to issue is picked up here instead of stranding the
+  // student with an approved exam and nothing to download.
+  const [legacyExamCandidates, courseTestCandidates, finalExamCandidates, assessmentCandidates] = await Promise.all([
     db.examSubmission.findMany({
       where: { status: "APPROVED" },
       select: {
@@ -48,6 +51,34 @@ export async function issueCertificateJob(): Promise<MaintenanceJobResult> {
         },
       },
     }),
+    db.finalExamAttempt.findMany({
+      where: { status: "APPROVED" },
+      select: {
+        userId: true,
+        finalExam: {
+          select: {
+            courseId: true,
+          },
+        },
+      },
+    }),
+    db.assessmentAttempt.findMany({
+      where: {
+        status: "APPROVED",
+        assessment: {
+          isFinalExam: true,
+          courseId: { not: null },
+        },
+      },
+      select: {
+        userId: true,
+        assessment: {
+          select: {
+            courseId: true,
+          },
+        },
+      },
+    }),
   ]);
 
   const candidates = dedupeCandidates([
@@ -59,6 +90,15 @@ export async function issueCertificateJob(): Promise<MaintenanceJobResult> {
       userId: candidate.userId,
       courseId: candidate.courseTest.courseId,
     })),
+    ...finalExamCandidates.map((candidate) => ({
+      userId: candidate.userId,
+      courseId: candidate.finalExam.courseId,
+    })),
+    ...assessmentCandidates.flatMap((candidate) =>
+      candidate.assessment.courseId
+        ? [{ userId: candidate.userId, courseId: candidate.assessment.courseId }]
+        : []
+    ),
   ]);
 
   let processed = 0;

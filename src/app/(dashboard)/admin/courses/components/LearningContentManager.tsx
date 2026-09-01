@@ -1,13 +1,15 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import FileUploadProgress, { type UploadedFile } from '@/app/components/FileUploadProgress'
 
 type Scope = 'COURSE' | 'MODULE' | 'STYLE' | 'LESSON'
 type Resource = { id: string; title: string; fileUrl: string; fileType: string; fileSize: number }
 type QuestionType = 'MULTIPLE_CHOICE' | 'WRITTEN' | 'PHOTO' | 'VIDEO'
 type DraftQuestion = { type: QuestionType; title: string; options: string[]; correctAnswer: string }
-type Assessment = { id: string; title: string; isRequired: boolean; isFinalExam: boolean; maxAttempts: number; questions: unknown[] }
+type AssessmentAttempt = { id: string; attemptNumber: number; status: 'PENDING_REVIEW' | 'APPROVED' | 'NOT_PASSED'; score: number | null; student: { id: string; name: string | null; email: string | null } }
+type Assessment = { id: string; title: string; isRequired: boolean; isFinalExam: boolean; maxAttempts: number; questions: unknown[]; attempts?: AssessmentAttempt[]; revalidations?: Array<{ userId: string; attemptsGranted: number }> }
 
 const EMPTY_QUESTION: DraftQuestion = {
   type: 'MULTIPLE_CHOICE',
@@ -35,9 +37,24 @@ function LearningContentModal({
   onClose: () => void
   wide?: boolean
 }) {
-  return (
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
+  // The editors wrap this manager in a card that uses backdrop-blur, and an
+  // element with a backdrop-filter becomes the containing block for its
+  // fixed-position descendants. Without a portal the overlay anchors to that
+  // card instead of the viewport and renders halfway down the page.
+  // Only ever mounted from a click, so the document is always available here.
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="learning-content-modal-title"
@@ -59,7 +76,8 @@ function LearningContentModal({
         </div>
         <div className="p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -82,6 +100,10 @@ export function LearningContentManager({ scope, scopeId, courseId }: { scope: Sc
   const [questions, setQuestions] = useState<DraftQuestion[]>([newQuestion()])
 
   const scopeLabel = useMemo(() => ({ COURSE: 'curso', MODULE: 'módulo', STYLE: 'estilo', LESSON: 'lección' }[scope]), [scope])
+  // "lección" is feminine, so a fixed "al ..." / "el ..." reads wrong for it.
+  const scopeIsFeminine = scope === 'LESSON'
+  const scopeWithArticle = `${scopeIsFeminine ? 'la' : 'el'} ${scopeLabel}`
+  const scopeWithContraction = scopeIsFeminine ? `a la ${scopeLabel}` : `al ${scopeLabel}`
 
   const load = useCallback(async () => {
     const [resourceResponse, assessmentResponse] = await Promise.all([
@@ -134,6 +156,42 @@ export function LearningContentManager({ scope, scopeId, courseId }: { scope: Sc
     resetAssessmentDraft()
     setResourceModalOpen(false)
     setAssessmentModalOpen(true)
+  }
+
+  /** Someone is stuck when every allowed attempt is used and none was approved. */
+  const stuckStudents = (assessment: Assessment) => {
+    const attempts = assessment.attempts ?? []
+    const granted = (assessment.revalidations ?? []).reduce<Record<string, number>>((acc, item) => {
+      acc[item.userId] = (acc[item.userId] ?? 0) + item.attemptsGranted
+      return acc
+    }, {})
+    const byStudent = new Map<string, { student: AssessmentAttempt['student']; used: number; approved: boolean }>()
+    for (const attempt of attempts) {
+      const current = byStudent.get(attempt.student.id) ?? { student: attempt.student, used: 0, approved: false }
+      current.used += 1
+      if (attempt.status === 'APPROVED') current.approved = true
+      byStudent.set(attempt.student.id, current)
+    }
+    return Array.from(byStudent.values()).filter(
+      (entry) => !entry.approved && entry.used >= assessment.maxAttempts + (granted[entry.student.id] ?? 0)
+    )
+  }
+
+  const grantRetry = async (assessmentId: string, userId: string) => {
+    setMessage(null)
+    try {
+      const response = await fetch(`/api/admin/assessments/${assessmentId}/revalidations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, attemptsGranted: 1, reason: 'Intento habilitado desde el panel' }),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error ?? 'No se pudo habilitar el intento.')
+      setMessage('Se habilitó un intento adicional.')
+      await load()
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No se pudo habilitar el intento.')
+    }
   }
 
   const createResource = async () => {
@@ -280,15 +338,32 @@ export function LearningContentManager({ scope, scopeId, courseId }: { scope: Sc
       {assessments.length > 0 && (
         <ul className="space-y-1">
           {assessments.map((assessment) => (
-            <li key={assessment.id} className="flex items-center justify-between gap-2 text-xs text-white/65">
-              <span>
-                {assessment.title} · {assessment.questions.length} preguntas · {assessment.maxAttempts} intento(s)
-                {assessment.isRequired ? ' · obligatoria' : ''}
-                {assessment.isFinalExam ? ' · final' : ''}
-              </span>
-              <button type="button" onClick={() => void removeAssessment(assessment.id)} className="text-red-400 hover:text-red-300">
-                Eliminar
-              </button>
+            <li key={assessment.id} className="space-y-2 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-xs text-white/65">
+              <div className="flex items-center justify-between gap-2">
+                <span>
+                  {assessment.title} · {assessment.questions.length} preguntas · {assessment.maxAttempts} intento(s)
+                  {assessment.isRequired ? ' · obligatoria' : ''}
+                  {assessment.isFinalExam ? ' · final' : ''}
+                </span>
+                <button type="button" onClick={() => void removeAssessment(assessment.id)} className="text-red-400 hover:text-red-300">
+                  Eliminar
+                </button>
+              </div>
+
+              {/* Students who ran out of attempts had no way back: the
+                  revalidation API existed but nothing in the panel called it. */}
+              {stuckStudents(assessment).map((entry) => (
+                <div key={entry.student.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-red-500/10 px-2 py-1.5 text-red-200">
+                  <span>{entry.student.name ?? entry.student.email} agotó sus {entry.used} intento(s) sin aprobar.</span>
+                  <button
+                    type="button"
+                    onClick={() => void grantRetry(assessment.id, entry.student.id)}
+                    className="rounded-md border border-ap-copper/60 px-2 py-1 font-medium text-ap-copper transition hover:bg-ap-copper/10"
+                  >
+                    Habilitar 1 intento
+                  </button>
+                </div>
+              ))}
             </li>
           ))}
         </ul>
@@ -296,7 +371,7 @@ export function LearningContentManager({ scope, scopeId, courseId }: { scope: Sc
 
       {resourceModalOpen && (
         <LearningContentModal
-          title={`Añadir recurso al ${scopeLabel}`}
+          title={`Añadir recurso ${scopeWithContraction}`}
           description="Sube el archivo y completa el nombre con el que lo verán los participantes."
           onClose={closeResourceModal}
         >
@@ -341,6 +416,8 @@ export function LearningContentManager({ scope, scopeId, courseId }: { scope: Sc
                 uploadType="resource"
                 courseId={courseId}
                 deferPersistence
+                learningScope={scope}
+                learningScopeId={scopeId}
                 onUploadComplete={(file) => {
                   setPendingFile(file)
                   setResourceTitle(file.fileName)
@@ -365,7 +442,7 @@ export function LearningContentManager({ scope, scopeId, courseId }: { scope: Sc
 
       {assessmentModalOpen && (
         <LearningContentModal
-          title={`Crear evaluación para el ${scopeLabel}`}
+          title={`Crear evaluación para ${scopeWithArticle}`}
           description="Configura los intentos, la nota mínima y las preguntas antes de publicarla."
           onClose={closeAssessmentModal}
           wide

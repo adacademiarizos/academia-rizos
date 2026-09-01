@@ -9,9 +9,9 @@ const SubmitLessonTestSchema = z.object({ answers: z.record(z.string(), z.string
 export async function POST(request: Request, { params }: { params: Promise<{ lessonId: string; testId: string }> }) {
   try {
     const { lessonId, testId } = await params
-    const lesson = await db.lesson.findUnique({ where: { id: lessonId }, select: { module: { select: { courseId: true } } } })
+    const lesson = await db.lesson.findUnique({ where: { id: lessonId }, select: { courseId: true } })
     if (!lesson) return NextResponse.json({ success: false, error: 'La lección no existe.' }, { status: 404 })
-    const access = await authorizeCourseAccessByCourseId(lesson.module.courseId, { requireActiveAccess: true })
+    const access = await authorizeCourseAccessByCourseId(lesson.courseId, { requireActiveAccess: true })
     if (!access.ok) return toAccessDeniedResponse(access)
     const body = SubmitLessonTestSchema.parse(await request.json())
     const data = await submitLessonTest(access.user.id, lessonId, testId, body.answers)

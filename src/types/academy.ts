@@ -4,6 +4,8 @@ export type Course = {
   id: string
   title: string
   description?: string | null
+  /** Bullets shown as "Lo que aprenderás" on the public course page. */
+  learningOutcomes?: string[]
   trailerUrl?: string | null
   thumbnailUrl?: string | null
   priceCents: number       // net price admin receives

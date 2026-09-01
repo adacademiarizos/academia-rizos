@@ -9,6 +9,10 @@ const FinalQuestionSchema = z.object({
   title: z.string().trim().min(1),
   description: z.string().trim().optional().nullable(),
   required: z.boolean().optional().default(true),
+  // Only meaningful for MULTIPLE_CHOICE; the service validates the pairing and
+  // clears both fields for the manually graded types.
+  options: z.array(z.string().trim().min(1)).optional().nullable(),
+  correctAnswer: z.string().trim().min(1).optional().nullable(),
   config: z.any().optional().nullable(),
 })
 

@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin-auth'
+import { moduleAuthoringSelect } from '@/lib/academy-content-selects'
 import { db } from '@/lib/db'
 import { z } from 'zod'
 
@@ -13,6 +14,7 @@ const UpdateModuleSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
   videoFileUrl: z.string().url().optional().or(z.literal('')),
+  bannerImageUrl: z.string().url().optional().or(z.literal('')),
 })
 
 export async function PUT(
@@ -29,6 +31,7 @@ export async function PUT(
     // Verify module exists and belongs to course
     const mod = await db.module.findUnique({
       where: { id: moduleId },
+      select: { id: true, courseId: true },
     })
 
     if (!mod || mod.courseId !== courseId) {
@@ -49,7 +52,9 @@ export async function PUT(
         ...(data.title && { title: data.title }),
         ...(data.description !== undefined && { description: data.description || null }),
         ...(data.videoFileUrl !== undefined && { videoFileUrl: data.videoFileUrl || null }),
+        ...(data.bannerImageUrl !== undefined && { bannerImageUrl: data.bannerImageUrl || null }),
       },
+      select: moduleAuthoringSelect,
     })
 
     return NextResponse.json({
@@ -93,6 +98,7 @@ export async function DELETE(
     // Verify module exists and belongs to course
     const mod = await db.module.findUnique({
       where: { id: moduleId },
+      select: { id: true, courseId: true },
     })
 
     if (!mod || mod.courseId !== courseId) {
@@ -105,6 +111,7 @@ export async function DELETE(
     // Delete module
     const deleted = await db.module.delete({
       where: { id: moduleId },
+      select: { id: true, title: true },
     })
 
     return NextResponse.json({

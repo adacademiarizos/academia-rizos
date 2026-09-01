@@ -10,6 +10,31 @@ SET "courseId" = module."courseId"
 FROM "Module" AS module
 WHERE style."moduleId" = module."id";
 
+-- Some legacy databases contain modules without a style. Preserve those
+-- modules by creating the same fallback style used by the legacy seed data.
+INSERT INTO "ModuleStyle" (
+  "id", "moduleId", "order", "name", "slug", "description", "isActive", "createdAt", "updatedAt"
+)
+SELECT
+  md5('migration-general-style:' || module."id"),
+  module."id",
+  0,
+  'General',
+  'general',
+  NULL,
+  TRUE,
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+FROM "Module" AS module
+WHERE NOT EXISTS (
+  SELECT 1 FROM "ModuleStyle" AS style WHERE style."moduleId" = module."id"
+);
+
+UPDATE "ModuleStyle" AS style
+SET "courseId" = module."courseId"
+FROM "Module" AS module
+WHERE style."moduleId" = module."id" AND style."courseId" IS NULL;
+
 -- The old unique lesson order is scoped to a style. Remove it before merging
 -- equal course-level style names from different modules.
 DROP INDEX IF EXISTS "Lesson_styleId_order_key";
@@ -78,6 +103,8 @@ WHERE style."id" = ranked_styles."id"
   AND ranked_styles."id" <> ranked_styles.canonical_id;
 
 -- Re-number styles and lessons for their new ownership scopes.
+DROP INDEX IF EXISTS "ModuleStyle_moduleId_order_key";
+
 WITH ordered_styles AS (
   SELECT "id", ROW_NUMBER() OVER (
     PARTITION BY "courseId"

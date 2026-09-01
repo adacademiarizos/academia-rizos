@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { UploadFeedbackField } from '@/app/components/UploadFeedbackField'
 import { CoursesTabs } from './components/CoursesTabs'
+import { toast } from 'sonner'
 
 interface Course {
   id: string
@@ -29,10 +30,12 @@ export default function AdminCoursesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isActive, setIsActive] = useState<boolean | 'all'>('all')
   const [showModal, setShowModal] = useState(false)
+  const [previewThumbnailUrl, setPreviewThumbnailUrl] = useState<string | null>(null)
   const [feeSettings, setFeeSettings] = useState({ feePercent: 2.5, feeFixedCents: 25 })
   const [newCourse, setNewCourse] = useState<{
     title: string
     description: string
+    certificateSlogan: string
     rentalDays: number | undefined
     isActive: boolean
     thumbnailUrl: string
@@ -40,6 +43,7 @@ export default function AdminCoursesPage() {
   }>({
     title: '',
     description: '',
+    certificateSlogan: '',
     rentalDays: undefined,
     isActive: true,
     thumbnailUrl: '',
@@ -93,18 +97,18 @@ export default function AdminCoursesPage() {
   const handleCreateCourse = async () => {
     try {
       if (!newCourse.title.trim()) {
-        alert('El título del curso es requerido')
+        toast.error('El título del curso es requerido')
         return
       }
 
       if (!newCourse.thumbnailUrl) {
-        alert('La miniatura del curso es requerida')
+        toast.error('La miniatura del curso es requerida')
         return
       }
 
       const baseVal = parseFloat(priceInput)
       if (!priceInput || isNaN(baseVal) || baseVal <= 0) {
-        alert('Ingresá un precio válido mayor a 0')
+        toast.error('Ingresá un precio válido mayor a 0')
         return
       }
 
@@ -125,6 +129,7 @@ export default function AdminCoursesPage() {
         setNewCourse({
           title: '',
           description: '',
+          certificateSlogan: '',
           rentalDays: undefined,
           isActive: true,
           thumbnailUrl: '',
@@ -132,13 +137,14 @@ export default function AdminCoursesPage() {
         })
         setPriceInput('')
         fetchCourses()
-        alert('Curso creado exitosamente')
+        toast.success('Curso creado exitosamente')
       } else {
-        alert('Error creating course')
+        const data = await response.json().catch(() => null)
+        toast.error(data?.error || 'Error creating course')
       }
     } catch (error) {
       console.error('Error:', error)
-      alert('Error creating course')
+      toast.error('Error creating course')
     }
   }
 
@@ -148,12 +154,12 @@ export default function AdminCoursesPage() {
       const res = await fetch(`/api/admin/courses/${courseId}/notify`, { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
-        alert(data.data.message);
+        toast.success(data.data.message);
       } else {
-        alert('Error al enviar notificaciones');
+        toast.error('Error al enviar notificaciones');
       }
     } catch {
-      alert('Error al enviar notificaciones');
+      toast.error('Error al enviar notificaciones');
     }
   };
 
@@ -169,13 +175,13 @@ export default function AdminCoursesPage() {
 
       if (response.ok) {
         fetchCourses()
-        alert('Curso eliminado exitosamente')
+        toast.success('Curso eliminado exitosamente')
       } else {
-        alert('Error deleting course')
+        toast.error('Error deleting course')
       }
     } catch (error) {
       console.error('Error:', error)
-      alert('Error deleting course')
+      toast.error('Error deleting course')
     }
   }
 
@@ -324,7 +330,7 @@ export default function AdminCoursesPage() {
       {/* Modal - Create Course */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-[#181716] border border-white/10 rounded-3xl p-7 max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="modal-scroll bg-[#181716] border border-white/10 rounded-3xl p-7 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <h2
               className="text-xl text-white mb-6"
               style={{ fontFamily: 'Georgia, serif' }}
@@ -338,16 +344,17 @@ export default function AdminCoursesPage() {
                   Miniatura <span className="text-red-400">*</span>
                 </label>
                 {newCourse.thumbnailUrl ? (
-                  <div className="flex flex-wrap items-start gap-4">
-                    <div className="h-36 w-full max-w-[240px] overflow-hidden rounded-2xl">
-                      <img src={newCourse.thumbnailUrl} alt="Miniatura del curso" className="h-full w-full object-cover" />
-                    </div>
-                    <button type="button" onClick={() => setNewCourse((prev) => ({ ...prev, thumbnailUrl: '' }))} className="pt-2 text-sm text-red-300 hover:text-red-200">
-                      Quitar miniatura
+                  <div className="w-full">
+                    <button type="button" onClick={() => setPreviewThumbnailUrl(newCourse.thumbnailUrl)} className="group block aspect-video w-full overflow-hidden rounded-2xl border border-white/15 bg-white/5 focus:outline-none focus:ring-2 focus:ring-[#c8cf94]/70" aria-label="Ver miniatura en tamaño grande">
+                      <img src={newCourse.thumbnailUrl} alt="Miniatura del curso" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]" />
                     </button>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => setNewCourse((prev) => ({ ...prev, thumbnailUrl: '' }))} className="h-10 rounded-xl bg-[#646a40] px-3 text-sm font-medium text-white transition hover:bg-[#747b4b]">Reemplazar</button>
+                      <button type="button" onClick={() => setNewCourse((prev) => ({ ...prev, thumbnailUrl: '' }))} className="h-10 rounded-xl border border-red-300/20 bg-red-400/10 px-3 text-sm font-medium text-red-300 transition hover:bg-red-400/20">Eliminar</button>
+                    </div>
                   </div>
                 ) : null}
-                <UploadFeedbackField
+                {!newCourse.thumbnailUrl ? <UploadFeedbackField
                   label={newCourse.thumbnailUrl ? 'Cambiar miniatura' : 'Cargar miniatura'}
                   helperText="JPG, PNG o WebP · máximo 5 MB"
                   accept="image/jpeg,image/png,image/webp"
@@ -361,7 +368,7 @@ export default function AdminCoursesPage() {
                     return result.data.url
                   }}
                   onUploaded={(thumbnailUrl) => setNewCourse((current) => ({ ...current, thumbnailUrl }))}
-                />
+                /> : null}
               </div>
 
               <input
@@ -378,6 +385,15 @@ export default function AdminCoursesPage() {
                 placeholder="Descripción (opcional)"
                 rows={3}
                 className="rounded-2xl bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition resize-none"
+              />
+
+              <input
+                type="text"
+                value={newCourse.certificateSlogan}
+                onChange={(e) => setNewCourse({ ...newCourse, certificateSlogan: e.target.value })}
+                placeholder="Slogan del certificado (requerido si está activo)"
+                maxLength={100}
+                className="h-11 rounded-2xl bg-white/5 px-4 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition"
               />
 
               <div className="space-y-2">
@@ -466,6 +482,13 @@ export default function AdminCoursesPage() {
                 Crear curso
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {previewThumbnailUrl && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-6" role="dialog" aria-modal="true" aria-label="Vista previa de la miniatura" onClick={() => setPreviewThumbnailUrl(null)}>
+          <div className="max-h-[85vh] max-w-[min(900px,90vw)] overflow-hidden rounded-2xl border border-white/20 bg-[#181716] shadow-2xl">
+            <img src={previewThumbnailUrl} alt="Miniatura del curso ampliada" className="max-h-[85vh] max-w-full object-contain" />
           </div>
         </div>
       )}

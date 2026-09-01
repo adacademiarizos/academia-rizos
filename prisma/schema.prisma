@@ -1,7 +1,6 @@
 generator client {
   provider = "prisma-client-js"
 }
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -74,14 +73,21 @@ enum LearningScope {
   LESSON
 }
 
+/// Mirrors the enum created in migration 20260809190640_hierarchical_learning_content.
+/// Only MULTIPLE_CHOICE carries options and a correctAnswer; the other types are
+/// graded by hand and store their submission as a response or an uploaded file.
 enum AssessmentQuestionType {
   MULTIPLE_CHOICE
+  WRITTEN
+  PHOTO
+  VIDEO
 }
 
 enum FinalExamQuestionType {
   WRITTEN
   PHOTO
   VIDEO
+  MULTIPLE_CHOICE
 }
 
 enum AssessmentAttemptStatus {
@@ -297,6 +303,7 @@ model ServiceVariant {
   durationMin Int
   order       Int     @default(0)
   isActive    Boolean @default(true)
+  videoFileUrl String?
 
   service      Service             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   staffPrices  VariantStaffPrice[]
@@ -447,6 +454,12 @@ model PaymentLink {
 
 // ============= ACADEMIA DE RIZOS =============
 
+enum CourseContentStructure {
+  MODULES
+  STYLES
+  BOTH
+}
+
 model Course {
   id           String  @id @default(cuid())
   title        String
@@ -457,12 +470,17 @@ model Course {
   currency     String  @default("EUR")
   rentalDays   Int? // if null => lifetime access
   certificateSlogan String?
+  /// Bullets shown as "Lo que aprenderás" on the public course page. Empty hides
+  /// the section rather than falling back to generic copy.
+  learningOutcomes String[] @default([])
+  contentStructure CourseContentStructure?
   isActive     Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   modules           Module[]
+  lessons           Lesson[]
   resources         Resource[]
   courseResources   CourseResource[]
   courseTests       CourseTest[]
@@ -480,24 +498,42 @@ model Course {
   comments     Comment[]     @relation("CourseComments")
   chatRoom     ChatRoom?
   certificates Certificate[] @relation("CourseCertificates")
+  draft        CourseDraft?
 
   @@index([isActive])
+}
+
+model CourseDraft {
+  id            String   @id @default(cuid())
+  courseId      String   @unique
+  schemaVersion Int      @default(1)
+  payload       Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([updatedAt])
 }
 
 model Module {
   id           String  @id @default(cuid())
   courseId     String
+  styleId      String?
   order        Int
   title        String
   description  String?
   videoUrl     String?
   videoFileUrl String? // New S3 video URL
+  bannerImageUrl String?
   transcript   String? // for RAG/AI (will be searched by vector DB later)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   course            Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  style             ModuleStyle?       @relation(fields: [styleId], references: [id], onDelete: SetNull)
   progress          ModuleProgress[]
   resources         ModuleResource[]
   tests             ModuleTest[]
@@ -511,6 +547,7 @@ model Module {
 
   @@unique([courseId, order])
   @@index([courseId])
+  @@index([styleId])
 }
 
 model ModuleStyle {
@@ -521,12 +558,15 @@ model ModuleStyle {
   slug        String
   description String?
   isActive    Boolean @default(true)
+  videoFileUrl String?
+  bannerImageUrl String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   course            Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
   lessons           Lesson[]
+  modules           Module[]
   learningResources LearningResource[]
   assessments       Assessment[]
 
@@ -538,6 +578,7 @@ model ModuleStyle {
 
 model Lesson {
   id           String  @id @default(cuid())
+  courseId     String
   styleId      String?
   moduleId     String?
   order        Int
@@ -550,6 +591,7 @@ model Lesson {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  course            Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
   style             ModuleStyle?       @relation(fields: [styleId], references: [id], onDelete: Cascade)
   module            Module?            @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   progress          LessonProgress[]
@@ -558,6 +600,7 @@ model Lesson {
   tests             LessonTest[]
 
 
+  @@index([courseId])
   @@index([styleId])
   @@index([moduleId])
 }
@@ -581,11 +624,13 @@ model ModuleProgress {
 /// required unified assessments have been approved. Legacy lesson completion
 /// endpoints remain compatible with this row. 
 model LessonProgress {
-  id          String   @id @default(cuid())
-  userId      String
-  lessonId    String
-  completedAt DateTime @default(now())
-  createdAt   DateTime @default(now())
+  id       String  @id @default(cuid())
+  userId   String
+  lessonId String
+  /// The row existing is not enough: the style player toggles this flag, so
+  /// progress must be counted on `completed`, not on row presence.
+  completed   Boolean   @default(false)
+  completedAt DateTime?
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
@@ -1298,6 +1343,9 @@ model FinalExamQuestion {
   description String?
   required    Boolean               @default(true)
   order       Int                   @default(0)
+  /// Only set for MULTIPLE_CHOICE questions; null for the manually graded types.
+  options       Json?
+  correctAnswer String?
   config      Json?
   createdAt   DateTime              @default(now())
   updatedAt   DateTime              @updatedAt

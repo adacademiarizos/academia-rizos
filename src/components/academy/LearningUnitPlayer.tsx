@@ -5,12 +5,32 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { ChatWidget } from '@/app/components/ChatWidget'
 import { CourseAIAssistant } from '@/app/components/CourseAIAssistant'
+import { AI_ASSISTANT_ENABLED } from '@/lib/feature-flags'
+import { LearningAssessmentPanel } from '@/app/components/LearningAssessmentPanel'
 import { ProtectedAccessNotice } from '@/app/components/ProtectedAccessNotice'
 import { useCourseAccess } from '@/app/components/useCourseAccess'
 
 type UnitType = 'module' | 'style'
-type Lesson = { id: string; order: number; title: string; description: string | null; videoFileUrl: string | null }
-type LearningUnit = { id: string; order: number; title: string; description: string | null; videoFileUrl?: string | null; completed?: boolean; lessonCount?: number }
+type Lesson = { id: string; order: number; title: string; description: string | null; videoFileUrl: string | null; completed?: boolean }
+type Resource = { id: string; title: string; fileUrl: string; fileType: string; fileSize: number }
+/** Modules expose `title`, styles expose `name`; the player accepts either. */
+type LearningUnit = { id: string; order: number; title?: string; name?: string; description: string | null; videoFileUrl?: string | null; completed?: boolean; lessonCount?: number }
+
+function ResourceList({ title, resources }: { title: string; resources: Resource[] }) {
+  return (
+    <section className="rounded-3xl border border-zinc-700 bg-white/5 p-7 sm:p-9">
+      <h3 className="text-lg font-bold text-ap-ivory">{title}</h3>
+      <div className="mt-5 space-y-2">
+        {resources.map((resource) => (
+          <a key={resource.id} href={resource.fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-2xl border border-zinc-700 bg-black/20 p-4 text-sm text-zinc-200 transition hover:border-ap-copper hover:text-ap-ivory">
+            <span className="min-w-0 flex-1 truncate">{resource.title}</span>
+            <span className="shrink-0 text-xs text-zinc-500">{Math.max(1, Math.round(resource.fileSize / 1024))} KB</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 export function LearningUnitPlayer({ unitType }: { unitType: UnitType }) {
   const params = useParams()
@@ -23,7 +43,30 @@ export function LearningUnitPlayer({ unitType }: { unitType: UnitType }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null)
+  const [unitResources, setUnitResources] = useState<Resource[]>([])
+  const [lessonResources, setLessonResources] = useState<Resource[]>([])
+  const [unitAssessmentCount, setUnitAssessmentCount] = useState(0)
+  // The sidebar navigates between the lessons and the unit-wide sections, so the
+  // main column renders one of them at a time instead of stacking everything.
+  const [view, setView] = useState<'lesson' | 'unit-content' | 'unit-tests'>('lesson')
   const [savingProgress, setSavingProgress] = useState(false)
+
+  // The server refuses when a required lesson assessment is still pending, so
+  // the button is always offered and the refusal explains why.
+  async function completeLesson(lessonId: string) {
+    setSavingProgress(true)
+    setError(null)
+    try {
+      const response = await fetch(`/api/student/lessons/${lessonId}/progress`, { method: 'POST' })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload.error || 'No se pudo guardar tu progreso')
+      setLessons((current) => current.map((lesson) => lesson.id === lessonId ? { ...lesson, completed: true } : lesson))
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'No se pudo guardar tu progreso')
+    } finally {
+      setSavingProgress(false)
+    }
+  }
 
   useEffect(() => {
     if (access.loading || !access.hasAccess) return
@@ -47,6 +90,14 @@ export function LearningUnitPlayer({ unitType }: { unitType: UnitType }) {
         if (!lessonsResponse.ok) throw new Error('No se pudieron cargar las lecciones')
         const lessonsData = await lessonsResponse.json()
 
+        const scope = unitType === 'module' ? 'MODULE' : 'STYLE'
+        const [unitResourcesResponse, unitAssessmentsResponse] = await Promise.all([
+          fetch(`/api/student/learning/${scope}/${unitId}/resources`),
+          fetch(`/api/student/learning/${scope}/${unitId}/assessments`),
+        ])
+        setUnitResources(unitResourcesResponse.ok ? (await unitResourcesResponse.json()).data ?? [] : [])
+        setUnitAssessmentCount(unitAssessmentsResponse.ok ? ((await unitAssessmentsResponse.json()).data ?? []).length : 0)
+
         setCourseName(courseData.data.title)
         setUnit(current)
         setLessons(lessonsData.data)
@@ -60,27 +111,27 @@ export function LearningUnitPlayer({ unitType }: { unitType: UnitType }) {
     load()
   }, [access.hasAccess, access.loading, courseId, unitId, unitType])
 
+  // Resources and tests hang off the lesson, so they reload whenever the
+  // student switches lessons in the sidebar.
+  useEffect(() => {
+    if (!activeLessonId) { setLessonResources([]); return }
+    let cancelled = false
+    const loadLessonContent = async () => {
+      const resourcesResponse = await fetch(`/api/student/learning/LESSON/${activeLessonId}/resources`)
+      if (cancelled) return
+      setLessonResources(resourcesResponse.ok ? (await resourcesResponse.json()).data ?? [] : [])
+    }
+    void loadLessonContent()
+    return () => { cancelled = true }
+  }, [activeLessonId])
+
   const activeLesson = useMemo(
     () => lessons.find((lesson) => lesson.id === activeLessonId) ?? null,
     [activeLessonId, lessons]
   )
   const videoSource = activeLesson?.videoFileUrl ?? unit?.videoFileUrl ?? null
-
-  async function setCompleted() {
-    setSavingProgress(true)
-    try {
-      const response = await fetch(
-        unitType === 'module' ? `/api/modules/${unitId}/progress` : `/api/styles/${unitId}/progress`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completed: true }) }
-      )
-      if (!response.ok) throw new Error('No se pudo guardar tu progreso')
-      setUnit((current) => current ? { ...current, completed: true } : current)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'No se pudo guardar tu progreso')
-    } finally {
-      setSavingProgress(false)
-    }
-  }
+  const completedCount = lessons.filter((lesson) => lesson.completed).length
+  const unitName = unit?.title ?? unit?.name ?? ''
 
   if (access.loading || (access.hasAccess && loading)) {
     return <main className="min-h-screen bg-ap-ink px-6 py-12 text-center text-ap-ivory">Cargando contenido...</main>
@@ -102,7 +153,7 @@ export function LearningUnitPlayer({ unitType }: { unitType: UnitType }) {
       <header className="sticky top-16 z-10 border-b border-zinc-800 bg-ap-ink/95 px-6 py-4 backdrop-blur-sm">
         <div className="mx-auto max-w-screen-xl">
           <Link href={`/learn/${courseId}`} className="text-sm text-zinc-400 transition hover:text-ap-copper">← {courseName}</Link>
-          <h1 className="mt-1 text-xl font-bold text-ap-ivory">{kind} {unit.order + 1}: {unit.title}</h1>
+          <h1 className="mt-1 text-xl font-bold text-ap-ivory">{kind} {unit.order + 1}: {unitName}</h1>
         </div>
       </header>
 
@@ -112,31 +163,104 @@ export function LearningUnitPlayer({ unitType }: { unitType: UnitType }) {
           <div className="space-y-1">
             {lessons.length === 0 && <p className="px-3 py-4 text-sm text-zinc-500">Aún no hay lecciones.</p>}
             {lessons.map((lesson) => (
-              <button key={lesson.id} onClick={() => setActiveLessonId(lesson.id)} className={`flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${lesson.id === activeLessonId ? 'border border-ap-copper/30 bg-ap-copper/15 text-ap-ivory' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}>
-                <span className="w-5 shrink-0 text-center text-xs font-bold text-ap-copper">{lesson.order + 1}</span><span>{lesson.title}</span>
+              <button key={lesson.id} onClick={() => { setActiveLessonId(lesson.id); setView('lesson') }} className={`flex w-full items-start gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${view === 'lesson' && lesson.id === activeLessonId ? 'border border-ap-copper/30 bg-ap-copper/15 text-ap-ivory' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}>
+                <span className="w-5 shrink-0 text-center text-xs font-bold text-ap-copper">{lesson.completed ? '\u2713' : lesson.order + 1}</span><span className="flex-1">{lesson.title}</span>
               </button>
             ))}
           </div>
+
+          {(unitResources.length > 0 || unitAssessmentCount > 0) && (
+            <>
+              <p className="mb-3 mt-6 border-t border-zinc-700 pt-5 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                {unitType === 'module' ? 'Del módulo' : 'Del estilo'}
+              </p>
+              <div className="space-y-1">
+                {unitResources.length > 0 && (
+                  <button onClick={() => setView('unit-content')} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${view === 'unit-content' ? 'border border-ap-copper/30 bg-ap-copper/15 text-ap-ivory' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}>
+                    <span className="flex-1">Contenido</span>
+                    <span className="shrink-0 text-xs text-zinc-500">{unitResources.length}</span>
+                  </button>
+                )}
+                {unitAssessmentCount > 0 && (
+                  <button onClick={() => setView('unit-tests')} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${view === 'unit-tests' ? 'border border-ap-copper/30 bg-ap-copper/15 text-ap-ivory' : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'}`}>
+                    <span className="flex-1">Evaluaciones</span>
+                    <span className="shrink-0 text-xs text-zinc-500">{unitAssessmentCount}</span>
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </aside>
 
         <section className="space-y-8">
-          <div className="overflow-hidden rounded-3xl border border-zinc-700 bg-black shadow-2xl">
-            <div className="aspect-video flex items-center justify-center">
-              {videoSource ? <video key={videoSource} src={videoSource} controls className="h-full w-full" /> : <p className="text-sm text-zinc-500">Sin video disponible</p>}
-            </div>
-          </div>
-          <article className="rounded-3xl border border-zinc-700 bg-white/5 p-7 sm:p-9">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ap-copper">{activeLesson ? 'Lección' : kind}</p>
-            <h2 className="mt-3 text-2xl font-bold text-ap-ivory">{activeLesson?.title ?? unit.title}</h2>
-            <p className="mt-4 whitespace-pre-wrap leading-relaxed text-zinc-300">{activeLesson?.description ?? unit.description ?? 'Sin descripción.'}</p>
-          </article>
-          <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-700 bg-white/5 p-5">
-            <span className={unit.completed ? 'text-sm font-medium text-ap-copper' : 'text-sm text-zinc-400'}>{unit.completed ? '✓ Completado' : 'En progreso'}</span>
-            {!unit.completed && <button onClick={setCompleted} disabled={savingProgress} className="rounded-xl bg-ap-copper px-5 py-3 text-sm font-semibold text-ap-ink transition hover:bg-ap-copper/90 disabled:opacity-60">{savingProgress ? 'Guardando...' : `Marcar ${kind.toLowerCase()} como completado`}</button>}
-          </div>
+          {view === 'unit-content' && (
+            <>
+              <article className="rounded-3xl border border-zinc-700 bg-white/5 p-7 sm:p-9">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ap-copper">{unitType === 'module' ? 'Módulo' : 'Estilo'}</p>
+                <h2 className="mt-3 text-2xl font-bold text-ap-ivory">{unitName}</h2>
+                <p className="mt-4 whitespace-pre-wrap leading-relaxed text-zinc-300">{unit.description ?? 'Sin descripción.'}</p>
+              </article>
+              <ResourceList title={`Material ${unitType === 'module' ? 'del módulo' : 'del estilo'}`} resources={unitResources} />
+            </>
+          )}
+
+          {view === 'unit-tests' && (
+            <LearningAssessmentPanel
+              scope={unitType === 'module' ? 'MODULE' : 'STYLE'}
+              scopeId={unitId}
+              courseId={courseId}
+              title={`Evaluaciones ${unitType === 'module' ? 'del módulo' : 'del estilo'}`}
+            />
+          )}
+
+          {view === 'lesson' && (
+            <>
+              {/* No placeholder when there is no video: an empty black box reads
+                  as something that failed to load. */}
+              {videoSource && (
+                <div className="overflow-hidden rounded-3xl border border-zinc-700 bg-black shadow-2xl">
+                  <div className="aspect-video flex items-center justify-center">
+                    <video key={videoSource} src={videoSource} controls className="h-full w-full" />
+                  </div>
+                </div>
+              )}
+              <article className="rounded-3xl border border-zinc-700 bg-white/5 p-7 sm:p-9">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ap-copper">{activeLesson ? 'Lección' : kind}</p>
+                <h2 className="mt-3 text-2xl font-bold text-ap-ivory">{activeLesson?.title ?? unitName}</h2>
+                <p className="mt-4 whitespace-pre-wrap leading-relaxed text-zinc-300">{activeLesson?.description ?? unit.description ?? 'Sin descripción.'}</p>
+              </article>
+
+              {lessonResources.length > 0 && <ResourceList title="Material de esta lección" resources={lessonResources} />}
+
+              {activeLessonId && (
+                <LearningAssessmentPanel
+                  key={activeLessonId}
+                  scope="LESSON"
+                  scopeId={activeLessonId}
+                  courseId={courseId}
+                  title="Evaluaciones de esta lección"
+                />
+              )}
+
+              {/* Without this the refusal ("aprobá las evaluaciones primero") was
+                  stored in state and never shown: the button just did nothing. */}
+              {error && <p role="alert" className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</p>}
+
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-700 bg-white/5 p-5">
+                <span className={activeLesson?.completed ? 'text-sm font-medium text-ap-copper' : 'text-sm text-zinc-400'}>
+                  {!activeLesson ? `${completedCount} de ${lessons.length} lecciones completadas` : activeLesson.completed ? '\u2713 Lección completada' : `Lección en progreso - ${completedCount} de ${lessons.length} completadas`}
+                </span>
+                {activeLesson && !activeLesson.completed && (
+                  <button onClick={() => completeLesson(activeLesson.id)} disabled={savingProgress} className="rounded-xl bg-ap-copper px-5 py-3 text-sm font-semibold text-ap-ink transition hover:bg-ap-copper/90 disabled:opacity-60">
+                    {savingProgress ? 'Guardando…' : 'Marcar lección como completada'}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </section>
       </div>
-      <CourseAIAssistant courseId={courseId} courseName={courseName} moduleId={unitType === 'module' ? unitId : undefined} />
+      {AI_ASSISTANT_ENABLED && <CourseAIAssistant courseId={courseId} courseName={courseName} moduleId={unitType === 'module' ? unitId : undefined} />}
       <ChatWidget courseId={courseId} />
     </main>
   )

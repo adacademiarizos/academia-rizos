@@ -172,6 +172,33 @@ p {
   background: rgba(100, 106, 64, 0.60);
 }
 
+/* Modal scrollbars stay inside the rounded surface instead of replacing its edge. */
+.modal-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200, 207, 148, 0.55) transparent;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+.modal-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 12px 0;
+}
+
+.modal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(200, 207, 148, 0.55);
+  border: 2px solid #181716;
+  border-radius: 999px;
+}
+
+.modal-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(200, 207, 148, 0.8);
+}
+
 @media (width >= 768px) {
   .own_animated {
     height: 60px;

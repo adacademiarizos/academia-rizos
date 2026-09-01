@@ -4,6 +4,7 @@ import {
   Prisma,
 } from '@prisma/client'
 import { db } from '@/lib/db'
+import { normalizeCertificateSlogan } from '@/validators/course.schema'
 import { generateAndSaveCertificate } from '@/server/services/certificate.service'
 
 export type LessonTestQuestionInput = {
@@ -18,6 +19,9 @@ export type FinalExamQuestionInput = {
   title: string
   description?: string | null
   required?: boolean
+  /** Only for MULTIPLE_CHOICE; ignored for the manually graded types. */
+  options?: string[] | null
+  correctAnswer?: string | null
   config?: Prisma.InputJsonValue | null
 }
 
@@ -32,16 +36,54 @@ function toFinalExamQuestionCreateInput(
   question: FinalExamQuestionInput,
   order: number
 ): Prisma.FinalExamQuestionCreateWithoutFinalExamInput {
+  const choice = question.type === FinalExamQuestionType.MULTIPLE_CHOICE
+    ? normalizeFinalExamChoice(question)
+    : { options: Prisma.JsonNull, correctAnswer: null }
+
   return {
     type: question.type,
     title: question.title,
     description: question.description ?? null,
     required: question.required ?? true,
     order,
+    ...choice,
     ...(question.config === undefined
       ? {}
       : { config: question.config === null ? Prisma.JsonNull : question.config }),
   }
+}
+
+/**
+ * A multiple choice question is only answerable if it offers at least two
+ * options and its correct answer is one of them.
+ */
+function normalizeFinalExamChoice(question: FinalExamQuestionInput) {
+  const options = (question.options ?? []).map((option) => option.trim()).filter(Boolean)
+  if (options.length < 2) {
+    throw new AcademyAssessmentError(
+      'FINAL_EXAM_CHOICE_OPTIONS_REQUIRED',
+      'Una pregunta de selección múltiple necesita al menos dos opciones.',
+      400
+    )
+  }
+  if (new Set(options).size !== options.length) {
+    throw new AcademyAssessmentError(
+      'FINAL_EXAM_CHOICE_OPTIONS_DUPLICATED',
+      'Las opciones de una pregunta de selección múltiple no pueden repetirse.',
+      400
+    )
+  }
+
+  const correctAnswer = question.correctAnswer?.trim() || ''
+  if (!options.includes(correctAnswer)) {
+    throw new AcademyAssessmentError(
+      'FINAL_EXAM_CHOICE_ANSWER_INVALID',
+      'La respuesta correcta debe ser una de las opciones definidas.',
+      400
+    )
+  }
+
+  return { options, correctAnswer }
 }
 
 export class AcademyAssessmentError extends Error {
@@ -97,7 +139,9 @@ async function getLessonOrThrow(lessonId: string) {
     select: {
       id: true,
       title: true,
-      module: { select: { courseId: true } },
+      // Lesson carries courseId directly; going through module returns null for
+      // lessons that hang off a style, which used to crash this path.
+      courseId: true,
     },
   })
 
@@ -128,9 +172,12 @@ async function getFinalExamOrThrow(courseId: string) {
 }
 
 export async function getCourseLessonProgress(userId: string, courseId: string) {
+  // Counted through the lesson's own courseId. Filtering by `module` skipped
+  // every lesson that hangs off a style, so a course with styles reported a
+  // total that ignored them and could look complete while they were pending.
   const [totalLessons, completedLessons] = await Promise.all([
-    db.lesson.count({ where: { module: { courseId } } }),
-    db.lessonProgress.count({ where: { userId, lesson: { module: { courseId } } } }),
+    db.lesson.count({ where: { courseId } }),
+    db.lessonProgress.count({ where: { userId, completed: true, lesson: { courseId } } }),
   ])
 
   return {
@@ -141,22 +188,33 @@ export async function getCourseLessonProgress(userId: string, courseId: string) 
   }
 }
 
+/**
+ * Lesson gating reads Assessment (scope LESSON), the same source
+ * getCourseLearningProgress uses. LessonTest gated this too, which meant two
+ * independent locks on one door — and unlike Assessment it had no revalidation,
+ * so a student out of attempts could never finish the lesson.
+ */
 async function getLessonTestGate(userId: string, lessonId: string) {
-  const tests = await db.lessonTest.findMany({
-    where: { lessonId, publishedAt: { lte: new Date() } },
+  const tests = await db.assessment.findMany({
+    where: {
+      scope: 'LESSON',
+      lessonId,
+      isRequired: true,
+      publishedAt: { lte: new Date() },
+    },
     select: { id: true, title: true },
   })
   if (tests.length === 0) return { tests, pending: [] as typeof tests }
 
-  const passed = await db.lessonTestSubmission.findMany({
+  const passed = await db.assessmentAttempt.findMany({
     where: {
       userId,
-      lessonTestId: { in: tests.map((test) => test.id) },
-      isPassed: true,
+      assessmentId: { in: tests.map((test) => test.id) },
+      status: 'APPROVED',
     },
-    select: { lessonTestId: true },
+    select: { assessmentId: true },
   })
-  const passedIds = new Set(passed.map((submission) => submission.lessonTestId))
+  const passedIds = new Set(passed.map((attempt) => attempt.assessmentId))
   return { tests, pending: tests.filter((test) => !passedIds.has(test.id)) }
 }
 
@@ -167,13 +225,13 @@ export async function markLessonComplete(userId: string, lessonId: string) {
   })
 
   // Completion is durable: a test added later never invalidates earned progress.
-  if (existing) return { progress: existing, alreadyCompleted: true, courseId: lesson.module.courseId }
+  if (existing?.completed) return { progress: existing, alreadyCompleted: true, courseId: lesson.courseId }
 
   const gate = await getLessonTestGate(userId, lessonId)
   if (gate.pending.length > 0) {
     throw new AcademyAssessmentError(
       'LESSON_TESTS_PENDING',
-      'Debes aprobar todos los tests de la lección antes de completarla.',
+      'Debes aprobar todas las evaluaciones obligatorias de la lección antes de completarla.',
       403,
       { pendingTests: gate.pending }
     )
@@ -181,11 +239,11 @@ export async function markLessonComplete(userId: string, lessonId: string) {
 
   const progress = await db.lessonProgress.upsert({
     where: { userId_lessonId: { userId, lessonId } },
-    update: {},
-    create: { userId, lessonId },
+    update: { completed: true, completedAt: new Date() },
+    create: { userId, lessonId, completed: true, completedAt: new Date() },
   })
 
-  return { progress, alreadyCompleted: false, courseId: lesson.module.courseId }
+  return { progress, alreadyCompleted: false, courseId: lesson.courseId }
 }
 
 export async function getStudentLessonTests(userId: string, lessonId: string) {
@@ -241,7 +299,7 @@ export async function submitLessonTest(
     const result = await db.$transaction(async (transaction) => {
       const test = await transaction.lessonTest.findFirst({
         where: { id: testId, lessonId, publishedAt: { lte: new Date() } },
-        include: { questions: { orderBy: { order: 'asc' } }, lesson: { select: { module: { select: { courseId: true } } } } },
+        include: { questions: { orderBy: { order: 'asc' } }, lesson: { select: { courseId: true } } },
       })
       if (!test) {
         throw new AcademyAssessmentError('LESSON_TEST_NOT_FOUND', 'El test no existe.', 404)
@@ -296,7 +354,7 @@ export async function submitLessonTest(
         totalQuestions: test.questions.length,
         passingScore: test.passingScore,
         maxAttempts: test.maxAttempts,
-        courseId: test.lesson.module.courseId,
+        courseId: test.lesson.courseId,
       }
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
 
@@ -431,7 +489,9 @@ export async function getStudentFinalExam(userId: string, courseId: string) {
         description: true,
         maxAttempts: true,
         questions: {
-          select: { id: true, type: true, title: true, description: true, required: true, order: true, config: true },
+          // `correctAnswer` is deliberately absent: this payload is sent to the
+          // student, and selecting it here would hand them the answer key.
+          select: { id: true, type: true, title: true, description: true, required: true, order: true, options: true, config: true },
           orderBy: { order: 'asc' },
         },
       },
@@ -460,7 +520,7 @@ export async function getStudentFinalExam(userId: string, courseId: string) {
 }
 
 function validateFinalExamAnswers(
-  questions: Array<{ id: string; type: FinalExamQuestionType; required: boolean }>,
+  questions: Array<{ id: string; type: FinalExamQuestionType; required: boolean; options?: Prisma.JsonValue }>,
   answers: FinalExamAnswerInput[]
 ) {
   const byQuestion = new Map(answers.map((answer) => [answer.questionId, answer]))
@@ -469,7 +529,24 @@ function validateFinalExamAnswers(
     const responseText = answer?.responseText?.trim() || null
     const fileUrl = answer?.fileUrl?.trim() || null
     const fileMimeType = answer?.fileMimeType?.trim() || null
-    const hasResponse = question.type === FinalExamQuestionType.WRITTEN ? !!responseText : !!fileUrl
+
+    // A multiple choice pick is stored as text, like a written answer, but it
+    // must be one of the offered options rather than free text.
+    if (question.type === FinalExamQuestionType.MULTIPLE_CHOICE && responseText) {
+      const options = Array.isArray(question.options) ? question.options : []
+      if (!options.includes(responseText)) {
+        throw new AcademyAssessmentError(
+          'FINAL_EXAM_CHOICE_ANSWER_INVALID',
+          'La respuesta seleccionada no es una de las opciones de la pregunta.',
+          400,
+          { questionId: question.id }
+        )
+      }
+    }
+
+    const hasResponse = question.type === FinalExamQuestionType.WRITTEN || question.type === FinalExamQuestionType.MULTIPLE_CHOICE
+      ? !!responseText
+      : !!fileUrl
     if (question.required && !hasResponse) {
       throw new AcademyAssessmentError(
         'FINAL_EXAM_ANSWER_REQUIRED',
@@ -596,14 +673,45 @@ export async function reviewFinalExamAttempt(
     throw new AcademyAssessmentError('FINAL_EXAM_ATTEMPT_ALREADY_REVIEWED', 'Este intento ya fue corregido.', 409)
   }
 
-  const updated = await db.finalExamAttempt.update({
+  // The certificate is issued BEFORE the attempt is marked, and never after.
+  // Marking it first is what used to strand students: the status guard above
+  // rejects a second review, so any failure while issuing left the attempt
+  // approved with no certificate and no way to retry. generateAndSaveCertificate
+  // is idempotent, so if the update below fails the admin can simply review again.
+  if (status === FinalExamAttemptStatus.APPROVED) {
+    await issueCertificateForReview(attempt.userId, courseId)
+  }
+
+  return db.finalExamAttempt.update({
     where: { id: attempt.id },
     data: { status, reviewNote: reviewNote?.trim() || null, reviewedAt: new Date(), reviewedById: reviewerId },
   })
-  if (status === FinalExamAttemptStatus.APPROVED) {
-    await generateAndSaveCertificate(attempt.userId, courseId)
+}
+
+/**
+ * Wraps certificate issuance so a reviewer sees why the approval was refused
+ * instead of a bare 500, and so the attempt stays reviewable.
+ */
+async function issueCertificateForReview(userId: string, courseId: string) {
+  const course = await db.course.findUnique({ where: { id: courseId }, select: { certificateSlogan: true } })
+  if (!normalizeCertificateSlogan(course?.certificateSlogan)) {
+    throw new AcademyAssessmentError(
+      'COURSE_CERTIFICATE_SLOGAN_MISSING',
+      'El curso todavía no tiene slogan de certificado, así que no se puede emitir. Completalo en la edición del curso y volvé a aprobar este intento.',
+      409
+    )
   }
-  return updated
+
+  try {
+    return await generateAndSaveCertificate(userId, courseId)
+  } catch (error) {
+    console.error('Error issuing certificate during final exam review:', error)
+    throw new AcademyAssessmentError(
+      'CERTIFICATE_ISSUE_FAILED',
+      'No se pudo emitir el certificado, así que el intento sigue pendiente de corrección. Volvé a intentarlo.',
+      502
+    )
+  }
 }
 
 export async function grantFinalExamRevalidation(

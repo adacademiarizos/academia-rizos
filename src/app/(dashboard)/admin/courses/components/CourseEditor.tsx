@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 import { UploadFeedbackField } from '@/app/components/UploadFeedbackField'
 import type { CourseContentStructure, CourseDraftPayload, DraftLesson, DraftModule, DraftStyle } from '@/lib/course-draft'
 import { isSameCourseEditorNavigation, shouldBlockEditorNavigation } from '@/lib/editor-navigation'
 import { MultipartVideoUploadField } from './MultipartVideoUploadField'
+import { PresentationImageUploadField } from './PresentationImageUploadField'
+import { LearningContentManager } from './LearningContentManager'
 
 type EditorLevel = 'course' | 'module' | 'style'
 type EditorSource = 'DRAFT' | 'PUBLISHED'
@@ -14,15 +17,25 @@ type PendingNavigation = string | 'BACK' | null
 const inputClass = 'w-full rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-white outline-none transition placeholder:text-white/35 focus:border-ap-copper/60'
 const cardClass = 'rounded-[24px] border border-white/10 bg-white/[0.05] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.12)] backdrop-blur-xl sm:p-6'
 
-function newClientId(prefix: string) {
-  const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  return `draft:${prefix}:${id}`
-}
-
 function draftRouteId(entity: { id?: string; clientId: string }) {
   return entity.id ?? entity.clientId
+}
+
+/**
+ * Reads an editor API response. A missing route or a crashed request answers with
+ * an HTML error page, and parsing that as JSON throws "Unexpected token '<'",
+ * which tells the author nothing about what actually failed.
+ */
+async function readEditorResponse(response: Response, fallbackError: string) {
+  const body = await response.text()
+  let result: { success?: boolean; error?: string } | null = null
+  try {
+    result = body ? JSON.parse(body) : null
+  } catch {
+    throw new Error(`${fallbackError} (el servidor respondió ${response.status}).`)
+  }
+  if (!response.ok || !result?.success) throw new Error(result?.error || fallbackError)
+  return result
 }
 
 function decodeRouteParam(value: string | undefined) {
@@ -32,22 +45,6 @@ function decodeRouteParam(value: string | undefined) {
 
 function entityMatches(entity: { id?: string; clientId: string }, routeId?: string) {
   return Boolean(routeId) && (entity.id === routeId || entity.clientId === routeId)
-}
-
-function nextOrder(items: Array<{ order: number }>) {
-  return items.length ? Math.max(...items.map((item) => item.order)) + 1 : 0
-}
-
-function blankLesson(order: number): DraftLesson {
-  return { clientId: newClientId('lesson'), order, title: 'Nueva lección', description: null, videoFileUrl: null }
-}
-
-function blankModule(order: number): DraftModule {
-  return { clientId: newClientId('module'), order, title: 'Nuevo módulo', description: null, videoFileUrl: null, lessons: [] }
-}
-
-function blankStyle(order: number): DraftStyle {
-  return { clientId: newClientId('style'), order, name: 'Nuevo estilo', description: null, isActive: true, lessons: [] }
 }
 
 function structureLabel(structure: CourseContentStructure) {
@@ -88,7 +85,6 @@ export default function CourseEditor({ level }: { level: EditorLevel }) {
   const [needsStructureMigration, setNeedsStructureMigration] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<PendingNavigation>(null)
   const [showExitDialog, setShowExitDialog] = useState(false)
-  const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null)
   const dirtyRef = useRef(false)
   const payloadRef = useRef<CourseDraftPayload | null>(null)
   const ignorePopStateRef = useRef(false)
@@ -217,22 +213,13 @@ export default function CourseEditor({ level }: { level: EditorLevel }) {
     }))
   }
 
-  function updateLesson(container: 'module' | 'style', containerId: string, lessonId: string, updater: (lesson: DraftLesson) => DraftLesson) {
-    if (container === 'module') {
-      updateModule(containerId, (module) => ({ ...module, lessons: module.lessons.map((lesson) => entityMatches(lesson, lessonId) ? updater(lesson) : lesson) }))
-      return
-    }
-    updateStyle(containerId, (style) => ({ ...style, lessons: style.lessons.map((lesson) => entityMatches(lesson, lessonId) ? updater(lesson) : lesson) }))
-  }
-
   async function requestDraftSave(snapshot: CourseDraftPayload) {
     const response = await fetch(`/api/admin/courses/${courseId}/draft`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ payload: snapshot }),
     })
-    const result = await response.json()
-    if (!response.ok || !result.success) throw new Error(result.error || 'No se pudo guardar el borrador')
+    await readEditorResponse(response, 'No se pudo guardar el borrador')
   }
 
   async function saveDraftBeforeInternalNavigation(destination: string) {
@@ -294,8 +281,7 @@ export default function CourseEditor({ level }: { level: EditorLevel }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ payload }),
       })
-      const result = await response.json()
-      if (!response.ok || !result.success) throw new Error(result.error || 'No se pudo publicar el curso')
+      await readEditorResponse(response, 'No se pudo publicar el curso')
       setInitialPayload(JSON.stringify(payload))
       setSource('PUBLISHED')
       setNotice('Cambios publicados para las estudiantes.')
@@ -311,8 +297,7 @@ export default function CourseEditor({ level }: { level: EditorLevel }) {
     try {
       setSaving('discard')
       const response = await fetch(`/api/admin/courses/${courseId}/draft`, { method: 'DELETE' })
-      const result = await response.json()
-      if (!response.ok || !result.success) throw new Error(result.error || 'No se pudo descartar el borrador')
+      await readEditorResponse(response, 'No se pudo descartar el borrador')
       setInitialPayload(serializedPayload)
       if (continueAfterDiscard) continueNavigation()
       else router.replace(courseUrl)
@@ -377,9 +362,9 @@ export default function CourseEditor({ level }: { level: EditorLevel }) {
       {error ? <p role="alert" className="rounded-xl border border-red-400/30 bg-red-500/15 px-4 py-3 text-sm text-red-200">{error}</p> : null}
       {notice ? <p className="rounded-xl border border-ap-copper/30 bg-ap-copper/10 px-4 py-3 text-sm text-ap-copper">{notice}</p> : null}
 
-      {level === 'course' ? <CoursePanelWithUpload payload={payload} onChange={(course) => replacePayload((current) => ({ ...current, course: { ...current.course, ...course } }))} onRemoveThumbnail={() => replacePayload((current) => ({ ...current, course: { ...current.course, thumbnailUrl: null } }))} onAddModule={() => replacePayload((current) => ({ ...current, modules: [...current.modules, blankModule(nextOrder(current.modules))] }))} onAddStyle={() => replacePayload((current) => ({ ...current, styles: [...current.styles, blankStyle(nextOrder(current.styles))] }))} onNavigate={attemptNavigation} moduleUrl={moduleUrl} styleUrl={styleUrl} /> : null}
-      {level === 'module' && currentModule ? <ModulePanel module={currentModule} courseId={courseId} expandedLessonId={expandedLessonId} onExpandLesson={setExpandedLessonId} onChange={(change) => updateModule(draftRouteId(currentModule), (module) => ({ ...module, ...change }))} onAddLesson={() => updateModule(draftRouteId(currentModule), (module) => ({ ...module, lessons: [...module.lessons, blankLesson(nextOrder(module.lessons))] }))} onUpdateLesson={(lessonId, change) => updateLesson('module', draftRouteId(currentModule), lessonId, (lesson) => ({ ...lesson, ...change }))} onDeleteLesson={(lessonId) => updateModule(draftRouteId(currentModule), (module) => ({ ...module, lessons: module.lessons.filter((lesson) => !entityMatches(lesson, lessonId)) }))} /> : null}
-      {level === 'style' && currentStyle ? <StylePanel style={currentStyle} courseId={courseId} expandedLessonId={expandedLessonId} onExpandLesson={setExpandedLessonId} onChange={(change) => updateStyle(draftRouteId(currentStyle), (style) => ({ ...style, ...change }))} onAddLesson={() => updateStyle(draftRouteId(currentStyle), (style) => ({ ...style, lessons: [...style.lessons, blankLesson(nextOrder(style.lessons))] }))} onUpdateLesson={(lessonId, change) => updateLesson('style', draftRouteId(currentStyle), lessonId, (lesson) => ({ ...lesson, ...change }))} onDeleteLesson={(lessonId) => updateStyle(draftRouteId(currentStyle), (style) => ({ ...style, lessons: style.lessons.filter((lesson) => !entityMatches(lesson, lessonId)) }))} /> : null}
+      {level === 'course' ? <CoursePanelWithUpload payload={payload} onChange={(course) => replacePayload((current) => ({ ...current, course: { ...current.course, ...course } }))} onRemoveThumbnail={() => replacePayload((current) => ({ ...current, course: { ...current.course, thumbnailUrl: null } }))} onAddModule={() => router.push(`${courseUrl}/modules/new`)} onAddStyle={() => { window.location.assign(`${courseUrl}/styles/new`) }} onNavigate={attemptNavigation} moduleUrl={moduleUrl} styleUrl={styleUrl} /> : null}
+      {level === 'module' && currentModule ? <ModulePanel module={currentModule} courseId={courseId} onChange={(change) => updateModule(draftRouteId(currentModule), (module) => ({ ...module, ...change }))} /> : null}
+      {level === 'style' && currentStyle ? <StylePanel style={currentStyle} courseId={courseId} onChange={(change) => updateStyle(draftRouteId(currentStyle), (style) => ({ ...style, ...change }))} /> : null}
 
       {showExitDialog ? <ExitDialog busy={saving !== null} onCancel={() => { setShowExitDialog(false); setPendingNavigation(null) }} onSaveDraft={() => void saveDraft(true)} onPublish={() => void publish(true)} onDiscard={() => void discard(true)} /> : null}
     </div>
@@ -391,6 +376,46 @@ function Breadcrumbs({ courseTitle, level, module, style, courseUrl, onNavigate 
   if (level === 'module' && module) items.push({ label: 'Módulos', url: courseUrl }, { label: module.title })
   if (level === 'style' && style) items.push({ label: 'Estilos', url: courseUrl }, { label: style.name })
   return <nav aria-label="Ruta del curso" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/55">{items.map((item, index) => <span key={`${item.label}-${index}`} className="flex items-center gap-2">{item.url ? <button type="button" onClick={() => onNavigate(item.url!)} className="transition hover:text-ap-copper">{item.label}</button> : <span className="text-white">{item.label}</span>}{index < items.length - 1 ? <span aria-hidden="true">/</span> : null}</span>)}</nav>
+}
+
+function LearningOutcomesEditor({ outcomes, onChange }: { outcomes: string[]; onChange: (outcomes: string[]) => void }) {
+  function replaceAt(index: number, value: string) {
+    onChange(outcomes.map((outcome, position) => (position === index ? value : outcome)))
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-white/45">
+        Se muestran en la página pública del curso. Si lo dejás vacío, la sección no aparece.
+      </p>
+      {outcomes.map((outcome, index) => (
+        <div key={index} className="flex items-center gap-2">
+          <span className="text-ap-copper" aria-hidden="true">✓</span>
+          <input
+            value={outcome}
+            onChange={(event) => replaceAt(index, event.target.value)}
+            placeholder="Ej.: Diagnosticar el patrón de rizo y la porosidad"
+            className={inputClass}
+          />
+          <button
+            type="button"
+            onClick={() => onChange(outcomes.filter((_, position) => position !== index))}
+            aria-label={'Quitar el punto ' + String(index + 1)}
+            className="rounded-lg px-2 py-1 text-sm text-red-300 transition hover:bg-red-400/10"
+          >
+            Quitar
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...outcomes, ''])}
+        className="rounded-xl border border-ap-copper/60 px-3 py-2 text-sm font-medium text-ap-copper transition hover:bg-ap-copper/10"
+      >
+        + Agregar punto
+      </button>
+    </div>
+  )
 }
 
 function CoursePanelWithUpload({ payload, onChange, onRemoveThumbnail, onAddModule, onAddStyle, onNavigate, moduleUrl, styleUrl }: { payload: CourseDraftPayload; onChange: (change: Partial<CourseDraftPayload['course']>) => void; onRemoveThumbnail: () => void; onAddModule: () => void; onAddStyle: () => void; onNavigate: (url: string) => void; moduleUrl: (module: DraftModule) => string; styleUrl: (style: DraftStyle) => string }) {
@@ -405,6 +430,25 @@ function CoursePanelWithUpload({ payload, onChange, onRemoveThumbnail, onAddModu
           </Field>
           <Field label="Descripción">
             <textarea value={course.description ?? ''} onChange={(event) => onChange({ description: event.target.value || null })} className={inputClass} rows={5} />
+          </Field>
+          <Field label="Lo que aprenderás">
+            <LearningOutcomesEditor
+              outcomes={course.learningOutcomes}
+              onChange={(learningOutcomes) => onChange({ learningOutcomes })}
+            />
+          </Field>
+          <Field label="Slogan del certificado">
+            <input
+              value={course.certificateSlogan ?? ''}
+              onChange={(event) => onChange({ certificateSlogan: event.target.value || null })}
+              placeholder="Ej.: Especialización en definición y cuidado de rizos"
+              maxLength={100}
+              className={inputClass}
+            />
+            <p className="mt-1.5 text-xs text-white/45">
+              Aparece en el certificado. Obligatorio para publicar el curso como activo: sin él no se
+              puede emitir el certificado cuando alguien aprueba el examen final.
+            </p>
           </Field>
           <Field label="Miniatura del curso">
             <div className="space-y-4">
@@ -474,16 +518,80 @@ function ContentRow({ title, subtitle, onEdit }: { title: string; subtitle: stri
   return <button type="button" onClick={onEdit} className="flex w-full items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-left transition hover:border-ap-copper/40 hover:bg-white/[0.07]"><span><span className="font-semibold text-white">{title}</span><span className="mt-1 block text-sm text-white/45">{subtitle}</span></span><span className="shrink-0 text-sm font-medium text-ap-copper">Editar →</span></button>
 }
 
-function ModulePanel({ module, courseId, expandedLessonId, onExpandLesson, onChange, onAddLesson, onUpdateLesson, onDeleteLesson }: { module: DraftModule; courseId: string; expandedLessonId: string | null; onExpandLesson: (id: string | null) => void; onChange: (change: Partial<DraftModule>) => void; onAddLesson: () => void; onUpdateLesson: (lessonId: string, change: Partial<DraftLesson>) => void; onDeleteLesson: (lessonId: string) => void }) {
-  return <div className="space-y-7"><section className={cardClass}><div className="grid gap-5"><Field label="Título"><input value={module.title} onChange={(event) => onChange({ title: event.target.value })} className={inputClass} /></Field><Field label="Descripción"><textarea value={module.description ?? ''} onChange={(event) => onChange({ description: event.target.value || null })} className={inputClass} rows={4} /></Field><VideoUploadField courseId={courseId} label="Video del módulo" value={module.videoFileUrl} onChange={(videoFileUrl) => onChange({ videoFileUrl })} /></div></section><LessonCollection lessons={module.lessons} courseId={courseId} expandedLessonId={expandedLessonId} onExpandLesson={onExpandLesson} onAddLesson={onAddLesson} onUpdateLesson={onUpdateLesson} onDeleteLesson={onDeleteLesson} /></div>
+function ModulePanel({ module, courseId, onChange }: { module: DraftModule; courseId: string; onChange: (change: Partial<DraftModule>) => void }) {
+  const moduleBaseUrl = `/admin/courses/${courseId}/modules/${module.id}`
+  return <div className="space-y-7"><section className={cardClass}><div className="grid gap-5"><Field label="Título"><input value={module.title} onChange={(event) => onChange({ title: event.target.value })} className={inputClass} /></Field><Field label="Descripción"><textarea value={module.description ?? ''} onChange={(event) => onChange({ description: event.target.value || null })} className={inputClass} rows={4} /></Field><VideoUploadField courseId={courseId} label="Video del módulo" value={module.videoFileUrl} onChange={(videoFileUrl) => onChange({ videoFileUrl })} /><PresentationImageUploadField label="Imagen o banner de presentación (opcional)" value={module.bannerImageUrl} onChange={(bannerImageUrl) => onChange({ bannerImageUrl })} /></div></section><LessonCollection lessons={module.lessons} parentKind="module" parentId={module.id} lessonBaseUrl={moduleBaseUrl} onChange={(lessons) => onChange({ lessons })} /><LearningContentManager scope="MODULE" scopeId={module.id ?? module.clientId} courseId={courseId} /></div>
 }
 
-function StylePanel({ style, courseId, expandedLessonId, onExpandLesson, onChange, onAddLesson, onUpdateLesson, onDeleteLesson }: { style: DraftStyle; courseId: string; expandedLessonId: string | null; onExpandLesson: (id: string | null) => void; onChange: (change: Partial<DraftStyle>) => void; onAddLesson: () => void; onUpdateLesson: (lessonId: string, change: Partial<DraftLesson>) => void; onDeleteLesson: (lessonId: string) => void }) {
-  return <div className="space-y-7"><section className={cardClass}><div className="grid gap-5"><Field label="Nombre del estilo"><input value={style.name} onChange={(event) => onChange({ name: event.target.value })} className={inputClass} /></Field><Field label="Descripción"><textarea value={style.description ?? ''} onChange={(event) => onChange({ description: event.target.value || null })} className={inputClass} rows={4} /></Field><label className="flex w-fit items-center gap-2 text-sm text-white/75"><input type="checkbox" checked={style.isActive} onChange={(event) => onChange({ isActive: event.target.checked })} /> Estilo activo al publicar</label></div></section><LessonCollection lessons={style.lessons} courseId={courseId} expandedLessonId={expandedLessonId} onExpandLesson={onExpandLesson} onAddLesson={onAddLesson} onUpdateLesson={onUpdateLesson} onDeleteLesson={onDeleteLesson} /></div>
+function StylePanel({ style, courseId, onChange }: { style: DraftStyle; courseId: string; onChange: (change: Partial<DraftStyle>) => void }) {
+  const styleBaseUrl = `/admin/courses/${courseId}/styles/${style.id}`
+  return <div className="space-y-7"><section className={cardClass}><div className="grid gap-5"><Field label="Nombre del estilo"><input value={style.name} onChange={(event) => onChange({ name: event.target.value })} className={inputClass} /></Field><Field label="Descripción"><textarea value={style.description ?? ''} onChange={(event) => onChange({ description: event.target.value || null })} className={inputClass} rows={4} /></Field><VideoUploadField courseId={courseId} label="Video del estilo (opcional)" value={style.videoFileUrl} onChange={(videoFileUrl) => onChange({ videoFileUrl })} /><PresentationImageUploadField label="Imagen o banner de presentación (opcional)" value={style.bannerImageUrl} onChange={(bannerImageUrl) => onChange({ bannerImageUrl })} /><label className="flex w-fit items-center gap-2 text-sm text-white/75"><input type="checkbox" checked={style.isActive} onChange={(event) => onChange({ isActive: event.target.checked })} /> Estilo activo al publicar</label></div></section><LessonCollection lessons={style.lessons} parentKind="style" parentId={style.id} lessonBaseUrl={styleBaseUrl} onChange={(lessons) => onChange({ lessons })} /><LearningContentManager scope="STYLE" scopeId={style.id ?? style.clientId} courseId={courseId} /></div>
 }
 
-function LessonCollection({ lessons, courseId, expandedLessonId, onExpandLesson, onAddLesson, onUpdateLesson, onDeleteLesson }: { lessons: DraftLesson[]; courseId: string; expandedLessonId: string | null; onExpandLesson: (id: string | null) => void; onAddLesson: () => void; onUpdateLesson: (lessonId: string, change: Partial<DraftLesson>) => void; onDeleteLesson: (lessonId: string) => void }) {
-  return <section className={cardClass}><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-white">Lecciones</h2><p className="mt-1 text-sm text-white/50">Abrí una lección para cargar su video y completar el contenido.</p></div><button type="button" onClick={onAddLesson} className="rounded-xl bg-ap-copper px-4 py-2 text-sm font-semibold text-white hover:brightness-110">+ Nueva lección</button></div><div className="mt-5 space-y-3">{lessons.length === 0 ? <p className="rounded-xl border border-dashed border-white/20 px-4 py-6 text-sm text-white/45">Todavía no hay lecciones.</p> : lessons.map((lesson) => { const lessonId = draftRouteId(lesson); const expanded = expandedLessonId === lessonId; return <article key={lesson.clientId} className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"><div className="flex items-center justify-between gap-3 px-4 py-4"><button type="button" onClick={() => onExpandLesson(expanded ? null : lessonId)} className="min-w-0 text-left"><span className="font-semibold text-white">{lesson.order + 1}. {lesson.title}</span><span className="mt-1 block truncate text-sm text-white/45">{lesson.videoFileUrl ? 'Video agregado' : lesson.description || 'Sin descripción'}</span></button><div className="flex shrink-0 items-center gap-3"><button type="button" onClick={() => onExpandLesson(expanded ? null : lessonId)} className="text-sm text-ap-copper">{expanded ? 'Cerrar' : 'Editar'}</button><button type="button" onClick={() => onDeleteLesson(lessonId)} className="text-sm text-red-300 hover:text-red-200">Eliminar</button></div></div>{expanded ? <div className="space-y-5 border-t border-white/10 px-4 py-5"><Field label="Título"><input value={lesson.title} onChange={(event) => onUpdateLesson(lessonId, { title: event.target.value })} className={inputClass} /></Field><Field label="Descripción"><textarea value={lesson.description ?? ''} onChange={(event) => onUpdateLesson(lessonId, { description: event.target.value || null })} className={inputClass} rows={3} /></Field><VideoUploadField courseId={courseId} label="Video de la lección" value={lesson.videoFileUrl} onChange={(videoFileUrl) => onUpdateLesson(lessonId, { videoFileUrl })} /></div> : null}</article>})}</div></section>
+function LessonCollection({ lessons, parentKind, parentId, lessonBaseUrl, onChange }: { lessons: DraftLesson[]; parentKind: 'module' | 'style'; parentId?: string; lessonBaseUrl: string; onChange: (lessons: DraftLesson[]) => void }) {
+  const router = useRouter()
+  const [draggedLessonId, setDraggedLessonId] = useState<string | null>(null)
+  const [reordering, setReordering] = useState(false)
+  const directParentId = parentId && !parentId.startsWith('draft:') ? parentId : null
+  const endpoint = directParentId ? `/api/admin/${parentKind === 'module' ? 'modules' : 'styles'}/${directParentId}/lessons` : null
+  const orderedLessons = [...lessons].sort((left, right) => left.order - right.order)
+
+  const lessonUrl = (lesson: DraftLesson) => `${lessonBaseUrl}/lessons/${lesson.id}/edit`
+
+  async function updateOrder(lessonId: string, order: number) {
+    if (!endpoint) throw new Error('Guardá primero el contenedor de la lección.')
+    const response = await fetch(`${endpoint}/${lessonId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ order }) })
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok || !body.success) throw new Error(typeof body.error === 'string' ? body.error : 'No se pudo guardar el orden de las lecciones.')
+  }
+
+  async function persistContiguousOrder(next: DraftLesson[]) {
+    if (next.some((lesson) => !lesson.id || lesson.id.startsWith('draft:'))) {
+      throw new Error('Las lecciones del borrador se ordenan al publicarlo.')
+    }
+    await Promise.all(next.map((lesson, index) => updateOrder(lesson.id!, 1_000_000 + index)))
+    await Promise.all(next.map((lesson, index) => updateOrder(lesson.id!, index)))
+    return next.map((lesson, index) => ({ ...lesson, order: index }))
+  }
+
+  async function reorder(targetId: string) {
+    if (!draggedLessonId || draggedLessonId === targetId || reordering) return
+    const from = orderedLessons.findIndex((lesson) => lesson.id === draggedLessonId)
+    const to = orderedLessons.findIndex((lesson) => lesson.id === targetId)
+    if (from < 0 || to < 0 || !endpoint) return
+    const next = [...orderedLessons]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+
+    setReordering(true)
+    try {
+      onChange(await persistContiguousOrder(next))
+      toast.success('Orden de lecciones actualizado.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo guardar el orden de las lecciones.')
+    } finally {
+      setDraggedLessonId(null)
+      setReordering(false)
+    }
+  }
+
+  async function removeLesson(lesson: DraftLesson) {
+    if (!endpoint || !lesson.id || lesson.id.startsWith('draft:')) {
+      toast.error('Esta lección todavía no se puede eliminar mediante la API directa.')
+      return
+    }
+    try {
+      const response = await fetch(`${endpoint}/${lesson.id}`, { method: 'DELETE' })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok || !body.success) throw new Error(typeof body.error === 'string' ? body.error : 'No se pudo eliminar la lección.')
+      onChange(await persistContiguousOrder(orderedLessons.filter((item) => item.id !== lesson.id)))
+      toast.success('Lección eliminada.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo eliminar la lección.')
+    }
+  }
+
+  return <section className={cardClass}><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-xl font-semibold text-white">Lecciones</h2><p className="mt-1 text-sm text-white/50">Ordená el recorrido y abrí cada lección para editar su contenido.</p></div><button type="button" onClick={() => endpoint ? router.push(`${lessonBaseUrl}/lessons/new`) : toast.error('Guardá primero el contenedor para crear una lección.')} className="rounded-xl bg-ap-copper px-4 py-2 text-sm font-semibold text-white hover:brightness-110">+ Nueva lección</button></div><div className="mt-5 space-y-3">{orderedLessons.length === 0 ? <p className="rounded-xl border border-dashed border-white/20 px-4 py-6 text-sm text-white/45">Todavía no hay lecciones.</p> : orderedLessons.map((lesson) => { const canNavigate = Boolean(endpoint && lesson.id && !lesson.id.startsWith('draft:')); return <article key={lesson.clientId} draggable={canNavigate && !reordering} onDragStart={() => setDraggedLessonId(lesson.id ?? null)} onDragOver={(event) => event.preventDefault()} onDrop={() => void reorder(lesson.id ?? '')} onClick={() => canNavigate && router.push(lessonUrl(lesson))} className={`rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 transition ${canNavigate ? 'cursor-pointer hover:border-ap-copper/40 hover:bg-white/[0.07]' : 'opacity-70'}`}><div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-3"><span className="pt-0.5 text-lg leading-none text-white/30" aria-hidden="true">⋮⋮</span><div className="min-w-0"><span className="font-semibold text-white">{lesson.order + 1}. {lesson.title}</span><span className="mt-1 block truncate text-sm text-white/45">{lesson.videoFileUrl ? 'Video agregado' : lesson.description || 'Sin descripción'}</span></div></div><div className="flex shrink-0 items-center gap-3"><button type="button" onClick={(event) => { event.stopPropagation(); if (canNavigate) router.push(lessonUrl(lesson)) }} disabled={!canNavigate} className="text-sm text-ap-copper disabled:opacity-40">Editar</button><button type="button" onClick={(event) => { event.stopPropagation(); void removeLesson(lesson) }} disabled={!canNavigate} className="text-sm text-red-300 hover:text-red-200 disabled:opacity-40">Eliminar</button></div></div></article> })}</div></section>
 }
 
 function VideoUploadField({ courseId, label, value, onChange }: { courseId: string; label: string; value: string | null; onChange: (url: string | null) => void }) {

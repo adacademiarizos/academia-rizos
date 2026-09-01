@@ -3,6 +3,11 @@
 import { useRef, useState } from 'react'
 import { UploadFeedbackCard } from './UploadFeedbackCard'
 import type { UploadFeedbackStatus } from '@/lib/upload-feedback'
+import {
+  assertValidUploadFileSize,
+  buildUploadRequestMetadata,
+  type LearningUploadScope,
+} from '@/lib/upload-contract'
 
 interface FileUploadProgressProps {
   onUploadComplete: (file: UploadedFile) => void
@@ -10,6 +15,9 @@ interface FileUploadProgressProps {
   moduleId?: string
   lessonId?: string
   courseId?: string
+  deferPersistence?: boolean
+  learningScope?: LearningUploadScope
+  learningScopeId?: string
   accept?: string
   maxSize?: number
 }
@@ -34,6 +42,9 @@ export default function FileUploadProgress({
   moduleId,
   lessonId,
   courseId,
+  deferPersistence,
+  learningScope,
+  learningScopeId,
   accept,
   maxSize,
 }: FileUploadProgressProps) {
@@ -64,6 +75,14 @@ export default function FileUploadProgress({
 
   function handleFileSelect(file: File) {
     setError(null)
+    try {
+      assertValidUploadFileSize(uploadType, file.size)
+    } catch (validationError) {
+      setStatus('error')
+      setSelectedFile(null)
+      setError(validationError instanceof Error ? validationError.message : 'El tamaño del archivo no es válido.')
+      return
+    }
     if (file.size > effectiveMaxSize * MB) {
       setStatus('error')
       setSelectedFile(null)
@@ -75,6 +94,7 @@ export default function FileUploadProgress({
     setTotal(file.size)
     setStartedAt(undefined)
     setStatus('ready')
+    void handleUpload(file)
   }
 
   function handleInputChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -82,30 +102,31 @@ export default function FileUploadProgress({
     if (file) handleFileSelect(file)
   }
 
-  async function handleUpload() {
-    if (!selectedFile || isUploading) return
+  async function handleUpload(fileToUpload = selectedFile) {
+    if (!fileToUpload || isUploading) return
 
     const controller = new AbortController()
     controllerRef.current = controller
     setError(null)
     setLoaded(0)
-    setTotal(selectedFile.size)
+    setTotal(fileToUpload.size)
     setStartedAt(Date.now())
     setStatus('preparing')
 
     try {
+      const uploadMetadata = buildUploadRequestMetadata(fileToUpload, {
+        uploadType,
+        moduleId,
+        lessonId,
+        courseId,
+        deferPersistence,
+        learningScope,
+        learningScopeId,
+      })
       const presignedRes = await fetch('/api/uploads/presigned', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contentType: selectedFile.type,
-          fileSize: selectedFile.size,
-          uploadType,
-          moduleId,
-          lessonId,
-          courseId,
-          fileName: selectedFile.name,
-        }),
+        body: JSON.stringify(uploadMetadata),
         signal: controller.signal,
       })
 
@@ -118,7 +139,7 @@ export default function FileUploadProgress({
         const request = new XMLHttpRequest()
         activeRequestRef.current = request
         request.open('PUT', presignedUrl)
-        request.setRequestHeader('Content-Type', selectedFile.type)
+        request.setRequestHeader('Content-Type', fileToUpload.type)
         request.upload.onprogress = (event) => {
           if (event.lengthComputable) {
             setLoaded(event.loaded)
@@ -132,7 +153,7 @@ export default function FileUploadProgress({
         }
         request.onerror = () => { activeRequestRef.current = null; reject(new Error('Se perdió la conexión durante la carga.')) }
         request.onabort = () => { activeRequestRef.current = null; reject(new DOMException('Carga cancelada.', 'AbortError')) }
-        request.send(selectedFile)
+        request.send(fileToUpload)
       })
 
       setStatus('saving')
@@ -140,22 +161,17 @@ export default function FileUploadProgress({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          ...uploadMetadata,
           fileUrl,
-          fileName: selectedFile.name,
-          fileSize: selectedFile.size,
-          mimeType: selectedFile.type,
-          uploadType,
-          moduleId,
-          lessonId,
-          courseId,
+          mimeType: fileToUpload.type,
         }),
         signal: controller.signal,
       })
       const confirmPayload = await confirmRes.json().catch(() => ({}))
       if (!confirmRes.ok) throw new Error(confirmPayload.error || 'No se pudo guardar el archivo.')
 
-      setLoaded(selectedFile.size)
-      setTotal(selectedFile.size)
+      setLoaded(fileToUpload.size)
+      setTotal(fileToUpload.size)
       setStatus('complete')
       onUploadComplete(confirmPayload.data)
     } catch (uploadError) {
@@ -186,7 +202,7 @@ export default function FileUploadProgress({
         const file = event.dataTransfer.files?.[0]
         if (file && !isUploading) handleFileSelect(file)
       }}
-      className={`rounded-2xl border border-dashed p-6 text-center transition-colors ${isDragging ? 'border-ap-copper bg-ap-copper/5' : 'border-white/20 bg-white/[0.03] hover:border-white/35'}`}
+      className={`${isUploading ? 'hidden' : ''} rounded-2xl border border-dashed p-6 text-center transition-colors ${isDragging ? 'border-ap-copper bg-ap-copper/5' : 'border-white/20 bg-white/[0.03] hover:border-white/35'}`}
     >
       <input ref={fileInputRef} type="file" accept={effectiveAccept} onChange={handleInputChange} className="sr-only" id={`file-upload-${uploadType}-${moduleId ?? courseId ?? 'new'}`} disabled={isUploading} />
       <label htmlFor={`file-upload-${uploadType}-${moduleId ?? courseId ?? 'new'}`} className={`block ${isUploading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>

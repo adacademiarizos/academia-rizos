@@ -6,10 +6,10 @@ import { AcademyAssessmentError, markLessonComplete } from '@/server/services/ac
 export async function POST(_: Request, { params }: { params: Promise<{ lessonId: string }> }) {
   try {
     const { lessonId } = await params
-    const lesson = await db.lesson.findUnique({ where: { id: lessonId }, select: { module: { select: { courseId: true } } } })
+    const lesson = await db.lesson.findUnique({ where: { id: lessonId }, select: { courseId: true } })
     if (!lesson) return NextResponse.json({ success: false, error: 'La lección no existe.' }, { status: 404 })
 
-    const access = await authorizeCourseAccessByCourseId(lesson.module.courseId, { requireActiveAccess: true })
+    const access = await authorizeCourseAccessByCourseId(lesson.courseId, { requireActiveAccess: true })
     if (!access.ok) return toAccessDeniedResponse(access)
 
     const result = await markLessonComplete(access.user.id, lessonId)

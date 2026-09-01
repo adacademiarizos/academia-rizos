@@ -5,17 +5,6 @@ CREATE TYPE "FinalExamQuestionType" AS ENUM ('WRITTEN', 'PHOTO', 'VIDEO');
 CREATE TYPE "FinalExamAttemptStatus" AS ENUM ('PENDING_REVIEW', 'APPROVED', 'NOT_PASSED');
 
 -- CreateTable
-CREATE TABLE "LessonProgress" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "lessonId" TEXT NOT NULL,
-    "completedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT "LessonProgress_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "LessonTest" (
     "id" TEXT NOT NULL,
     "lessonId" TEXT NOT NULL,
@@ -142,15 +131,6 @@ CREATE TABLE "FinalExamRevalidation" (
 );
 
 -- CreateIndex
-CREATE INDEX "LessonProgress_lessonId_idx" ON "LessonProgress"("lessonId");
-
--- CreateIndex
-CREATE INDEX "LessonProgress_userId_idx" ON "LessonProgress"("userId");
-
--- CreateIndex
-CREATE UNIQUE INDEX "LessonProgress_userId_lessonId_key" ON "LessonProgress"("userId", "lessonId");
-
--- CreateIndex
 CREATE INDEX "LessonTest_lessonId_order_idx" ON "LessonTest"("lessonId", "order");
 
 -- CreateIndex
@@ -197,12 +177,6 @@ CREATE INDEX "FinalExamRevalidation_finalExamId_userId_idx" ON "FinalExamRevalid
 
 -- CreateIndex
 CREATE INDEX "FinalExamRevalidation_grantedById_idx" ON "FinalExamRevalidation"("grantedById");
-
--- AddForeignKey
-ALTER TABLE "LessonProgress" ADD CONSTRAINT "LessonProgress_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "LessonProgress" ADD CONSTRAINT "LessonProgress_lessonId_fkey" FOREIGN KEY ("lessonId") REFERENCES "Lesson"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "LessonTest" ADD CONSTRAINT "LessonTest_lessonId_fkey" FOREIGN KEY ("lessonId") REFERENCES "Lesson"("id") ON DELETE CASCADE ON UPDATE CASCADE;

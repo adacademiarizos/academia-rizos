@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { checkAdminAuth } from '@/lib/admin-auth'
+import { lessonAuthoringSelect } from '@/lib/academy-content-selects'
 import { db } from '@/lib/db'
 
 const UpdateLessonSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
   videoFileUrl: z.string().optional().nullable(),
+  transcript: z.string().optional().nullable(),
   order: z.number().int().min(0).optional(),
 })
 
@@ -38,8 +40,10 @@ export async function PUT(
         ...(data.title !== undefined && { title: data.title }),
         ...(data.description !== undefined && { description: data.description }),
         ...(data.videoFileUrl !== undefined && { videoFileUrl: data.videoFileUrl }),
+        ...(data.transcript !== undefined && { transcript: data.transcript }),
         ...(data.order !== undefined && { order: data.order }),
       },
+      select: lessonAuthoringSelect,
     })
 
     return NextResponse.json({ success: true, data: updated })
@@ -78,7 +82,7 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: 'Lesson not found' }, { status: 404 })
     }
 
-    await db.lesson.delete({ where: { id: lessonId } })
+    await db.lesson.delete({ where: { id: lessonId }, select: { id: true } })
 
     return NextResponse.json({ success: true })
   } catch (error) {

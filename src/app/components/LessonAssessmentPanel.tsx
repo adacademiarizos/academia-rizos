@@ -29,10 +29,12 @@ type LessonAssessmentData = {
   tests: LessonTest[]
 }
 
-export function LessonAssessmentPanel({ lessonId }: { lessonId: string }) {
+export function LessonAssessmentPanel({ lessonId, onCompleted }: { lessonId: string; onCompleted?: () => void }) {
   const [data, setData] = useState<LessonAssessmentData | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [submittingTestId, setSubmittingTestId] = useState<string | null>(null)
+  // Collapsed by default: a wall of open forms hides everything else on the page.
+  const [openTestId, setOpenTestId] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,6 +60,8 @@ export function LessonAssessmentPanel({ lessonId }: { lessonId: string }) {
       const payload = await response.json()
       if (!response.ok) throw new Error(payload.error || 'No fue posible completar la lección.')
       await load()
+      // Lets the player tick this lesson in its sidebar without a full reload.
+      onCompleted?.()
     } catch (completionError) {
       setError(completionError instanceof Error ? completionError.message : 'No fue posible completar la lección.')
     } finally {
@@ -83,6 +87,9 @@ export function LessonAssessmentPanel({ lessonId }: { lessonId: string }) {
       const payload = await response.json()
       if (!response.ok) throw new Error(payload.error || 'No fue posible enviar el test.')
       setAnswers({})
+      // Collapse again so the result is what the student sees next, not the
+      // form they just filled in.
+      setOpenTestId(null)
       await load()
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'No fue posible enviar el test.')
@@ -124,9 +131,37 @@ export function LessonAssessmentPanel({ lessonId }: { lessonId: string }) {
             </span>
           </div>
 
-          {test.latestSubmission && !test.isPassed && <p className="text-sm text-zinc-400">Última nota: {Math.round(test.latestSubmission.score)}%. Necesitas {test.passingScore}%.</p>}
+          {/* Passing and failing get the same visual weight: a plain grey line
+              for a failed attempt reads as a footnote, not as a result. */}
+          {test.latestSubmission && (
+            <div className={`rounded-xl border p-4 ${test.isPassed ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-red-500/30 bg-red-500/10'}`}>
+              <div className="flex flex-wrap items-center gap-2">
+                <span aria-hidden="true" className={`text-lg ${test.isPassed ? 'text-emerald-300' : 'text-red-300'}`}>{test.isPassed ? '✓' : '✕'}</span>
+                <p className={`font-semibold ${test.isPassed ? 'text-emerald-300' : 'text-red-300'}`}>
+                  {test.isPassed ? 'Aprobaste este test' : 'No alcanzaste la nota mínima'}
+                </p>
+                <span className={`ml-auto rounded-full bg-black/25 px-3 py-1 text-sm font-bold ${test.isPassed ? 'text-emerald-300' : 'text-red-300'}`}>
+                  {Math.round(test.latestSubmission.score)}%
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-zinc-400">
+                Nota mínima requerida: {test.passingScore}%
+                {!test.isPassed && test.attemptsRemaining > 0 && ` · Te ${test.attemptsRemaining === 1 ? 'queda 1 intento' : `quedan ${test.attemptsRemaining} intentos`}`}
+              </p>
+            </div>
+          )}
 
           {!test.isPassed && test.canSubmit && (
+            <button
+              type="button"
+              onClick={() => { setOpenTestId((current) => current === test.id ? null : test.id); setAnswers({}); setError(null) }}
+              className="w-full rounded-lg border border-ap-copper/50 px-4 py-2 text-sm font-semibold text-ap-copper transition hover:bg-ap-copper/10"
+            >
+              {openTestId === test.id ? 'Cerrar' : test.latestSubmission ? 'Volver a intentar' : 'Comenzar test'}
+            </button>
+          )}
+
+          {!test.isPassed && test.canSubmit && openTestId === test.id && (
             <div className="space-y-4">
               {test.questions.map((question, index) => (
                 <fieldset key={question.id} className="space-y-2">

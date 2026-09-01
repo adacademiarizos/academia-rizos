@@ -127,6 +127,7 @@ export class CourseService {
       id: course.id,
       title: course.title,
       description: course.description,
+      learningOutcomes: course.learningOutcomes,
       trailerUrl: course.trailerUrl,
       thumbnailUrl: course.thumbnailUrl,
       priceCents: course.priceCents,
@@ -185,25 +186,33 @@ export class CourseService {
         title: true,
         description: true,
         videoFileUrl: true,
+        lessons: { where: { styleId: null }, select: { id: true } },
       },
       orderBy: { order: 'asc' },
     })
 
     if (!userId) {
-      return modules
+      return modules.map(({ lessons, ...module }) => {
+        void lessons
+        return module
+      })
     }
 
-    // Get progress for user
-    const progress = await db.moduleProgress.findMany({
-      where: { userId },
-      select: { moduleId: true, completed: true },
+    // Derived from LessonProgress, the same source the styles use and the same
+    // one that gates the final exam. Reading the separate ModuleProgress table
+    // let a module show as completed while every lesson in it was still
+    // pending, so the course page and the exam gate disagreed.
+    const progress = await db.lessonProgress.findMany({
+      where: { userId, lesson: { courseId, moduleId: { not: null } } },
+      select: { lessonId: true, completed: true },
     })
+    const completedLessonIds = new Set(
+      progress.filter((item) => item.completed).map((item) => item.lessonId)
+    )
 
-    const progressMap = new Map(progress.map((p) => [p.moduleId, p.completed]))
-
-    return modules.map((module) => ({
+    return modules.map(({ lessons, ...module }) => ({
       ...module,
-      completed: progressMap.get(module.id) || false,
+      completed: lessons.length > 0 && lessons.every((lesson) => completedLessonIds.has(lesson.id)),
     }))
   }
 

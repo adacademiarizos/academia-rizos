@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { slugifyStyleName } from '@/lib/academy-content'
 import { db } from '@/lib/db'
+import { getCoursePublicationError, normalizeCertificateSlogan } from '@/validators/course.schema'
 
 export const COURSE_DRAFT_SCHEMA_VERSION = 3
 
@@ -28,6 +29,7 @@ const ModuleDraftSchema = z.object({
   title: z.string().trim().min(1),
   description: NullableText,
   videoFileUrl: NullableText,
+  bannerImageUrl: NullableText,
   lessons: z.array(LessonDraftSchema),
 })
 
@@ -37,6 +39,8 @@ const StyleDraftSchema = z.object({
   order: z.number().int().min(0),
   name: z.string().trim().min(1),
   description: NullableText,
+  videoFileUrl: NullableText,
+  bannerImageUrl: NullableText,
   isActive: z.boolean(),
   lessons: z.array(LessonDraftSchema),
 })
@@ -44,6 +48,11 @@ const StyleDraftSchema = z.object({
 const CourseDetailsDraftSchema = z.object({
   title: z.string().trim().min(1),
   description: NullableText,
+  // Defaulted rather than required so drafts saved before these fields existed
+  // still parse against the current schema version.
+  learningOutcomes: z.array(z.string()).default([]),
+  // Required to issue certificates, so an active course cannot publish without it.
+  certificateSlogan: z.string().nullable().default(null),
   trailerUrl: NullableText,
   thumbnailUrl: NullableText,
   priceCents: z.number().int().min(0),
@@ -100,7 +109,6 @@ const editorInclude = {
     include: { lessons: { orderBy: { order: 'asc' as const } } },
   },
 }
-
 type PublishedCourse = Prisma.CourseGetPayload<{ include: typeof editorInclude }>
 
 function persistedClientId(id: string) {
@@ -134,6 +142,7 @@ function toDraftModule(module: PublishedCourse['modules'][number]): DraftModule 
     title: module.title,
     description: module.description,
     videoFileUrl: module.videoFileUrl,
+    bannerImageUrl: module.bannerImageUrl,
     lessons: module.lessons
       .filter((lesson) => lesson.styleId === null)
       .map(toDraftLesson),
@@ -147,6 +156,8 @@ function toDraftStyle(style: PublishedCourse['styles'][number]): DraftStyle {
     order: style.order,
     name: style.name,
     description: style.description,
+    videoFileUrl: style.videoFileUrl,
+    bannerImageUrl: style.bannerImageUrl,
     isActive: style.isActive,
     lessons: style.lessons
       .filter((lesson) => lesson.moduleId === null)
@@ -165,6 +176,8 @@ export function buildPublishedCourseDraft(course: PublishedCourse): CourseDraftP
     course: {
       title: course.title,
       description: course.description,
+      learningOutcomes: course.learningOutcomes,
+      certificateSlogan: course.certificateSlogan,
       trailerUrl: course.trailerUrl,
       thumbnailUrl: course.thumbnailUrl,
       priceCents: course.priceCents,
@@ -187,6 +200,8 @@ function buildLegacyCourseDraft(course: PublishedCourse): CourseDraftPayload {
     course: {
       title: course.title,
       description: course.description,
+      learningOutcomes: course.learningOutcomes,
+      certificateSlogan: course.certificateSlogan,
       trailerUrl: course.trailerUrl,
       thumbnailUrl: course.thumbnailUrl,
       priceCents: course.priceCents,
@@ -201,6 +216,7 @@ function buildLegacyCourseDraft(course: PublishedCourse): CourseDraftPayload {
       title: module.title,
       description: module.description,
       videoFileUrl: module.videoFileUrl,
+      bannerImageUrl: module.bannerImageUrl,
       lessons: module.lessons.map(toDraftLesson),
     })),
     styles: [],
@@ -222,6 +238,7 @@ function migrateLegacyDraft(rawPayload: unknown, publishedCourse: PublishedCours
         title: module.title,
         description: module.description,
         videoFileUrl: module.videoFileUrl,
+        bannerImageUrl: null,
         lessons: module.lessons.map((lesson) => ({
           id: lesson.id,
           clientId: lesson.clientId,
@@ -238,6 +255,8 @@ function migrateLegacyDraft(rawPayload: unknown, publishedCourse: PublishedCours
         name: style.name,
         description: style.description,
         isActive: style.isActive,
+        videoFileUrl: null,
+        bannerImageUrl: null,
         lessons: style.modules.flatMap((module) => module.lessons).map((lesson, order) => ({
           id: lesson.id,
           clientId: lesson.clientId,
@@ -261,6 +280,7 @@ function migrateLegacyDraft(rawPayload: unknown, publishedCourse: PublishedCours
       title: module.title,
       description: module.description,
       videoFileUrl: module.videoFileUrl,
+      bannerImageUrl: module.bannerImageUrl,
       lessons: module.styles.flatMap((style) => style.lessons).map((lesson, order) => ({
         id: lesson.id,
         clientId: lesson.clientId,
@@ -376,9 +396,22 @@ export async function discardCourseDraft(courseId: string) {
   await db.courseDraft.deleteMany({ where: { courseId } })
 }
 
+// Publishing rewrites every module, style, and lesson of a course one statement
+// at a time, so a large course issues hundreds of sequential round trips inside a
+// single interactive transaction. Prisma's 5s default aborts those publications
+// against a remote database, silently losing the draft the admin just wrote.
+const PUBLISH_TRANSACTION_TIMEOUT_MS = 120_000
+const PUBLISH_TRANSACTION_MAX_WAIT_MS = 15_000
+
 export async function publishCourseDraft(courseId: string, rawPayload: unknown) {
   const payload = CourseDraftPayloadSchema.parse(rawPayload)
   validateDraft(payload)
+
+  // Only enforced on publish: a draft is work in progress and may legitimately
+  // be missing the slogan. An active course is one students can finish, and
+  // without a slogan their approved final exam would never yield a certificate.
+  const publicationError = getCoursePublicationError(payload.course.isActive, payload.course.certificateSlogan)
+  if (publicationError) throw new CourseDraftValidationError(publicationError)
 
   return db.$transaction(async (tx) => {
     const existing = await tx.course.findUnique({ where: { id: courseId }, select: { id: true, contentStructure: true } })
@@ -392,6 +425,10 @@ export async function publishCourseDraft(courseId: string, rawPayload: unknown) 
       data: {
         title: payload.course.title,
         description: cleanNullable(payload.course.description),
+        learningOutcomes: payload.course.learningOutcomes
+          .map((outcome) => outcome.trim())
+          .filter(Boolean),
+        certificateSlogan: normalizeCertificateSlogan(payload.course.certificateSlogan),
         trailerUrl: cleanNullable(payload.course.trailerUrl),
         thumbnailUrl: cleanNullable(payload.course.thumbnailUrl),
         priceCents: payload.course.priceCents,
@@ -405,6 +442,9 @@ export async function publishCourseDraft(courseId: string, rawPayload: unknown) 
     await syncCourseStyles(tx, courseId, payload.styles)
     await tx.courseDraft.deleteMany({ where: { courseId } })
     return tx.course.findUnique({ where: { id: courseId } })
+  }, {
+    maxWait: PUBLISH_TRANSACTION_MAX_WAIT_MS,
+    timeout: PUBLISH_TRANSACTION_TIMEOUT_MS,
   })
 }
 
@@ -425,6 +465,7 @@ async function syncCourseModules(tx: Prisma.TransactionClient, courseId: string,
       title: moduleDraft.title,
       description: cleanNullable(moduleDraft.description),
       videoFileUrl: cleanNullable(moduleDraft.videoFileUrl),
+      bannerImageUrl: cleanNullable(moduleDraft.bannerImageUrl),
       styleId: null,
     }
     const record = moduleDraft.id
@@ -456,6 +497,8 @@ async function syncCourseStyles(tx: Prisma.TransactionClient, courseId: string, 
       slug: slugifyStyleName(style.name),
       description: cleanNullable(style.description),
       isActive: style.isActive,
+      videoFileUrl: cleanNullable(style.videoFileUrl),
+      bannerImageUrl: cleanNullable(style.bannerImageUrl),
     }
     const record = style.id
       ? await tx.moduleStyle.update({ where: { id: style.id }, data })

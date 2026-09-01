@@ -9,6 +9,8 @@ const CreateStyleSchema = z.object({
   description: z.string().trim().optional().nullable(),
   order: z.number().int().min(0).optional(),
   isActive: z.boolean().optional(),
+  videoFileUrl: z.string().url().optional().or(z.literal('')),
+  bannerImageUrl: z.string().url().optional().or(z.literal('')),
 })
 
 async function getUniqueStyleSlug(courseId: string, name: string) {
@@ -36,7 +38,15 @@ export async function GET(_: NextRequest, { params }: { params: Promise<{ course
     const styles = await db.moduleStyle.findMany({
       where: { courseId },
       orderBy: { order: 'asc' },
-      include: { lessons: { orderBy: { order: 'asc' } } },
+      select: {
+        id: true, courseId: true, order: true, name: true, slug: true, description: true, isActive: true,
+        videoFileUrl: true,
+      bannerImageUrl: true, createdAt: true, updatedAt: true,
+        lessons: { where: { styleId: { not: null } }, orderBy: { order: 'asc' }, select: {
+          id: true, moduleId: true, styleId: true, order: true, title: true, description: true,
+          videoFileUrl: true,
+        } },
+      },
     })
     return NextResponse.json({ success: true, data: styles })
   } catch (error) {
@@ -63,6 +73,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         description: input.description || null,
         order: input.order ?? await getNextStyleOrder(courseId),
         isActive: input.isActive ?? true,
+        videoFileUrl: input.videoFileUrl || null,
+        bannerImageUrl: input.bannerImageUrl || null,
       },
     })
     return NextResponse.json({ success: true, data: style }, { status: 201 })

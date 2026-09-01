@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { authorizeCourseAccessByCourseId, toAccessDeniedResponse } from '@/lib/course-access-control'
 import { db } from '@/lib/db'
 import { LearningContentError, resolveScopeTarget, type ScopeRef } from '@/server/services/learning-content-service'
+import { RESOURCE_MAX_BYTES } from '@/lib/upload-contract'
 
 export const scopeSchema = z.enum(['COURSE', 'MODULE', 'STYLE', 'LESSON'])
 
@@ -11,7 +12,7 @@ export const resourceSchema = z.object({
   title: z.string().trim().min(1).max(200),
   fileUrl: z.string().trim().url().max(4000),
   fileType: z.string().trim().min(1).max(100),
-  fileSize: z.number().int().min(0),
+  fileSize: z.number().int().positive().max(RESOURCE_MAX_BYTES),
   order: z.number().int().min(0).optional(),
 })
 

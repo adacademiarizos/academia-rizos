@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import FileUploadProgress from '@/app/components/FileUploadProgress'
 import { LearningContentManager } from './LearningContentManager'
+import { toast } from 'sonner'
 
 type Lesson = {
   id: string
@@ -31,6 +33,7 @@ const emptyLessonForm: LessonForm = { title: '', description: '', videoUrl: '', 
 const fieldClassName = 'w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/40 outline-none transition focus:border-ap-copper/50'
 
 export function CourseStylesManager({ courseId }: { courseId: string }) {
+  const router = useRouter()
   const [styles, setStyles] = useState<CourseStyle[]>([])
   const [showStyleForm, setShowStyleForm] = useState(false)
   const [styleForm, setStyleForm] = useState<StyleForm>(emptyStyleForm)
@@ -44,6 +47,7 @@ export function CourseStylesManager({ courseId }: { courseId: string }) {
   const [showLessonEditUpload, setShowLessonEditUpload] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [draggedStyleId, setDraggedStyleId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const response = await fetch(`/api/admin/courses/${courseId}/styles`)
@@ -53,7 +57,7 @@ export function CourseStylesManager({ courseId }: { courseId: string }) {
   }, [courseId])
 
   useEffect(() => {
-    void load().catch((error) => setMessage(error instanceof Error ? error.message : 'No se pudieron cargar los estilos.'))
+    void load().catch((error) => toast.error(error instanceof Error ? error.message : 'No se pudieron cargar los estilos.'))
   }, [load])
 
   const send = async (url: string, method: 'POST' | 'PUT' | 'DELETE', body?: unknown) => {
@@ -73,14 +77,14 @@ export function CourseStylesManager({ courseId }: { courseId: string }) {
       await work()
       await load()
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : fallback)
+      toast.error(error instanceof Error ? error.message : fallback)
     } finally {
       setSaving(false)
     }
   }
 
   const createStyle = () => {
-    if (!styleForm.name.trim()) return setMessage('Indica el nombre del estilo.')
+    if (!styleForm.name.trim()) return toast.error('Indica el nombre del estilo.')
     void withSave(async () => {
       await send(`/api/admin/courses/${courseId}/styles`, 'POST', styleForm)
       setStyleForm(emptyStyleForm)
@@ -89,7 +93,7 @@ export function CourseStylesManager({ courseId }: { courseId: string }) {
   }
 
   const saveStyle = (styleId: string) => {
-    if (!editingStyleForm.name.trim()) return setMessage('Indica el nombre del estilo.')
+    if (!editingStyleForm.name.trim()) return toast.error('Indica el nombre del estilo.')
     void withSave(async () => {
       await send(`/api/admin/courses/${courseId}/styles/${styleId}`, 'PUT', editingStyleForm)
       setEditingStyleId(null)
@@ -102,7 +106,7 @@ export function CourseStylesManager({ courseId }: { courseId: string }) {
   }
 
   const createLesson = (styleId: string) => {
-    if (!lessonForm.title.trim()) return setMessage('Indica el título de la lección.')
+    if (!lessonForm.title.trim()) return toast.error('Indica el título de la lección.')
     void withSave(async () => {
       await send(`/api/admin/styles/${styleId}/lessons`, 'POST', lessonForm)
       setLessonForm(emptyLessonForm)
@@ -112,7 +116,7 @@ export function CourseStylesManager({ courseId }: { courseId: string }) {
   }
 
   const saveLesson = (styleId: string, lessonId: string) => {
-    if (!editingLessonForm.title.trim()) return setMessage('Indica el título de la lección.')
+    if (!editingLessonForm.title.trim()) return toast.error('Indica el título de la lección.')
     void withSave(async () => {
       await send(`/api/admin/styles/${styleId}/lessons/${lessonId}`, 'PUT', editingLessonForm)
       setEditingLessonId(null)
@@ -126,8 +130,22 @@ export function CourseStylesManager({ courseId }: { courseId: string }) {
   }
 
   const startStyleEdit = (style: CourseStyle) => {
-    setEditingStyleId(style.id)
-    setEditingStyleForm({ name: style.name, description: style.description ?? '', isActive: style.isActive })
+    router.push(`/admin/courses/${courseId}/styles/${style.id}/edit`)
+  }
+
+  const reorderStyles = (targetId: string) => {
+    if (!draggedStyleId || draggedStyleId === targetId) return
+    const ordered = [...styles].sort((a, b) => a.order - b.order)
+    const from = ordered.findIndex((style) => style.id === draggedStyleId)
+    const to = ordered.findIndex((style) => style.id === targetId)
+    if (from < 0 || to < 0) return
+    const [moved] = ordered.splice(from, 1)
+    ordered.splice(to, 0, moved)
+    setStyles(ordered.map((style, index) => ({ ...style, order: index })))
+    void Promise.all(ordered.map((style, index) => send(`/api/admin/courses/${courseId}/styles/${style.id}`, 'PUT', { order: index + 1000 })))
+      .then(() => Promise.all(ordered.map((style, index) => send(`/api/admin/courses/${courseId}/styles/${style.id}`, 'PUT', { order: index }))))
+      .catch(() => toast.error('No se pudo guardar el orden de los estilos.'))
+      .finally(() => setDraggedStyleId(null))
   }
 
   const startLessonEdit = (lesson: Lesson) => {
@@ -148,14 +166,13 @@ export function CourseStylesManager({ courseId }: { courseId: string }) {
           <h2 className="text-xl font-semibold text-white">Estilos</h2>
           <p className="mt-1 text-sm text-white/45">Categorías independientes del curso con sus propias lecciones.</p>
         </div>
-        <button type="button" onClick={() => { setShowStyleForm((open) => !open); setStyleForm(emptyStyleForm); setMessage(null) }} className="rounded-xl bg-ap-copper px-4 py-2 text-sm font-medium text-white hover:bg-orange-700">
-          {showStyleForm ? 'Cancelar' : '+ Nuevo estilo'}
+        <button type="button" onClick={() => router.push(`/admin/courses/${courseId}/styles/new`)} className="rounded-xl bg-ap-copper px-4 py-2 text-sm font-medium text-white hover:bg-orange-700">
+          + Nuevo estilo
         </button>
       </div>
 
-      {message && <p className="mt-4 text-sm text-ap-copper" role="status">{message}</p>}
 
-      {showStyleForm && (
+      {false && showStyleForm && (
         <div className="mt-5 space-y-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
           <input value={styleForm.name} onChange={(event) => setStyleForm((form) => ({ ...form, name: event.target.value }))} placeholder="Nombre del estilo" className={fieldClassName} autoFocus />
           <textarea value={styleForm.description} onChange={(event) => setStyleForm((form) => ({ ...form, description: event.target.value }))} placeholder="Descripción (opcional)" rows={2} className={`${fieldClassName} resize-y`} />
@@ -167,7 +184,7 @@ export function CourseStylesManager({ courseId }: { courseId: string }) {
       <div className="mt-5 space-y-4">
         {styles.length === 0 && <p className="rounded-xl border border-dashed border-white/15 px-4 py-6 text-sm text-white/45">Todavía no hay estilos en este curso.</p>}
         {styles.map((style) => (
-          <article key={style.id} className="rounded-2xl border border-white/10 bg-black/10 p-4">
+          <article key={style.id} draggable onClick={() => startStyleEdit(style)} onDragStart={() => setDraggedStyleId(style.id)} onDragOver={(event) => event.preventDefault()} onDrop={() => reorderStyles(style.id)} className="cursor-pointer rounded-2xl border border-white/10 bg-black/10 p-4 transition hover:border-ap-copper/40">
             {editingStyleId === style.id ? (
               <div className="space-y-3">
                 <input value={editingStyleForm.name} onChange={(event) => setEditingStyleForm((form) => ({ ...form, name: event.target.value }))} className={fieldClassName} autoFocus />
@@ -176,12 +193,12 @@ export function CourseStylesManager({ courseId }: { courseId: string }) {
                 <div className="flex justify-end gap-2"><button type="button" onClick={() => setEditingStyleId(null)} className="rounded-lg px-3 py-2 text-sm text-white/70 hover:bg-white/10">Cancelar</button><button type="button" disabled={saving} onClick={() => saveStyle(style.id)} className="rounded-lg bg-ap-copper px-3 py-2 text-sm font-medium text-white disabled:opacity-50">Guardar</button></div>
               </div>
             ) : (
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><div className="flex items-center gap-2"><h3 className="font-medium text-white">{style.name}</h3>{!style.isActive && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/50">Oculto</span>}<span className="rounded-full bg-ap-copper/10 px-2 py-0.5 text-[10px] text-ap-copper">{style.lessons.length} lección{style.lessons.length === 1 ? '' : 'es'}</span></div>{style.description && <p className="mt-1 text-sm text-white/45">{style.description}</p>}</div><div className="flex gap-3 text-xs"><button type="button" onClick={() => startStyleEdit(style)} className="text-ap-copper hover:text-orange-300">Editar</button><button type="button" onClick={() => deleteStyle(style)} className="text-red-400 hover:text-red-300">Eliminar</button></div></div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-start gap-3"><span className="pt-0.5 text-xl leading-none text-white/30">⋮⋮</span><div><div className="flex items-center gap-2"><span className="rounded-lg bg-ap-copper/10 px-2 py-1 text-sm font-bold text-ap-copper">Estilo {style.order}</span><h3 className="font-semibold text-white">{style.name}</h3>{!style.isActive && <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/50">Oculto</span>}</div>{style.description && <p className="mt-1 text-sm text-white/45">{style.description}</p>}</div></div><div className="flex gap-3 text-sm"><button type="button" onClick={(event) => { event.stopPropagation(); startStyleEdit(style) }} className="text-ap-copper hover:text-orange-300">Editar</button><button type="button" onClick={(event) => { event.stopPropagation(); deleteStyle(style) }} className="text-red-400 hover:text-red-300">Eliminar</button></div></div>
             )}
 
-            <div className="mt-4 border-t border-white/10 pt-4"><LearningContentManager scope="STYLE" scopeId={style.id} courseId={courseId} /></div>
+            {false && <LearningContentManager scope="STYLE" scopeId={style.id} courseId={courseId} />}
 
-            <div className="mt-4 border-t border-white/10 pt-4">
+            {false && <div>
               <div className="flex flex-wrap items-center justify-between gap-3"><h4 className="text-sm font-medium text-white/80">Lecciones del estilo</h4><button type="button" onClick={() => { setNewLessonStyleId((id) => id === style.id ? null : style.id); setLessonForm(emptyLessonForm); setShowLessonUpload(false) }} className="rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/15">{newLessonStyleId === style.id ? 'Cancelar' : '+ Nueva lección'}</button></div>
 
               {newLessonStyleId === style.id && <div className="mt-3 space-y-3 rounded-xl border border-white/10 bg-white/[0.04] p-3"><input value={lessonForm.title} onChange={(event) => setLessonForm((form) => ({ ...form, title: event.target.value }))} placeholder="Título de la lección" className={fieldClassName} autoFocus /><textarea value={lessonForm.description} onChange={(event) => setLessonForm((form) => ({ ...form, description: event.target.value }))} placeholder="Descripción (opcional)" rows={2} className={`${fieldClassName} resize-y`} />{lessonForm.videoUrl ? <div className="flex justify-between rounded-lg border border-green-500/30 bg-green-500/10 p-2 text-xs text-green-300"><span>Video listo</span><button type="button" onClick={() => setLessonForm((form) => ({ ...form, videoUrl: '' }))} className="text-red-300">Quitar</button></div> : (showLessonUpload ? <FileUploadProgress uploadType="video" lessonId="temp" onUploadComplete={(file) => { setLessonForm((form) => ({ ...form, videoUrl: file.fileUrl })); setShowLessonUpload(false) }} /> : <button type="button" onClick={() => setShowLessonUpload(true)} className="rounded-lg border border-ap-copper/50 px-3 py-2 text-xs text-ap-copper hover:bg-ap-copper/10">Subir video (opcional)</button>)}<div className="flex justify-end gap-2"><button type="button" onClick={() => setNewLessonStyleId(null)} className="rounded-lg px-3 py-2 text-sm text-white/70 hover:bg-white/10">Descartar</button><button type="button" disabled={saving} onClick={() => createLesson(style.id)} className="rounded-lg bg-ap-copper px-3 py-2 text-sm font-medium text-white disabled:opacity-50">Crear lección</button></div></div>}
@@ -205,7 +222,7 @@ export function CourseStylesManager({ courseId }: { courseId: string }) {
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
           </article>
         ))}
       </div>

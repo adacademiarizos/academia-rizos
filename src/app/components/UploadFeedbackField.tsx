@@ -72,10 +72,11 @@ export function UploadFeedbackField<T>({
     setTotal(nextFile.size)
     setStatus('ready')
     onFileSelected?.(nextFile)
+    void upload(nextFile)
   }
 
-  async function upload() {
-    if (!file) return
+  async function upload(fileToUpload = file) {
+    if (!fileToUpload) return
     setError(null)
     setStatus('preparing')
     const started = Date.now()
@@ -83,7 +84,7 @@ export function UploadFeedbackField<T>({
     try {
       const task = startFormDataUpload<unknown>({
         url: endpoint,
-        formData: createFormData(file),
+        formData: createFormData(fileToUpload),
         onProgress: (progress) => {
           setStatus('uploading')
           setLoaded(progress.loaded)
@@ -94,9 +95,9 @@ export function UploadFeedbackField<T>({
       const payload = await task.promise
       setStatus('saving')
       const result = getResult(payload)
-      onUploaded(result, file)
-      setLoaded(file.size)
-      setTotal(file.size)
+      onUploaded(result, fileToUpload)
+      setLoaded(fileToUpload.size)
+      setTotal(fileToUpload.size)
       setStatus('complete')
     } catch (uploadError) {
       if (uploadError instanceof DOMException && uploadError.name === 'AbortError') {
@@ -121,8 +122,10 @@ export function UploadFeedbackField<T>({
     if (inputRef.current) inputRef.current.value = ''
   }
 
+  const isUploading = status === 'preparing' || status === 'uploading' || status === 'saving'
+
   return <div className="space-y-3">
-    <div className="space-y-2">
+    <div className={`space-y-2 ${isUploading ? 'hidden' : ''}`}>
       <span className="text-sm font-medium text-white/75">{label}</span>
       <label htmlFor={inputId} className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-white/25 bg-white/[0.03] px-5 py-7 text-center transition hover:border-ap-copper/70 hover:bg-ap-copper/5 ${disabled ? 'pointer-events-none opacity-50' : ''}`}>
         <input ref={inputRef} id={inputId} type="file" accept={accept} className="sr-only" disabled={disabled || status === 'preparing' || status === 'uploading' || status === 'saving'} onChange={(event) => chooseFile(event.target.files?.[0])} />

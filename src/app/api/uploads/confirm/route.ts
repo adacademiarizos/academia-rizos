@@ -7,21 +7,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin-auth'
 import { db } from '@/lib/db'
+import {
+  assertValidUploadFileSize,
+  parseUploadType,
+  UploadContractError,
+} from '@/lib/upload-contract'
+import { assertDeferredResourceUploadTarget } from '@/server/services/resource-upload-contract-service'
 
 export async function POST(req: NextRequest) {
   const auth = await checkAdminAuth()
   if (!auth.authorized) return auth.response
 
   try {
-    const { fileUrl, fileName, fileSize, mimeType, uploadType, moduleId, lessonId, courseId, deferPersistence } =
+    const { fileUrl, fileName, fileSize, mimeType, uploadType: rawUploadType, moduleId, lessonId, courseId, deferPersistence, learningScope, learningScopeId } =
       await req.json()
 
-    if (!fileUrl || !uploadType) {
+    if (!fileUrl || !rawUploadType) {
       return NextResponse.json(
         { ok: false, error: 'fileUrl and uploadType are required' },
         { status: 400 }
       )
     }
+
+    const uploadType = parseUploadType(rawUploadType)
+    assertValidUploadFileSize(uploadType, fileSize)
+    await assertDeferredResourceUploadTarget({ deferPersistence, uploadType, courseId, learningScope, learningScopeId })
 
     // Determine DB file type label
     let fileType = 'other'
@@ -32,7 +42,7 @@ export async function POST(req: NextRequest) {
     else if (mimeType?.includes('sheet') || mimeType?.includes('spreadsheetml')) fileType = 'document'
 
     // Update DB
-    if (deferPersistence) {
+    if (deferPersistence === true) {
       // The unified learning-content API owns persistence for resources at any
       // hierarchy level. This preserves the direct-to-R2 upload path without
       // accidentally creating a legacy CourseResource/ModuleResource row.
@@ -81,6 +91,9 @@ export async function POST(req: NextRequest) {
       },
     })
   } catch (error) {
+    if (error instanceof UploadContractError) {
+      return NextResponse.json({ ok: false, error: error.message, code: error.code }, { status: error.status })
+    }
     console.error('[upload confirm] error:', error)
     return NextResponse.json(
       { ok: false, error: 'Failed to confirm upload' },

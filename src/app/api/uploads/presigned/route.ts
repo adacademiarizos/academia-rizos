@@ -12,15 +12,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkAdminAuth } from '@/lib/admin-auth'
 import { generateUploadPresignedUrl, StorageConfigurationError } from '@/lib/storage'
+import {
+  assertValidUploadFileSize,
+  parseUploadType,
+  UploadContractError,
+} from '@/lib/upload-contract'
+import { assertDeferredResourceUploadTarget } from '@/server/services/resource-upload-contract-service'
 import { nanoid } from 'nanoid'
-
-const GB = 1024 * 1024 * 1024
-const MB = 1024 * 1024
-
-const SIZE_LIMITS = {
-  video: 3 * GB,
-  resource: 100 * MB,
-}
 
 const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/mpeg']
 const ALLOWED_RESOURCE_TYPES = [
@@ -41,25 +39,19 @@ export async function POST(req: NextRequest) {
   if (!auth.authorized) return auth.response
 
   try {
-    const { contentType, fileSize, uploadType, moduleId, lessonId, courseId, fileName } =
+    const { contentType, fileSize, uploadType: rawUploadType, moduleId, lessonId, courseId, fileName, deferPersistence, learningScope, learningScopeId } =
       await req.json()
 
-    if (!contentType || !uploadType || !fileName) {
+    if (!contentType || !rawUploadType || !fileName) {
       return NextResponse.json(
         { ok: false, error: 'contentType, uploadType, and fileName are required' },
         { status: 400 }
       )
     }
 
-    // Validate file size
-    const sizeLimit = SIZE_LIMITS[uploadType as keyof typeof SIZE_LIMITS] ?? 100 * MB
-    if (fileSize && fileSize > sizeLimit) {
-      const limitLabel = uploadType === 'video' ? '3GB' : '100MB'
-      return NextResponse.json(
-        { ok: false, error: `El archivo es demasiado grande. Máximo ${limitLabel}` },
-        { status: 400 }
-      )
-    }
+    const uploadType = parseUploadType(rawUploadType)
+    assertValidUploadFileSize(uploadType, fileSize)
+    await assertDeferredResourceUploadTarget({ deferPersistence, uploadType, courseId, learningScope, learningScopeId })
 
     // Validate content type
     const allowedTypes = uploadType === 'video' ? ALLOWED_VIDEO_TYPES : ALLOWED_RESOURCE_TYPES
@@ -92,6 +84,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, data: { presignedUrl, fileUrl, key } })
   } catch (error) {
+    if (error instanceof UploadContractError) {
+      return NextResponse.json({ ok: false, error: error.message, code: error.code }, { status: error.status })
+    }
     console.error('[presigned upload] error:', error)
     if (error instanceof StorageConfigurationError) {
       return NextResponse.json(

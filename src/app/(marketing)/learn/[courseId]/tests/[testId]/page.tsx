@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ProtectedAccessNotice } from "@/app/components/ProtectedAccessNotice";
 import { useCourseAccess } from "@/app/components/useCourseAccess";
 import { UploadFeedbackField } from "@/app/components/UploadFeedbackField";
+import { toast } from "sonner";
 
 interface Question {
   id: string;
@@ -98,7 +99,7 @@ export default function CourseTestPage() {
     // Validate all questions answered
     const unanswered = questions.filter((q) => !answers[q.id]?.trim());
     if (unanswered.length > 0) {
-      alert(`Por favor responde todas las preguntas (${unanswered.length} sin responder)`);
+      toast.error(`Por favor responde todas las preguntas (${unanswered.length} sin responder)`);
       return;
     }
 
@@ -119,10 +120,10 @@ export default function CourseTestPage() {
           setStatus(s.data);
         }
       } else {
-        alert(data.error || "Error al enviar el test");
+        toast.error(data.error || "Error al enviar el test");
       }
     } catch {
-      alert("Error al enviar el test");
+      toast.error("Error al enviar el test");
     } finally {
       setSubmitting(false);
     }
@@ -239,7 +240,7 @@ export default function CourseTestPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-ap-ink via-ap-ink to-black">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-zinc-800 bg-ap-ink/95 backdrop-blur-sm px-6 py-4">
+      <div className="sticky top-16 z-10 border-b border-zinc-800 bg-ap-ink/95 backdrop-blur-sm px-6 py-4">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div>
             <Link href={`/learn/${courseId}`} className="text-zinc-400 hover:text-ap-copper transition text-sm">
