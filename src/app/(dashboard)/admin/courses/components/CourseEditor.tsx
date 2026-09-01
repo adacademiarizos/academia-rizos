@@ -105,6 +105,10 @@ export default function CourseEditor({ level }: { level: EditorLevel }) {
 
   const moduleUrl = (module: DraftModule) => `/admin/courses/${courseId}/modules/${draftRouteId(module)}/edit`
   const styleUrl = (style: DraftStyle) => `/admin/courses/${courseId}/styles/${draftRouteId(style)}/edit`
+  // Siblings of the editor page, not children of it: courseUrl already ends in
+  // /edit, so appending to it produces routes that do not exist.
+  const newModuleUrl = `/admin/courses/${courseId}/modules/new`
+  const newStyleUrl = `/admin/courses/${courseId}/styles/new`
 
   const loadEditor = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -362,7 +366,7 @@ export default function CourseEditor({ level }: { level: EditorLevel }) {
       {error ? <p role="alert" className="rounded-xl border border-red-400/30 bg-red-500/15 px-4 py-3 text-sm text-red-200">{error}</p> : null}
       {notice ? <p className="rounded-xl border border-ap-copper/30 bg-ap-copper/10 px-4 py-3 text-sm text-ap-copper">{notice}</p> : null}
 
-      {level === 'course' ? <CoursePanelWithUpload payload={payload} onChange={(course) => replacePayload((current) => ({ ...current, course: { ...current.course, ...course } }))} onRemoveThumbnail={() => replacePayload((current) => ({ ...current, course: { ...current.course, thumbnailUrl: null } }))} onAddModule={() => router.push(`${courseUrl}/modules/new`)} onAddStyle={() => { window.location.assign(`${courseUrl}/styles/new`) }} onNavigate={attemptNavigation} moduleUrl={moduleUrl} styleUrl={styleUrl} /> : null}
+      {level === 'course' ? <CoursePanelWithUpload payload={payload} onChange={(course) => replacePayload((current) => ({ ...current, course: { ...current.course, ...course } }))} onRemoveThumbnail={() => replacePayload((current) => ({ ...current, course: { ...current.course, thumbnailUrl: null } }))} onAddModule={() => attemptNavigation(newModuleUrl)} onAddStyle={() => attemptNavigation(newStyleUrl)} onNavigate={attemptNavigation} moduleUrl={moduleUrl} styleUrl={styleUrl} /> : null}
       {level === 'module' && currentModule ? <ModulePanel module={currentModule} courseId={courseId} onChange={(change) => updateModule(draftRouteId(currentModule), (module) => ({ ...module, ...change }))} /> : null}
       {level === 'style' && currentStyle ? <StylePanel style={currentStyle} courseId={courseId} onChange={(change) => updateStyle(draftRouteId(currentStyle), (style) => ({ ...style, ...change }))} /> : null}
 
