@@ -1,0 +1,92 @@
+name: Maintenance crons
+
+# Vercel Hobby only allows cron expressions that run once per day, so the
+# schedules that used to live in vercel.json are driven from here instead.
+# Each job is a GET on /api/cron/<key> authorised with CRON_SECRET.
+#
+# Required repository configuration:
+#   - Variable APP_BASE_URL  e.g. https://academia-rizos.vercel.app (no trailing slash)
+#   - Secret   CRON_SECRET   same value as the CRON_SECRET env var on Vercel
+#
+# GitHub schedules are best-effort and can be delayed under load, which matches
+# the tolerance these jobs already had on Vercel Hobby (+/- 59 min).
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+    - cron: '0 * * * *'
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Job to run now
+        required: true
+        type: choice
+        options:
+          - notifications
+          - issue-certificates
+          - expire-access
+          - send-receipts
+
+concurrency:
+  # A delayed run must never overlap the next one: these jobs mutate rows and
+  # are not written to be executed twice at the same time.
+  group: maintenance-crons-${{ github.event.schedule || inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve jobs for this trigger
+        id: resolve
+        run: |
+          case "${{ github.event.schedule }}" in
+            '*/15 * * * *') keys='notifications issue-certificates' ;;
+            '0 * * * *')    keys='expire-access' ;;
+            '0 */6 * * *')  keys='send-receipts' ;;
+            *)              keys='${{ inputs.job }}' ;;
+          esac
+          echo "keys=$keys" >> "$GITHUB_OUTPUT"
+          echo "Running: $keys"
+
+      - name: Invoke maintenance jobs
+        env:
+          BASE_URL: ${{ vars.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          KEYS: ${{ steps.resolve.outputs.keys }}
+        run: |
+          set -uo pipefail
+
+          if [ -z "${BASE_URL:-}" ]; then
+            echo "::error::Repository variable APP_BASE_URL is not set"
+            exit 1
+          fi
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "::error::Repository secret CRON_SECRET is not set"
+            exit 1
+          fi
+
+          failed=0
+          for key in $KEYS; do
+            echo "--- $key"
+            # Body goes to stdout for the run log, status code to $status.
+            status=$(curl --silent --show-error --location \
+              --max-time 120 \
+              --write-out '%{http_code}' \
+              --output /tmp/"$key".out \
+              --header "Authorization: Bearer $CRON_SECRET" \
+              "$BASE_URL/api/cron/$key") || status=000
+
+            cat /tmp/"$key".out || true
+            echo
+
+            if [ "$status" != "200" ]; then
+              echo "::error::$key returned HTTP $status"
+              failed=1
+            else
+              echo "$key ok"
+            fi
+          done
+
+          exit $failed
