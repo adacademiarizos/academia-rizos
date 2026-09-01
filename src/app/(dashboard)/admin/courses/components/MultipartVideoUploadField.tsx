@@ -29,7 +29,12 @@ interface MultipartSession {
 }
 
 const SIGNED_PART_BATCH_SIZE = 8
-const PART_UPLOAD_RETRIES = 2
+const PART_UPLOAD_RETRIES = 4
+const PART_RETRY_BASE_DELAY_MS = 1000
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function formatDuration(seconds: number | null) {
   if (!seconds || !Number.isFinite(seconds)) return 'Duración no disponible'
@@ -111,6 +116,10 @@ async function uploadPartWithRetry(url: string, part: Blob, onProgress: (loaded:
       if (error instanceof DOMException && error.name === 'AbortError') throw error
       if (attempt === PART_UPLOAD_RETRIES) throw error
       onRetry(attempt + 1)
+      // A dropped connection needs time to come back. Retrying immediately
+      // spends the whole budget inside the same outage, so each attempt waits
+      // longer than the last: 1s, 2s, 4s, 8s.
+      await delay(PART_RETRY_BASE_DELAY_MS * 2 ** attempt)
     }
   }
   throw new Error('No se pudo subir la parte del video.')
@@ -130,6 +139,9 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
   const cancelledRef = useRef(false)
   const selectionRef = useRef(0)
   const lastProgressUpdateRef = useRef(0)
+  // Holds the still-open R2 upload after a failure so Reintentar continues
+  // from the last confirmed part instead of sending the whole file again.
+  const resumeRef = useRef<{ fileKey: string; session: MultipartSession; uploadedParts: Array<{ partNumber: number; eTag: string }> } | null>(null)
 
   const isUploading = status === 'preparing' || status === 'uploading' || status === 'finishing'
   const showUploader = !value || isReplacing
@@ -167,6 +179,12 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
       return
     }
 
+    const pending = resumeRef.current
+    if (pending && pending.fileKey !== `${file.name}:${file.size}:${file.lastModified}`) {
+      void requestMultipart('abort', { key: pending.session.key, uploadId: pending.session.uploadId }).catch(() => undefined)
+      resumeRef.current = null
+    }
+
     const selection = ++selectionRef.current
     setStatus('analyzing')
     setProgress(null)
@@ -195,6 +213,8 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
     const controller = new AbortController()
     const performanceStartedAt = performance.now()
     let session: MultipartSession | null = null
+    let uploadedParts: Array<{ partNumber: number; eTag: string }> = []
+    const fileKey = `${file.name}:${file.size}:${file.lastModified}`
     cancelledRef.current = false
     controllerRef.current = controller
     lastProgressUpdateRef.current = 0
@@ -204,17 +224,22 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
     setStatus('preparing')
 
     try {
-      session = await requestMultipart<MultipartSession>('create', {
+      const resumed = resumeRef.current?.fileKey === fileKey ? resumeRef.current : null
+      session = resumed ? resumed.session : await requestMultipart<MultipartSession>('create', {
         courseId,
         fileName: file.name,
         fileSize: file.size,
         contentType: file.type,
       }, controller.signal)
       sessionRef.current = { uploadId: session.uploadId, key: session.key }
-      let completedBytes = 0
-      const uploadedParts: Array<{ partNumber: number; eTag: string }> = []
+      // Parts go up in order, so the confirmed ones are always a prefix and the
+      // first missing part is simply the next number.
+      uploadedParts = resumed ? [...resumed.uploadedParts] : []
+      const resumeFrom = uploadedParts.length + 1
+      let completedBytes = Math.min(uploadedParts.length * session.partSize, file.size)
+      if (completedBytes > 0) updateProgress(completedBytes, file.size, performanceStartedAt)
 
-      for (let firstPart = 1; firstPart <= session.partCount; firstPart += SIGNED_PART_BATCH_SIZE) {
+      for (let firstPart = resumeFrom; firstPart <= session.partCount; firstPart += SIGNED_PART_BATCH_SIZE) {
         const partNumbers = Array.from({ length: Math.min(SIGNED_PART_BATCH_SIZE, session.partCount - firstPart + 1) }, (_, index) => firstPart + index)
         const signed = await requestMultipart<{ parts: Array<{ partNumber: number; presignedUrl: string }> }>('sign-parts', {
           key: session.key,
@@ -240,6 +265,7 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
         uploadId: session.uploadId,
         parts: uploadedParts,
       }, controller.signal)
+      resumeRef.current = null
       onChange(completed.fileUrl)
       setProgress({ loaded: file.size, total: file.size, bytesPerSecond: file.size / Math.max((performance.now() - performanceStartedAt) / 1000, 0.1) })
       setStatus('complete')
@@ -247,8 +273,13 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
     } catch (error) {
       if (cancelledRef.current || (error instanceof DOMException && error.name === 'AbortError')) return
       setStatus('ready')
-      setUploadError(error instanceof Error ? error.message : 'No se pudo subir el video.')
-      if (session) void requestMultipart('abort', { key: session.key, uploadId: session.uploadId }).catch(() => undefined)
+      // The R2 upload stays open so the transferred parts survive; only a
+      // cancel or a different file discards them.
+      if (session) resumeRef.current = { fileKey, session, uploadedParts }
+      const reason = error instanceof Error ? error.message : 'No se pudo subir el video.'
+      setUploadError(uploadedParts.length > 0
+        ? `${reason} Se conservaron ${uploadedParts.length} de ${session?.partCount ?? '?'} partes: Reintentar sigue desde ahí.`
+        : reason)
     } finally {
       activeRequestRef.current = null
       controllerRef.current = null
@@ -261,8 +292,9 @@ export function MultipartVideoUploadField({ courseId, label, value, onChange }: 
     cancelledRef.current = true
     controllerRef.current?.abort()
     activeRequestRef.current?.abort()
-    const session = sessionRef.current
-    if (session) void requestMultipart('abort', session).catch(() => undefined)
+    const session = sessionRef.current ?? resumeRef.current?.session
+    if (session) void requestMultipart('abort', { key: session.key, uploadId: session.uploadId }).catch(() => undefined)
+    resumeRef.current = null
     setStatus('cancelled')
     setProgress(null)
     setStartedAt(undefined)
