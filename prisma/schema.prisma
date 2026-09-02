@@ -153,7 +153,12 @@ model User {
   name           String?
   email          String    @unique
   image          String?
+  phone          String?
   role           Role      @default(STUDENT)
+  // Set once the user has confirmed the name that goes on their certificates.
+  // OAuth sign-up copies whatever name the provider supplies, which is often
+  // not the student's legal name, so it must be confirmed before it is trusted.
+  profileCompletedAt DateTime?
   // Para arrancar con credenciales simples (MVP):
   password       String?
   sessionVersion Int       @default(0)
