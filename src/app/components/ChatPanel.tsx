@@ -1,23 +1,9 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { CommunityText } from '@/app/components/CommunityText'
-import { createCommunityMentionToken } from '@/lib/community-mentions'
-
-interface ChatMessage {
-  id: string
-  body: string
-  imageUrl: string | null
-  createdAt: string
-  userId: string
-  user: {
-    id: string
-    name: string | null
-    email: string
-    image: string | null
-  }
-}
+import { useChatRoom, type ChatMessage } from '@/app/components/useChatRoom'
 
 interface ChatPanelProps {
   roomId: string
@@ -44,16 +30,23 @@ function Avatar({ user }: { user: { name: string | null; email: string; image: s
 
 export function ChatPanel({ roomId, title }: ChatPanelProps) {
   const { data: session } = useSession()
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [text, setText] = useState('')
-  const [pendingImage, setPendingImage] = useState<File | null>(null)
-  const [pendingImagePreview, setPendingImagePreview] = useState<string | null>(null)
-  const [uploadingImage, setUploadingImage] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [initialLoading, setInitialLoading] = useState(true)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const {
+    messages,
+    text,
+    setText,
+    pendingImage,
+    pendingPreview,
+    selectImage,
+    removePending,
+    appendMention,
+    send,
+    sending,
+    initialLoading,
+    error,
+    messagesEndRef,
+    fileInputRef,
+  } = useChatRoom(roomId)
+
   const isAtBottomRef = useRef(true)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -61,27 +54,7 @@ export function ChatPanel({ roomId, title }: ChatPanelProps) {
     if (force || isAtBottomRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-  }, [])
-
-  const fetchMessages = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/chat/messages?roomId=${roomId}&limit=80&offset=0`)
-      const data = await res.json()
-      if (data.success) {
-        setMessages(data.data.messages)
-      }
-    } catch {
-      // silent — polling handles retries
-    } finally {
-      setInitialLoading(false)
-    }
-  }, [roomId])
-
-  useEffect(() => {
-    fetchMessages()
-    const interval = setInterval(fetchMessages, 3000)
-    return () => clearInterval(interval)
-  }, [fetchMessages])
+  }, [messagesEndRef])
 
   // Scroll to bottom on initial load and new messages
   useEffect(() => {
@@ -105,90 +78,19 @@ export function ChatPanel({ roomId, title }: ChatPanelProps) {
     isAtBottomRef.current = atBottom
   }
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 3 * 1024 * 1024) {
-      setError('La imagen no puede superar 3 MB')
+  const handleSend = async (e: React.FormEvent) => {
+    if (!session?.user) {
+      e.preventDefault()
       return
     }
-    setPendingImage(file)
-    setPendingImagePreview(URL.createObjectURL(file))
-    setError(null)
-  }
-
-  const removePendingImage = () => {
-    setPendingImage(null)
-    if (pendingImagePreview) URL.revokeObjectURL(pendingImagePreview)
-    setPendingImagePreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
-  const appendMention = (user: ChatMessage['user']) => {
-    const token = createCommunityMentionToken(user)
-
-    setText((current) => {
-      if (current.includes(`](${user.id})`)) return current
-      return `${current}${current.trimEnd() ? ' ' : ''}${token} `
-    })
-  }
-
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!session?.user) { setError('Inicia sesión para enviar mensajes'); return }
-    if (!text.trim() && !pendingImage) return
-
-    setSending(true)
-    setError(null)
-
-    try {
-      let imageUrl: string | undefined
-
-      // Upload image first if present
-      if (pendingImage) {
-        setUploadingImage(true)
-        const fd = new FormData()
-        fd.append('file', pendingImage)
-        const uploadRes = await fetch('/api/chat/images', { method: 'POST', body: fd })
-        const uploadData = await uploadRes.json()
-        setUploadingImage(false)
-        if (!uploadRes.ok) {
-          setError(uploadData.error || 'Error al subir la imagen')
-          setSending(false)
-          return
-        }
-        imageUrl = uploadData.data.imageUrl
-      }
-
-      // Send message
-      const res = await fetch('/api/chat/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId, body: text.trim(), imageUrl }),
-      })
-      const data = await res.json()
-
-      if (res.ok) {
-        setMessages((prev) => [...prev, data.data])
-        setText('')
-        removePendingImage()
-        isAtBottomRef.current = true
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
-      } else {
-        setError(data.error || 'Error al enviar el mensaje')
-      }
-    } catch {
-      setError('Error al enviar el mensaje')
-    } finally {
-      setSending(false)
-      setUploadingImage(false)
-    }
+    await send(e)
+    isAtBottomRef.current = true
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSend(e as any)
+      void handleSend(e as any)
     }
   }
 
@@ -219,7 +121,7 @@ export function ChatPanel({ roomId, title }: ChatPanelProps) {
             </div>
           </div>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg: ChatMessage) => {
             const isOwn = msg.userId === (session?.user as any)?.id
             return (
               <div id={`message-${msg.id}`} key={msg.id} className={`scroll-mt-24 flex gap-3 ${isOwn ? 'flex-row-reverse' : ''}`}>
@@ -279,15 +181,15 @@ export function ChatPanel({ roomId, title }: ChatPanelProps) {
       {session?.user ? (
         <div className="border-t border-zinc-700 p-3 bg-ap-ink/80">
           {/* Image preview */}
-          {pendingImagePreview && (
+          {pendingPreview && (
             <div className="mb-2 relative inline-block">
               <img
-                src={pendingImagePreview}
+                src={pendingPreview}
                 alt="Vista previa"
                 className="h-20 w-auto rounded-xl border border-zinc-600 object-contain"
               />
               <button
-                onClick={removePendingImage}
+                onClick={removePending}
                 className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-zinc-800 border border-zinc-600 rounded-full text-xs text-zinc-300 hover:text-white flex items-center justify-center"
               >
                 ✕
@@ -303,7 +205,7 @@ export function ChatPanel({ roomId, title }: ChatPanelProps) {
               ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/png,image/gif,image/webp"
-              onChange={handleImageSelect}
+              onChange={selectImage}
               className="hidden"
             />
             <button
@@ -333,7 +235,7 @@ export function ChatPanel({ roomId, title }: ChatPanelProps) {
               disabled={sending || (!text.trim() && !pendingImage)}
               className="flex-shrink-0 w-9 h-9 rounded-xl bg-ap-copper hover:bg-orange-700 text-white transition flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {sending || uploadingImage ? (
+              {sending ? (
                 <span className="text-xs">···</span>
               ) : (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
