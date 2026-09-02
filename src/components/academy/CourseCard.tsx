@@ -5,18 +5,27 @@ import { Course } from "@/types/academy";
 
 interface CourseCardProps {
   course: Course;
+  /** The signed-in student already has active access to this course. */
+  owned?: boolean;
 }
 
-export default function CourseCard({ course }: CourseCardProps) {
+export default function CourseCard({ course, owned = false }: CourseCardProps) {
   const totalPriceCents = course.totalPriceCents ?? course.priceCents
   const priceFormatted = (totalPriceCents / 100).toFixed(2)
   const isLifetime = !course.rentalDays
 
   const accessLabel = isLifetime ? "Acceso de por vida" : `${course.rentalDays} días`;
+  const href = owned ? `/learn/${course.id}` : `/courses/${course.id}`;
 
   return (
-    <Link href={`/courses/${course.id}`}>
-      <div className="group h-full rounded-3xl border border-white/10 bg-white/5 p-6 shadow-sm transition-all duration-300 hover:bg-white/[0.09] hover:border-ap-copper/30 hover:shadow-ap-copper/10 hover:shadow-lg backdrop-blur-md overflow-hidden">
+    <Link href={href}>
+      <div
+        className={`group h-full rounded-3xl border p-6 shadow-sm transition-all duration-300 backdrop-blur-md overflow-hidden ${
+          owned
+            ? "border-ap-olive/50 bg-ap-olive/10 hover:bg-ap-olive/15 hover:border-ap-olive hover:shadow-ap-olive/10 hover:shadow-lg"
+            : "border-white/10 bg-white/5 hover:bg-white/[0.09] hover:border-ap-copper/30 hover:shadow-ap-copper/10 hover:shadow-lg"
+        }`}
+      >
         {/* Course Image */}
         <div className="relative w-full h-48 mb-4 rounded-2xl overflow-hidden">
           {course.thumbnailUrl ? (
@@ -31,6 +40,12 @@ export default function CourseCard({ course }: CourseCardProps) {
                 {course.title.charAt(0)}
               </div>
             </div>
+          )}
+
+          {owned && (
+            <span className="absolute top-3 left-3 rounded-full bg-ap-olive px-3 py-1 text-xs font-semibold text-ap-ivory shadow-md">
+              Ya lo tienes
+            </span>
           )}
         </div>
 
@@ -59,16 +74,26 @@ export default function CourseCard({ course }: CourseCardProps) {
           {/* Divider */}
           <div className="h-px bg-white/10"></div>
 
-          {/* Price */}
+          {/* Price or ownership state */}
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-ap-copper">
-              €{priceFormatted}
-            </span>
+            {owned ? (
+              <span className="text-sm font-semibold text-ap-olive">
+                Comprado
+              </span>
+            ) : (
+              <span className="text-2xl font-bold text-ap-copper">
+                €{priceFormatted}
+              </span>
+            )}
           </div>
 
           {/* CTA Button */}
-          <button className="w-full mt-4 rounded-full bg-ap-copper text-ap-ivory py-2.5 font-medium text-sm transition hover:bg-ap-copper/90 hover:shadow-md">
-            Ver Curso
+          <button
+            className={`w-full mt-4 rounded-full py-2.5 font-medium text-sm text-ap-ivory transition hover:shadow-md ${
+              owned ? "bg-ap-olive hover:bg-ap-olive/90" : "bg-ap-copper hover:bg-ap-copper/90"
+            }`}
+          >
+            {owned ? "Continuar curso" : "Ver Curso"}
           </button>
         </div>
       </div>

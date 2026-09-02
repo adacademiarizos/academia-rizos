@@ -7,6 +7,7 @@ import SectionHead from "@/components/marketing/SectionHead";
 
 export default function CoursesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
+  const [ownedCourseIds, setOwnedCourseIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,6 +26,24 @@ export default function CoursesPage() {
     };
 
     fetchCourses();
+  }, []);
+
+  // Owned courses are a visual enhancement: a signed-out visitor (401) or a
+  // failed request just renders the catalog without the "already owned" state.
+  useEffect(() => {
+    const fetchOwnedCourses = async () => {
+      try {
+        const response = await fetch("/api/student/my-courses", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = await response.json();
+        const owned = (payload.data || []) as Array<{ id: string }>;
+        setOwnedCourseIds(new Set(owned.map((course) => course.id)));
+      } catch {
+        // Ignore: the catalog stays usable without ownership info.
+      }
+    };
+
+    fetchOwnedCourses();
   }, []);
 
   if (loading) {
@@ -62,7 +81,11 @@ export default function CoursesPage() {
         {courses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.map((course) => (
-              <CourseCard key={course.id} course={course} />
+              <CourseCard
+                key={course.id}
+                course={course}
+                owned={ownedCourseIds.has(course.id)}
+              />
             ))}
           </div>
         ) : (
