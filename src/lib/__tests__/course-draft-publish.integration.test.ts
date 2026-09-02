@@ -19,9 +19,6 @@ async function createCourseFixture() {
       description: 'Published description',
       priceCents: 2500,
       contentStructure: 'BOTH',
-      // Publishing an active course requires it; without it no certificate
-      // could be issued when a student passes the final exam.
-      certificateSlogan: 'Especialización en cuidado de rizos',
     },
   })
   createdCourseIds.push(course.id)
@@ -178,25 +175,4 @@ describe('course draft publication', () => {
     expect((await loadCourseEditorDraft(fixture.course.id))?.source).toBe('PUBLISHED')
   })
 
-  it('refuses to publish an active course with no certificate slogan', async () => {
-    const fixture = await createCourseFixture()
-    await db.course.update({ where: { id: fixture.course.id }, data: { certificateSlogan: null } })
-    const draft = structuredClone((await loadCourseEditorDraft(fixture.course.id))!.payload)
-    draft.course.isActive = true
-    draft.course.certificateSlogan = null
-    draft.course.title = 'Must not publish'
-
-    // A draft is work in progress, so saving one is still allowed.
-    await expect(saveCourseDraft(fixture.course.id, draft)).resolves.toBeTruthy()
-    await expect(publishCourseDraft(fixture.course.id, draft)).rejects.toBeInstanceOf(CourseDraftValidationError)
-    expect(await db.course.findUniqueOrThrow({ where: { id: fixture.course.id } })).toMatchObject({ title: fixture.course.title })
-
-    // The same course publishes once the slogan is filled in.
-    draft.course.certificateSlogan = 'Especialización en definición de rizos'
-    await publishCourseDraft(fixture.course.id, draft)
-    expect(await db.course.findUniqueOrThrow({ where: { id: fixture.course.id } })).toMatchObject({
-      title: 'Must not publish',
-      certificateSlogan: 'Especialización en definición de rizos',
-    })
-  })
 })

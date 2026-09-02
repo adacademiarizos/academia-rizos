@@ -298,7 +298,6 @@ async function main() {
       priceCents: 2999, // $29.99 USD
       currency: 'USD',
       rentalDays: null, // Lifetime access
-      certificateSlogan: 'Fundamentos del método Curly Girl para el cuidado de rizos',
       isActive: true,
 
       // Create modules
@@ -432,7 +431,6 @@ async function main() {
       priceCents: 1999, // $19.99 USD - cheaper for shorter course
       currency: 'USD',
       rentalDays: 30, // 30-day rental access
-      certificateSlogan: 'Nutrición consciente para rizos más fuertes y saludables',
       isActive: true,
 
       modules: {
@@ -521,7 +519,6 @@ async function main() {
       priceCents: 3999, // $39.99 USD - premium course
       currency: 'USD',
       rentalDays: null, // Lifetime
-      certificateSlogan: 'Técnicas avanzadas de styling y definición de rizos',
       isActive: true,
 
       modules: {

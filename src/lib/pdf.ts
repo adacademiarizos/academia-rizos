@@ -6,7 +6,6 @@ import { join } from 'node:path'
 export interface CertificatePdfParams {
   userName: string
   courseName: string
-  certificateSlogan: string
   code: string
   issuedAt: Date
 }
@@ -43,7 +42,7 @@ const certificateAssetsPromise: Promise<CertificateAssets> = Promise.all([
 }))
 
 export async function buildCertificateHtml(params: CertificatePdfParams): Promise<string> {
-  const { userName, courseName, certificateSlogan, code, issuedAt } = params
+  const { userName, courseName, code, issuedAt } = params
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   const verifyUrl = `${appUrl}/verify/certificate/${code}`
   const [assets, qrDataUrl] = await Promise.all([
@@ -99,7 +98,6 @@ export async function buildCertificateHtml(params: CertificatePdfParams): Promis
     .ornament-middle { left: calc(var(--s) * 744px); top: calc(var(--s) * 686px); transform: translateX(-50%); }
     .ornament-middle span, .ornament-bottom span { width: calc(var(--s) * 74px); }
     .ornament-middle b, .ornament-bottom b { font-size: calc(var(--s) * 22px); }
-    .specialization { position: absolute; left: calc(var(--s) * 744px); top: calc(var(--s) * 724px); transform: translateX(-50%); color: var(--olive); font-size: calc(var(--s) * 18px); white-space: nowrap; z-index: 2; }
     .field { position: absolute; text-align: center; z-index: 2; }
     .line { height: 1px; background: var(--copper); }
     .label { margin-top: calc(var(--s) * 10px); font-size: calc(var(--s) * 14px); color: #474842; }
@@ -141,7 +139,6 @@ export async function buildCertificateHtml(params: CertificatePdfParams): Promis
       <svg class="leaf leaf-right" viewBox="0 0 60 36" aria-hidden="true"><path d="M56 18 C43 18, 33 11, 23 5" /><path d="M56 18 C42 18, 32 24, 21 31" /><path d="M38 10 C41 16, 41 20, 40 27" /></svg>
     </div>
     <div class="ornament ornament-middle"><span></span><b>∞</b><span></span></div>
-    <div class="specialization">${escapeHtml(certificateSlogan)}</div>
     <div class="field field-date"><div class="date">${escapeHtml(date)}</div><div class="line"></div><div class="label">Fecha</div></div>
     <img class="seal-image" src="${assets.seal}" alt="" />
     <div class="field field-signature"><div class="signature">Elizabeth Rizos</div><div class="line"></div><div class="label">Firma</div></div>

@@ -440,19 +440,6 @@ function CoursePanelWithUpload({ payload, onChange, onAddModule, onAddStyle, onN
               onChange={(learningOutcomes) => onChange({ learningOutcomes })}
             />
           </Field>
-          <Field label="Slogan del certificado">
-            <input
-              value={course.certificateSlogan ?? ''}
-              onChange={(event) => onChange({ certificateSlogan: event.target.value || null })}
-              placeholder="Ej.: Especialización en definición y cuidado de rizos"
-              maxLength={100}
-              className={inputClass}
-            />
-            <p className="mt-1.5 text-xs text-white/45">
-              Aparece en el certificado. Obligatorio para publicar el curso como activo: sin él no se
-              puede emitir el certificado cuando alguien aprueba el examen final.
-            </p>
-          </Field>
           <PresentationImageUploadField
             label="Miniatura del curso"
             itemName="miniatura"

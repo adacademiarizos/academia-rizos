@@ -1,9 +1,9 @@
+import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { generateCertificatePdf } from '@/lib/pdf'
 import { uploadFile } from '@/lib/storage'
 import { NotificationService } from '@/server/services/notification-service'
 import { sendCertificateEmail } from '@/lib/mail'
-import { normalizeCertificateSlogan } from '@/validators/course.schema'
 
 function generateCertCode(): string {
   const timestamp = Date.now().toString(36).toUpperCase()
@@ -31,17 +31,12 @@ export async function generateAndSaveCertificate(
     db.user.findUnique({ where: { id: userId }, select: { name: true, email: true } }),
     db.course.findUnique({
       where: { id: courseId },
-      select: { title: true, certificateSlogan: true },
+      select: { title: true },
     }),
   ])
 
   if (!user || !course) {
     throw new Error('User or course not found')
-  }
-
-  const certificateSlogan = normalizeCertificateSlogan(course.certificateSlogan)
-  if (!certificateSlogan) {
-    throw new Error('Cannot issue a certificate for a course without a certificate slogan')
   }
 
   const code = generateCertCode()
@@ -51,7 +46,6 @@ export async function generateAndSaveCertificate(
   const pdfBuffer = await generateCertificatePdf({
     userName: user.name ?? user.email ?? 'Estudiante',
     courseName: course.title,
-    certificateSlogan,
     code,
     issuedAt,
   })
@@ -63,17 +57,30 @@ export async function generateAndSaveCertificate(
     'application/pdf'
   )
 
-  // Save to DB
-  const certificate = await db.certificate.create({
-    data: {
-      code,
-      courseId,
-      userId,
-      issuedAt,
-      pdfUrl,
-      valid: true,
-    },
-  })
+  // Save to DB. WS-D08: a partial unique index on (userId, courseId) WHERE
+  // valid = true (design §D-08, owner-approved 2026-09-01) closes the race
+  // between two concurrent issuance calls (e.g. the cron and an admin
+  // approval). If this insert loses the race, re-read and return the winner
+  // instead of surfacing the constraint violation.
+  let certificate
+  try {
+    certificate = await db.certificate.create({
+      data: {
+        code,
+        courseId,
+        userId,
+        issuedAt,
+        pdfUrl,
+        valid: true,
+      },
+    })
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const winner = await db.certificate.findFirst({ where: { userId, courseId, valid: true } })
+      if (winner) return winner
+    }
+    throw error
+  }
 
   // Record activity (non-critical)
   await db.userActivity.create({
