@@ -1,7 +1,12 @@
-const updateReceiptMarker = jest.fn();
-const dispatchNotificationMock = jest.fn();
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-jest.mock("@/lib/db", () => ({
+const { updateReceiptMarker, dispatchNotificationMock } = vi.hoisted(() => {
+  const updateReceiptMarker = vi.fn();
+  const dispatchNotificationMock = vi.fn();
+  return { updateReceiptMarker, dispatchNotificationMock };
+});
+
+vi.mock("@/lib/db", () => ({
   db: {
     payment: {
       updateMany: updateReceiptMarker,
@@ -9,9 +14,9 @@ jest.mock("@/lib/db", () => ({
   },
 }));
 
-jest.mock("@/server/services/notification-dispatcher", () => ({
+vi.mock("@/server/services/notification-dispatcher", () => ({
   dispatchNotification: dispatchNotificationMock,
-  cancelScheduledNotificationDeliveries: jest.fn(),
+  cancelScheduledNotificationDeliveries: vi.fn(),
 }));
 
 import { NotificationDeliveryChannel } from "@prisma/client";
@@ -20,7 +25,7 @@ import { NotificationEventService } from "@/server/services/notification-event-s
 
 describe("NotificationEventService.paymentReceipt", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     dispatchNotificationMock.mockResolvedValue({ ok: true, notifications: 0, deliveries: 1 });
     updateReceiptMarker.mockResolvedValue({ count: 1 });
   });
@@ -84,7 +89,7 @@ describe("NotificationEventService.paymentReceipt", () => {
 
   it("keeps the queued outbox delivery when recording the legacy marker fails", async () => {
     updateReceiptMarker.mockRejectedValue(new Error("temporary database error"));
-    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
     const result = await NotificationEventService.paymentReceipt({
       paymentId: "payment-1",

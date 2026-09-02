@@ -2,7 +2,6 @@ import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { slugifyStyleName } from '@/lib/academy-content'
 import { db } from '@/lib/db'
-import { getCoursePublicationError, normalizeCertificateSlogan } from '@/validators/course.schema'
 
 export const COURSE_DRAFT_SCHEMA_VERSION = 3
 
@@ -51,8 +50,6 @@ const CourseDetailsDraftSchema = z.object({
   // Defaulted rather than required so drafts saved before these fields existed
   // still parse against the current schema version.
   learningOutcomes: z.array(z.string()).default([]),
-  // Required to issue certificates, so an active course cannot publish without it.
-  certificateSlogan: z.string().nullable().default(null),
   trailerUrl: NullableText,
   thumbnailUrl: NullableText,
   priceCents: z.number().int().min(0),
@@ -177,7 +174,6 @@ export function buildPublishedCourseDraft(course: PublishedCourse): CourseDraftP
       title: course.title,
       description: course.description,
       learningOutcomes: course.learningOutcomes,
-      certificateSlogan: course.certificateSlogan,
       trailerUrl: course.trailerUrl,
       thumbnailUrl: course.thumbnailUrl,
       priceCents: course.priceCents,
@@ -201,7 +197,6 @@ function buildLegacyCourseDraft(course: PublishedCourse): CourseDraftPayload {
       title: course.title,
       description: course.description,
       learningOutcomes: course.learningOutcomes,
-      certificateSlogan: course.certificateSlogan,
       trailerUrl: course.trailerUrl,
       thumbnailUrl: course.thumbnailUrl,
       priceCents: course.priceCents,
@@ -407,12 +402,6 @@ export async function publishCourseDraft(courseId: string, rawPayload: unknown) 
   const payload = CourseDraftPayloadSchema.parse(rawPayload)
   validateDraft(payload)
 
-  // Only enforced on publish: a draft is work in progress and may legitimately
-  // be missing the slogan. An active course is one students can finish, and
-  // without a slogan their approved final exam would never yield a certificate.
-  const publicationError = getCoursePublicationError(payload.course.isActive, payload.course.certificateSlogan)
-  if (publicationError) throw new CourseDraftValidationError(publicationError)
-
   return db.$transaction(async (tx) => {
     const existing = await tx.course.findUnique({ where: { id: courseId }, select: { id: true, contentStructure: true } })
     if (!existing) return null
@@ -428,7 +417,6 @@ export async function publishCourseDraft(courseId: string, rawPayload: unknown) 
         learningOutcomes: payload.course.learningOutcomes
           .map((outcome) => outcome.trim())
           .filter(Boolean),
-        certificateSlogan: normalizeCertificateSlogan(payload.course.certificateSlogan),
         trailerUrl: cleanNullable(payload.course.trailerUrl),
         thumbnailUrl: cleanNullable(payload.course.thumbnailUrl),
         priceCents: payload.course.priceCents,

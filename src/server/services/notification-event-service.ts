@@ -568,6 +568,43 @@ export class NotificationEventService {
     });
   }
 
+  /**
+   * D-14: notifies a student that an admin granted extra attempt(s) on an
+   * assessment/lesson test/final exam revalidation. Reuses dispatchNotification
+   * — in-app row now, EMAIL queued PENDING for the delivery job. Never throws:
+   * dispatch failure is logged by the dispatcher, not propagated, so the
+   * grant itself always stands regardless of notification outcome.
+   */
+  static async attemptsGranted(input: {
+    userId: string;
+    courseId: string;
+    revalidationId: string;
+    targetTitle: string;
+    attemptsGranted: number;
+    actionUrl: string;
+  }) {
+    try {
+      const student = await getAccountRecipient(input.userId);
+      if (!student) return;
+
+      await dispatchNotification({
+        eventKey: "academy.attempts.granted",
+        type: "ACADEMY",
+        title: "Nuevo intento habilitado",
+        message: `Te habilitaron ${input.attemptsGranted} intento${input.attemptsGranted === 1 ? "" : "s"} más para "${input.targetTitle}".`,
+        recipients: [{ userId: student.id, email: student.email ?? undefined, channels: accountChannels(student) }],
+        resource: { type: "REVALIDATION", id: input.revalidationId },
+        relatedId: input.courseId,
+        actionUrl: input.actionUrl,
+        priority: NotificationPriority.HIGH,
+        preferenceCategory: NotificationPreferenceCategory.COURSE_UPDATES,
+        dedupeKey: `revalidation:${input.revalidationId}:granted`,
+      });
+    } catch (error) {
+      console.error("[notifications] attempts granted event failed", error);
+    }
+  }
+
   static async courseAccessRevoked(input: {
     accessId: string;
     userId: string;

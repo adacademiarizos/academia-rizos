@@ -14,7 +14,6 @@ interface Course {
   id: string
   title: string
   description: string | null
-  certificateSlogan: string | null
   thumbnailUrl: string | null
   priceCents: number
   rentalDays: number | null
@@ -207,8 +206,6 @@ export default function CourseEditPage() {
       if (courseForm.title !== course?.title) updates.title = courseForm.title
       if (courseForm.description !== course?.description)
         updates.description = courseForm.description
-      if (courseForm.certificateSlogan !== course?.certificateSlogan)
-        updates.certificateSlogan = courseForm.certificateSlogan
       if (courseForm.thumbnailUrl !== course?.thumbnailUrl)
         updates.thumbnailUrl = courseForm.thumbnailUrl ?? null
       if (courseForm.priceCents !== course?.priceCents)
@@ -1011,22 +1008,6 @@ export default function CourseEditPage() {
           </div>
 
           <div>
-            <label className="mb-2 flex items-center justify-between text-sm font-medium text-white/70">
-              <span>Slogan del certificado</span>
-              <span className="text-xs font-normal text-white/35">{(courseForm.certificateSlogan || '').length}/100</span>
-            </label>
-            <input
-              type="text"
-              value={courseForm.certificateSlogan || ''}
-              onChange={(e) => setCourseForm({ ...courseForm, certificateSlogan: e.target.value })}
-              placeholder="Ej.: Especialización en definición y cuidado de rizos"
-              maxLength={100}
-              className="w-full h-11 rounded-2xl bg-white/5 px-4 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition"
-            />
-            <p className="mt-1.5 text-xs text-white/40">Obligatorio para publicar el curso y emitir certificados.</p>
-          </div>
-
-          <div>
             <label className="block text-sm font-medium text-white/70 mb-2">
               Miniatura del curso
             </label>
@@ -1121,10 +1102,6 @@ export default function CourseEditPage() {
               id="isActive"
               checked={courseForm.isActive || false}
               onChange={(e) => {
-                if (e.target.checked && !courseForm.certificateSlogan?.trim()) {
-                  setError('Completá el slogan del certificado antes de publicar el curso.')
-                  return
-                }
                 setCourseForm({ ...courseForm, isActive: e.target.checked })
               }}
               className="rounded"

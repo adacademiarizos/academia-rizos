@@ -8,24 +8,10 @@ import { NotificationService } from '@/server/services/notification-service'
 import { db } from '@/lib/db'
 
 // Mock database
-vi.mock('@/lib/db', () => ({
-  db: {
-    notification: {
-      create: vi.fn(),
-      findMany: vi.fn(),
-      update: vi.fn(),
-      updateMany: vi.fn(),
-      count: vi.fn(),
-      delete: vi.fn(),
-    },
-    user: {
-      findUnique: vi.fn(),
-    },
-    courseAccess: {
-      findMany: vi.fn(),
-    },
-  },
-}))
+vi.mock('@/lib/db', async () => {
+  const { createDbMock } = await import('@/test/db-mock')
+  return { db: createDbMock() }
+})
 
 describe('NotificationService', () => {
   const mockUserId = 'user-123'
@@ -150,7 +136,7 @@ describe('NotificationService', () => {
       expect(result.isRead).toBe(true)
       expect(db.notification.update).toHaveBeenCalledWith({
         where: { id: 'notif-1' },
-        data: { isRead: true },
+        data: { isRead: true, readAt: expect.any(Date) },
       })
     })
   })
@@ -166,7 +152,7 @@ describe('NotificationService', () => {
       expect(result.count).toBe(5)
       expect(db.notification.updateMany).toHaveBeenCalledWith({
         where: { userId: mockUserId, isRead: false },
-        data: { isRead: true },
+        data: { isRead: true, readAt: expect.any(Date) },
       })
     })
   })
@@ -186,7 +172,7 @@ describe('NotificationService', () => {
       ).resolves.not.toThrow()
     })
 
-    it('should identify course and notify enrolled users', async () => {
+    it('is a deprecated no-op that never broadcasts to the course roster', async () => {
       ;(db.user.findUnique as Mock).mockResolvedValue({
         id: 'commenter-1',
         name: 'John Doe',
@@ -195,17 +181,19 @@ describe('NotificationService', () => {
         { userId: 'user-2' },
         { userId: 'user-3' },
       ])
-      ;(db.notification.create as Mock).mockResolvedValue(mockNotification)
 
-      await NotificationService.triggerOnComment(
+      const result = await NotificationService.triggerOnComment(
         'commenter-1',
         'comment-1',
         'COURSE',
         'course-1'
       )
 
-      // Should create notifications for enrolled users (except commenter)
-      expect(db.notification.create).toHaveBeenCalledTimes(2)
+      // Community notifications are direct-only now; CommunityNotificationService
+      // owns replies/mentions and this legacy entry point must stay inert.
+      expect(result).toBeUndefined()
+      expect(db.notification.create).not.toHaveBeenCalled()
+      expect(db.courseAccess.findMany).not.toHaveBeenCalled()
     })
   })
 })

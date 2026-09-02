@@ -4,8 +4,8 @@ import {
   Prisma,
 } from '@prisma/client'
 import { db } from '@/lib/db'
-import { normalizeCertificateSlogan } from '@/validators/course.schema'
 import { generateAndSaveCertificate } from '@/server/services/certificate.service'
+import { NotificationEventService } from '@/server/services/notification-event-service'
 
 export type LessonTestQuestionInput = {
   title: string
@@ -246,6 +246,23 @@ export async function markLessonComplete(userId: string, lessonId: string) {
   return { progress, alreadyCompleted: false, courseId: lesson.courseId }
 }
 
+/**
+ * Sum of every `LessonTestRevalidation.attemptsGranted` for this test/user pair.
+ * Grants accumulate (no UNIQUE on the table, design §4) — a second grant adds
+ * on top of the first rather than replacing it.
+ */
+async function getLessonTestAttemptsGranted(
+  testId: string,
+  userId: string,
+  client: Pick<typeof db, 'lessonTestRevalidation'> = db
+) {
+  const aggregate = await client.lessonTestRevalidation.aggregate({
+    where: { lessonTestId: testId, userId },
+    _sum: { attemptsGranted: true },
+  })
+  return aggregate._sum.attemptsGranted ?? 0
+}
+
 export async function getStudentLessonTests(userId: string, lessonId: string) {
   await getLessonOrThrow(lessonId)
   const [tests, submissions, progress] = await Promise.all([
@@ -273,19 +290,21 @@ export async function getStudentLessonTests(userId: string, lessonId: string) {
 
   return {
     lessonCompletedAt: progress?.completedAt ?? null,
-    tests: tests.map((test) => {
+    tests: await Promise.all(tests.map(async (test) => {
       const testSubmissions = submissions.filter((submission) => submission.lessonTestId === test.id)
       const passed = testSubmissions.some((submission) => submission.isPassed)
       const attemptsUsed = testSubmissions.length
+      const attemptsGranted = await getLessonTestAttemptsGranted(test.id, userId)
+      const attemptsAllowed = test.maxAttempts + attemptsGranted
       return {
         ...test,
         attemptsUsed,
-        attemptsRemaining: Math.max(test.maxAttempts - attemptsUsed, 0),
+        attemptsRemaining: Math.max(attemptsAllowed - attemptsUsed, 0),
         isPassed: passed,
         latestSubmission: testSubmissions[0] ?? null,
-        canSubmit: !passed && attemptsUsed < test.maxAttempts,
+        canSubmit: !passed && attemptsUsed < attemptsAllowed,
       }
-    }),
+    })),
   }
 }
 
@@ -312,19 +331,23 @@ export async function submitLessonTest(
         )
       }
 
-      const submissions = await transaction.lessonTestSubmission.findMany({
-        where: { lessonTestId: testId, userId },
-        select: { attemptNumber: true, isPassed: true },
-      })
+      const [submissions, attemptsGranted] = await Promise.all([
+        transaction.lessonTestSubmission.findMany({
+          where: { lessonTestId: testId, userId },
+          select: { attemptNumber: true, isPassed: true },
+        }),
+        getLessonTestAttemptsGranted(testId, userId, transaction),
+      ])
       if (submissions.some((submission) => submission.isPassed)) {
         throw new AcademyAssessmentError('LESSON_TEST_ALREADY_PASSED', 'Ya aprobaste este test.', 409)
       }
-      if (submissions.length >= test.maxAttempts) {
+      const attemptsAllowed = test.maxAttempts + attemptsGranted
+      if (submissions.length >= attemptsAllowed) {
         throw new AcademyAssessmentError(
           'LESSON_TEST_ATTEMPTS_EXHAUSTED',
           'Agotaste los intentos disponibles para este test.',
           403,
-          { attemptsUsed: submissions.length, maxAttempts: test.maxAttempts }
+          { attemptsUsed: submissions.length, maxAttempts: attemptsAllowed }
         )
       }
 
@@ -353,7 +376,7 @@ export async function submitLessonTest(
         correctCount,
         totalQuestions: test.questions.length,
         passingScore: test.passingScore,
-        maxAttempts: test.maxAttempts,
+        maxAttempts: attemptsAllowed,
         courseId: test.lesson.courseId,
       }
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable })
@@ -693,15 +716,6 @@ export async function reviewFinalExamAttempt(
  * instead of a bare 500, and so the attempt stays reviewable.
  */
 async function issueCertificateForReview(userId: string, courseId: string) {
-  const course = await db.course.findUnique({ where: { id: courseId }, select: { certificateSlogan: true } })
-  if (!normalizeCertificateSlogan(course?.certificateSlogan)) {
-    throw new AcademyAssessmentError(
-      'COURSE_CERTIFICATE_SLOGAN_MISSING',
-      'El curso todavía no tiene slogan de certificado, así que no se puede emitir. Completalo en la edición del curso y volvé a aprobar este intento.',
-      409
-    )
-  }
-
   try {
     return await generateAndSaveCertificate(userId, courseId)
   } catch (error) {
@@ -735,7 +749,79 @@ export async function grantFinalExamRevalidation(
       409
     )
   }
-  return db.finalExamRevalidation.create({
+  const revalidation = await db.finalExamRevalidation.create({
     data: { finalExamId: finalExam.id, userId, grantedById, attemptsGranted, reason: reason?.trim() || null },
   })
+
+  // D-14: dispatched after the create, outside any transaction. Ignore the
+  // result — dispatch failure never rolls back or fails the grant.
+  void NotificationEventService.attemptsGranted({
+    userId,
+    courseId,
+    revalidationId: revalidation.id,
+    targetTitle: (finalExam as { title?: string }).title ?? 'el examen final',
+    attemptsGranted,
+    actionUrl: `/learn/${courseId}`,
+  })
+
+  return revalidation
+}
+
+/**
+ * Mirrors `grantFinalExamRevalidation`'s precondition, with one documented
+ * translation (design §D-04): the final exam requires the latest attempt to
+ * be `NOT_PASSED` because it can sit `PENDING_REVIEW`; a lesson test is
+ * auto-scored, so the equivalent is "latest submission exists and
+ * `isPassed = false`" — there is no `PENDING_REVIEW` state to wait on.
+ */
+export async function grantLessonTestRevalidation(
+  grantedById: string,
+  lessonId: string,
+  testId: string,
+  userId: string,
+  attemptsGranted: number,
+  reason?: string | null
+) {
+  const test = await db.lessonTest.findFirst({
+    where: { id: testId, lessonId },
+    include: { lesson: { select: { courseId: true } } },
+  })
+  if (!test) throw new AcademyAssessmentError('LESSON_TEST_NOT_FOUND', 'El test no existe.', 404)
+
+  const submissions = await db.lessonTestSubmission.findMany({
+    where: { lessonTestId: testId, userId },
+    orderBy: { attemptNumber: 'desc' },
+    select: { attemptNumber: true, isPassed: true },
+  })
+  const grantedSoFar = await getLessonTestAttemptsGranted(testId, userId)
+  const attemptsAllowed = test.maxAttempts + grantedSoFar
+  const latestSubmission = submissions[0]
+
+  if (submissions.length < attemptsAllowed || !latestSubmission || latestSubmission.isPassed) {
+    throw new AcademyAssessmentError(
+      'REVALIDATION_NOT_AVAILABLE',
+      'Solo puedes habilitar intentos después de que la persona haya agotado los disponibles y su último intento no haya sido aprobado.',
+      409
+    )
+  }
+
+  const revalidation = await db.lessonTestRevalidation.create({
+    data: { lessonTestId: testId, userId, grantedById, attemptsGranted, reason: reason?.trim() || null },
+  })
+
+  const courseId = (test as { lesson?: { courseId?: string } }).lesson?.courseId
+  if (courseId) {
+    // D-14: dispatched after the create, outside any transaction. Ignore the
+    // result — dispatch failure never rolls back or fails the grant.
+    void NotificationEventService.attemptsGranted({
+      userId,
+      courseId,
+      revalidationId: revalidation.id,
+      targetTitle: (test as { title?: string }).title ?? 'el test de lección',
+      attemptsGranted,
+      actionUrl: `/learn/${courseId}`,
+    })
+  }
+
+  return revalidation
 }

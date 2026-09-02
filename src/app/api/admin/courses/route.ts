@@ -8,16 +8,10 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 import { z } from 'zod'
-import {
-  certificateSloganSchema,
-  getCoursePublicationError,
-  normalizeCertificateSlogan,
-} from '@/validators/course.schema'
 
 const CreateCourseSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
-  certificateSlogan: certificateSloganSchema.optional(),
   trailerUrl: z.string().url().optional().or(z.literal('')),
   thumbnailUrl: z.string().url().optional().or(z.literal('')),
   priceCents: z.number().int().min(0, 'Price must be non-negative'),
@@ -70,7 +64,6 @@ export async function GET(request: NextRequest) {
           title: true,
           description: true,
           thumbnailUrl: true,
-          certificateSlogan: true,
           priceCents: true,
           rentalDays: true,
           isActive: true,
@@ -96,7 +89,6 @@ export async function GET(request: NextRequest) {
         title: c.title,
         description: c.description,
         thumbnailUrl: c.thumbnailUrl,
-        certificateSlogan: c.certificateSlogan,
         priceCents: c.priceCents,
         rentalDays: c.rentalDays,
         isActive: c.isActive,
@@ -145,22 +137,12 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const data = CreateCourseSchema.parse(body)
-    const certificateSlogan = normalizeCertificateSlogan(data.certificateSlogan)
-    const publicationError = getCoursePublicationError(data.isActive, certificateSlogan)
-
-    if (publicationError) {
-      return NextResponse.json(
-        { success: false, error: publicationError },
-        { status: 400 }
-      )
-    }
 
     // Create course
     const course = await db.course.create({
       data: {
         title: data.title,
         description: data.description,
-        certificateSlogan,
         trailerUrl: data.trailerUrl || null,
         thumbnailUrl: data.thumbnailUrl || null,
         priceCents: data.priceCents,

@@ -1,23 +1,24 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { NotificationDeliveryChannel, NotificationPreferenceCategory } from '@prisma/client'
 
-jest.mock('@/lib/db', () => ({
+vi.mock('@/lib/db', () => ({
   db: {
     comment: {
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
     },
     chatMessage: {
-      findMany: jest.fn(),
+      findMany: vi.fn(),
     },
     user: {
-      findMany: jest.fn(),
+      findMany: vi.fn(),
     },
   },
 }))
 
-jest.mock('@/server/services/notification-service', () => ({
+vi.mock('@/server/services/notification-service', () => ({
   NotificationService: {
-    dispatch: jest.fn(),
+    dispatch: vi.fn(),
   },
 }))
 
@@ -29,18 +30,18 @@ import {
 import { NotificationService } from '@/server/services/notification-service'
 
 const mockedDb = db as unknown as {
-  comment: { findUnique: jest.Mock; findMany: jest.Mock }
-  chatMessage: { findMany: jest.Mock }
-  user: { findMany: jest.Mock }
+  comment: { findUnique: Mock; findMany: Mock }
+  chatMessage: { findMany: Mock }
+  user: { findMany: Mock }
 }
 
 const mockedNotifications = NotificationService as unknown as {
-  dispatch: jest.Mock
+  dispatch: Mock
 }
 
 describe('CommunityNotificationService', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
     mockedNotifications.dispatch.mockResolvedValue({ ok: true, notifications: 1, deliveries: 1 })
   })
 

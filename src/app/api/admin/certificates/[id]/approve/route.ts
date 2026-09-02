@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
-import { normalizeCertificateSlogan } from '@/validators/course.schema'
 import { generateAndSaveCertificate } from '@/server/services/certificate.service'
 
 export const maxDuration = 60;
@@ -44,21 +43,6 @@ export async function POST(
       return NextResponse.json(
         { success: false, error: 'This certificate is not pending approval' },
         { status: 400 }
-      )
-    }
-
-    const course = await db.course.findUnique({
-      where: { id: cert.courseId },
-      select: { certificateSlogan: true },
-    })
-    if (!normalizeCertificateSlogan(course?.certificateSlogan)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            'El curso todavía no tiene slogan de certificado, así que no se puede emitir. Completalo en la edición del curso y volvé a aprobar.',
-        },
-        { status: 409 }
       )
     }
 

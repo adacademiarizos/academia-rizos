@@ -30,7 +30,6 @@ describe('certificate PDF template', () => {
     const html = await buildCertificateHtml({
       userName: 'Ana <Rizos> & Co.',
       courseName: 'Definición & cuidado',
-      certificateSlogan: 'Técnicas <avanzadas> para rizos',
       code: 'CERT-TEST-001',
       issuedAt: new Date('2026-08-05T12:00:00.000Z'),
     })
@@ -39,8 +38,8 @@ describe('certificate PDF template', () => {
     expect(html).toContain('CERTIFICADO')
     expect(html).toContain('Ana &lt;Rizos&gt; &amp; Co.')
     expect(html).toContain('Definición &amp; cuidado')
-    expect(html).toContain('Técnicas &lt;avanzadas&gt; para rizos')
     expect(html).toContain('CERT-TEST-001')
+    expect(html).not.toContain('class="specialization"')
     expect(mockToDataURL).toHaveBeenCalledWith(
       'http://localhost:3000/verify/certificate/CERT-TEST-001',
       expect.objectContaining({

@@ -1,19 +1,21 @@
-import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const getServerSession = jest.fn();
-const getNotifications = jest.fn();
+const { getServerSession, getNotifications, db } = vi.hoisted(() => {
+  const getServerSession = vi.fn();
+  const getNotifications = vi.fn();
+  const db = {
+    user: {
+      findUnique: vi.fn(),
+    },
+  };
+  return { getServerSession, getNotifications, db };
+});
 
-const db = {
-  user: {
-    findUnique: jest.fn(),
-  },
-};
-
-jest.mock("next-auth", () => ({ getServerSession }));
-jest.mock("@/lib/auth-options", () => ({ authOptions: {} }));
-jest.mock("@/lib/db", () => ({ db }));
-jest.mock("@/server/services/notification-service", () => ({
+vi.mock("next-auth", () => ({ getServerSession }));
+vi.mock("@/lib/auth-options", () => ({ authOptions: {} }));
+vi.mock("@/lib/db", () => ({ db }));
+vi.mock("@/server/services/notification-service", () => ({
   NotificationService: { getNotifications },
 }));
 
@@ -21,7 +23,7 @@ import { GET } from "@/app/api/notifications/route";
 
 describe("GET /api/notifications", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     getServerSession.mockResolvedValue({ user: { email: "student@example.com" } });
     db.user.findUnique.mockResolvedValue({ id: "student-1" });
   });

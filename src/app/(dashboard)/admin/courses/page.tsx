@@ -35,7 +35,6 @@ export default function AdminCoursesPage() {
   const [newCourse, setNewCourse] = useState<{
     title: string
     description: string
-    certificateSlogan: string
     rentalDays: number | undefined
     isActive: boolean
     thumbnailUrl: string
@@ -43,7 +42,6 @@ export default function AdminCoursesPage() {
   }>({
     title: '',
     description: '',
-    certificateSlogan: '',
     rentalDays: undefined,
     isActive: true,
     thumbnailUrl: '',
@@ -129,7 +127,6 @@ export default function AdminCoursesPage() {
         setNewCourse({
           title: '',
           description: '',
-          certificateSlogan: '',
           rentalDays: undefined,
           isActive: true,
           thumbnailUrl: '',
@@ -385,15 +382,6 @@ export default function AdminCoursesPage() {
                 placeholder="Descripción (opcional)"
                 rows={3}
                 className="rounded-2xl bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition resize-none"
-              />
-
-              <input
-                type="text"
-                value={newCourse.certificateSlogan}
-                onChange={(e) => setNewCourse({ ...newCourse, certificateSlogan: e.target.value })}
-                placeholder="Slogan del certificado (requerido si está activo)"
-                maxLength={100}
-                className="h-11 rounded-2xl bg-white/5 px-4 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition"
               />
 
               <div className="space-y-2">

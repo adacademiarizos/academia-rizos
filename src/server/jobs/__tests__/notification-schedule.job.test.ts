@@ -1,21 +1,24 @@
-import { describe, expect, it, jest } from "@jest/globals";
+import { describe, expect, it, vi, type Mock } from "vitest";
 import {
   AppointmentStatus,
   NotificationDeliveryChannel,
 } from "@prisma/client";
 
-const db = {
-  appointment: {
-    findMany: jest.fn(),
-  },
-  courseAccess: {
-    findMany: jest.fn(),
-  },
-};
+const { db } = vi.hoisted(() => {
+  const db = {
+    appointment: {
+      findMany: vi.fn(),
+    },
+    courseAccess: {
+      findMany: vi.fn(),
+    },
+  };
+  return { db };
+});
 
-jest.mock("@/lib/db", () => ({ db }));
-jest.mock("@/lib/mail", () => ({
-  sendNotificationEmail: jest.fn(),
+vi.mock("@/lib/db", () => ({ db }));
+vi.mock("@/lib/mail", () => ({
+  sendNotificationEmail: vi.fn(),
 }));
 
 import {
@@ -73,9 +76,9 @@ function createDeps(
 ): NotificationReminderSchedulerDeps {
   return {
     now: () => NOW,
-    findFutureConfirmedAppointments: jest.fn().mockResolvedValue(appointments),
-    findActiveTimedCourseAccesses: jest.fn().mockResolvedValue(courseAccesses),
-    dispatch: jest.fn().mockResolvedValue({
+    findFutureConfirmedAppointments: vi.fn().mockResolvedValue(appointments),
+    findActiveTimedCourseAccesses: vi.fn().mockResolvedValue(courseAccesses),
+    dispatch: vi.fn().mockResolvedValue({
       ok: true,
       notifications: 0,
       deliveries: 1,
@@ -120,7 +123,7 @@ describe("scheduleNotificationReminders", () => {
     const deps = createDeps([appointment]);
 
     const result = await scheduleNotificationReminders(deps);
-    const inputs = (deps.dispatch as jest.Mock).mock.calls.map(([input]) => input);
+    const inputs = (deps.dispatch as Mock).mock.calls.map(([input]) => input);
 
     expect(result).toEqual({ scheduled: 4, errors: [] });
     expect(inputs).toEqual(
@@ -168,7 +171,7 @@ describe("scheduleNotificationReminders", () => {
     const deps = createDeps([appointment]);
 
     const result = await scheduleNotificationReminders(deps);
-    const inputs = (deps.dispatch as jest.Mock).mock.calls.map(([input]) => input);
+    const inputs = (deps.dispatch as Mock).mock.calls.map(([input]) => input);
 
     expect(result).toEqual({ scheduled: 2, errors: [] });
     expect(inputs).toHaveLength(2);
@@ -194,7 +197,7 @@ describe("scheduleNotificationReminders", () => {
     const deps = createDeps([], [makeCourseAccess()]);
 
     const result = await scheduleNotificationReminders(deps);
-    const inputs = (deps.dispatch as jest.Mock).mock.calls.map(([input]) => input);
+    const inputs = (deps.dispatch as Mock).mock.calls.map(([input]) => input);
 
     expect(result).toEqual({ scheduled: 3, errors: [] });
     expect(inputs).toEqual([
@@ -232,7 +235,7 @@ describe("scheduleNotificationReminders", () => {
     const deps = createDeps([lateAppointment], [accessNearExpiry]);
 
     const result = await scheduleNotificationReminders(deps);
-    const inputs = (deps.dispatch as jest.Mock).mock.calls.map(([input]) => input);
+    const inputs = (deps.dispatch as Mock).mock.calls.map(([input]) => input);
 
     expect(result).toEqual({ scheduled: 1, errors: [] });
     expect(inputs).toEqual([
@@ -257,7 +260,7 @@ describe("scheduleNotificationReminders", () => {
 
   it("continues planning access reminders when the appointment query fails", async () => {
     const deps = createDeps([], [makeCourseAccess()], {
-      findFutureConfirmedAppointments: jest.fn().mockRejectedValue(new Error("appointment query timeout")),
+      findFutureConfirmedAppointments: vi.fn().mockRejectedValue(new Error("appointment query timeout")),
     });
 
     const result = await scheduleNotificationReminders(deps);

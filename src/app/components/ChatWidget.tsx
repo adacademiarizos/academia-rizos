@@ -1,26 +1,13 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { CommunityText } from '@/app/components/CommunityText'
-import { createCommunityMentionToken } from '@/lib/community-mentions'
-
-interface ChatMessage {
-  id: string
-  body: string
-  imageUrl: string | null
-  createdAt: string
-  userId: string
-  user: {
-    id: string
-    name: string | null
-    email: string
-    image: string | null
-  }
-}
+import { useChatRoom, useCourseChatRoom, type ChatMessage } from '@/app/components/useChatRoom'
 
 interface ChatWidgetProps {
   courseId: string
+  defaultOpen?: boolean
 }
 
 function Avatar({ user }: { user: { name: string | null; email: string; image: string | null } }) {
@@ -34,62 +21,30 @@ function Avatar({ user }: { user: { name: string | null; email: string; image: s
   )
 }
 
-export function ChatWidget({ courseId }: ChatWidgetProps) {
+export function ChatWidget({ courseId, defaultOpen = false }: ChatWidgetProps) {
   const { data: session } = useSession()
-  const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [text, setText] = useState('')
-  const [pendingImage, setPendingImage] = useState<File | null>(null)
-  const [pendingPreview, setPendingPreview] = useState<string | null>(null)
-  const [roomId, setRoomId] = useState<string | null>(null)
-  const [noAccess, setNoAccess] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [initialLoading, setInitialLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        const res = await fetch(`/api/chat/rooms/${courseId}`)
-        const data = await res.json()
-        if (data.success) {
-          setRoomId(data.data.id)
-        } else {
-          setNoAccess(true)
-          setInitialLoading(false)
-        }
-      } catch {
-        setInitialLoading(false)
-      }
-    }
-    init()
-  }, [courseId])
-
-  const fetchMessages = useCallback(async () => {
-    if (!roomId) return
-    try {
-      const res = await fetch(`/api/chat/messages?roomId=${roomId}&limit=60&offset=0`)
-      const data = await res.json()
-      if (data.success) setMessages(data.data.messages)
-    } catch {
-      // ignore
-    } finally {
-      setInitialLoading(false)
-    }
-  }, [roomId])
-
-  useEffect(() => {
-    if (!roomId || !isOpen) return
-    fetchMessages()
-    const interval = setInterval(fetchMessages, 3000)
-    return () => clearInterval(interval)
-  }, [roomId, isOpen, fetchMessages])
+  const [isOpen, setIsOpen] = useState(defaultOpen)
+  const { roomId, noAccess } = useCourseChatRoom(courseId)
+  const {
+    messages,
+    text,
+    setText,
+    pendingImage,
+    pendingPreview,
+    selectImage,
+    removePending,
+    appendMention,
+    send,
+    sending,
+    initialLoading,
+    error,
+    messagesEndRef,
+    fileInputRef,
+  } = useChatRoom(isOpen ? roomId : null)
 
   useEffect(() => {
     if (isOpen) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isOpen])
+  }, [messages, isOpen, messagesEndRef])
 
   useEffect(() => {
     if (!isOpen) return
@@ -102,70 +57,6 @@ export function ChatWidget({ courseId }: ChatWidgetProps) {
       block: 'center',
     })
   }, [messages, isOpen])
-
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (file.size > 3 * 1024 * 1024) { setError('Máx. 3 MB'); return }
-    setPendingImage(file)
-    setPendingPreview(URL.createObjectURL(file))
-    setError(null)
-  }
-
-  const removePending = () => {
-    setPendingImage(null)
-    if (pendingPreview) URL.revokeObjectURL(pendingPreview)
-    setPendingPreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
-  const appendMention = (user: ChatMessage['user']) => {
-    const token = createCommunityMentionToken(user)
-
-    setText((current) => {
-      if (current.includes(`](${user.id})`)) return current
-      return `${current}${current.trimEnd() ? ' ' : ''}${token} `
-    })
-  }
-
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!session?.user || !roomId) return
-    if (!text.trim() && !pendingImage) return
-    setSending(true)
-    setError(null)
-
-    try {
-      let imageUrl: string | undefined
-      if (pendingImage) {
-        const fd = new FormData()
-        fd.append('file', pendingImage)
-        const r = await fetch('/api/chat/images', { method: 'POST', body: fd })
-        const d = await r.json()
-        if (!r.ok) { setError(d.error || 'Error al subir imagen'); setSending(false); return }
-        imageUrl = d.data.imageUrl
-      }
-
-      const res = await fetch('/api/chat/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId, body: text.trim(), imageUrl }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setMessages((prev) => [...prev, data.data])
-        setText('')
-        removePending()
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
-      } else {
-        setError(data.error || 'Error al enviar')
-      }
-    } catch {
-      setError('Error al enviar')
-    } finally {
-      setSending(false)
-    }
-  }
 
   // Don't render if user has no access to this course's chat
   if (noAccess) return null
@@ -183,6 +74,10 @@ export function ChatWidget({ courseId }: ChatWidgetProps) {
         </svg>
       </button>
     )
+  }
+
+  const handleSend = (e: React.FormEvent) => {
+    void send(e)
   }
 
   // Open state — chat window
@@ -209,7 +104,7 @@ export function ChatWidget({ courseId }: ChatWidgetProps) {
         ) : messages.length === 0 ? (
           <p className="text-xs text-zinc-500 text-center pt-4">Nadie ha escrito aún. ¡Sé el primero!</p>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg: ChatMessage) => {
             const isOwn = msg.userId === (session?.user as any)?.id
             return (
               <div id={`message-${msg.id}`} key={msg.id} className={`scroll-mt-24 flex gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
@@ -263,7 +158,7 @@ export function ChatWidget({ courseId }: ChatWidgetProps) {
           )}
           {error && <p className="text-[10px] text-red-400 mb-1.5">{error}</p>}
           <form onSubmit={handleSend} className="flex items-center gap-1.5">
-            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" onChange={handleImageSelect} className="hidden" />
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/gif,image/webp" onChange={selectImage} className="hidden" />
             <button type="button" onClick={() => fileInputRef.current?.click()} disabled={!!pendingImage}
               className="w-8 h-8 rounded-xl bg-white/10 text-zinc-400 hover:text-ap-copper hover:bg-white/15 transition flex items-center justify-center text-sm disabled:opacity-40">
               📎
