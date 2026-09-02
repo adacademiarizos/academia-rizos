@@ -6,8 +6,8 @@ import {
 } from '@prisma/client'
 import { db } from '@/lib/db'
 import { RESOURCE_MAX_BYTES } from '@/lib/upload-contract'
-import { normalizeCertificateSlogan } from '@/validators/course.schema'
 import { generateAndSaveCertificate } from '@/server/services/certificate.service'
+import { NotificationEventService } from '@/server/services/notification-event-service'
 
 export type ScopeRef = {
   scope: LearningScope
@@ -632,15 +632,6 @@ async function handleApprovedAttempt(
       throw new LearningContentError('El examen final fue aprobado, pero aún faltan requisitos previos del curso.', 409, 'FINAL_PREREQUISITES_PENDING')
     }
 
-    const course = await db.course.findUnique({ where: { id: assessment.courseId }, select: { certificateSlogan: true } })
-    if (!normalizeCertificateSlogan(course?.certificateSlogan)) {
-      throw new LearningContentError(
-        'El curso todavía no tiene slogan de certificado, así que no se puede emitir. Completalo en la edición del curso y volvé a aprobar este intento.',
-        409,
-        'COURSE_CERTIFICATE_SLOGAN_MISSING'
-      )
-    }
-
     try {
       await generateAndSaveCertificate(userId, assessment.courseId)
     } catch (error) {
@@ -689,7 +680,18 @@ export async function grantAssessmentRevalidation(
   if (!Number.isInteger(input.attemptsGranted) || input.attemptsGranted < 1) {
     throw new LearningContentError('La revalidación debe conceder al menos un intento.')
   }
-  const assessment = await db.assessment.findUnique({ where: { id: assessmentId }, select: { id: true, maxAttempts: true } })
+  const assessment = await db.assessment.findUnique({
+    where: { id: assessmentId },
+    select: {
+      id: true,
+      maxAttempts: true,
+      title: true,
+      courseId: true,
+      module: { select: { courseId: true } },
+      style: { select: { courseId: true } },
+      lesson: { select: { courseId: true } },
+    },
+  })
   if (!assessment) throw new LearningContentError('La evaluación no existe.', 404, 'ASSESSMENT_NOT_FOUND')
   const [attempts, grants] = await Promise.all([
     db.assessmentAttempt.findMany({ where: { assessmentId, userId }, orderBy: { attemptNumber: 'desc' }, select: { status: true } }),
@@ -699,7 +701,28 @@ export async function grantAssessmentRevalidation(
   if (attempts.length < allowed || attempts[0]?.status !== AssessmentAttemptStatus.NOT_PASSED) {
     throw new LearningContentError('Solo puedes revalidar una evaluación agotada y marcada como no aprobada.', 409, 'REVALIDATION_NOT_AVAILABLE')
   }
-  return db.assessmentRevalidation.create({
+  const revalidation = await db.assessmentRevalidation.create({
     data: { assessmentId, userId, grantedById, attemptsGranted: input.attemptsGranted, reason: input.reason?.trim() || null },
   })
+
+  const courseId =
+    assessment.courseId ??
+    assessment.module?.courseId ??
+    assessment.style?.courseId ??
+    assessment.lesson?.courseId ??
+    null
+  if (courseId) {
+    // D-14: dispatched after the create, outside any transaction. Ignore the
+    // result — dispatch failure never rolls back or fails the grant.
+    void NotificationEventService.attemptsGranted({
+      userId,
+      courseId,
+      revalidationId: revalidation.id,
+      targetTitle: assessment.title ?? 'la evaluación',
+      attemptsGranted: input.attemptsGranted,
+      actionUrl: `/learn/${courseId}`,
+    })
+  }
+
+  return revalidation
 }
