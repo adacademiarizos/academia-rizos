@@ -63,7 +63,9 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // Create user
+    // Create user. profileCompletedAt stays null on purpose: the account is
+    // finished in the onboarding step, which is where the optional profile
+    // picture is collected.
     const user = await db.user.create({
       data: {
         name: name.trim(),

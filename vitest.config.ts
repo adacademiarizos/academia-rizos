@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
     // etapa5-e2e hace fetch contra un servidor real (localhost:3000):
     // es un smoke de integración, no un unit test. Se corre aparte.

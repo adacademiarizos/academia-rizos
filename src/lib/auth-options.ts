@@ -57,9 +57,12 @@ export const authOptions: NextAuthOptions = {
         if (await hasCompletedDeletionForEmail(normalizedEmail)) return false;
         const existingUser = await db.user.findUnique({
           where: { email: normalizedEmail },
-          select: { id: true, deletedAt: true },
+          select: { id: true, deletedAt: true, profileCompletedAt: true },
         });
         if (existingUser?.deletedAt) return false;
+        // Once the student has confirmed their own profile, the provider must
+        // not overwrite it: Google carries whatever name is on the Gmail
+        // account, and that name is what ends up on their certificate.
         const dbUser = await db.user.upsert({
           where: { email: normalizedEmail },
           create: {
@@ -68,10 +71,12 @@ export const authOptions: NextAuthOptions = {
             image: user.image,
             role: "STUDENT",
           },
-          update: {
-            name: user.name ?? undefined,
-            image: user.image ?? undefined,
-          },
+          update: existingUser?.profileCompletedAt
+            ? {}
+            : {
+                name: user.name ?? undefined,
+                image: user.image ?? undefined,
+              },
         });
 
         if (!existingUser) {

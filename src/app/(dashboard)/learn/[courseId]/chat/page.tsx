@@ -45,7 +45,11 @@ export default function CourseChatPage() {
   }, [courseId])
 
   return (
-    <div className="flex flex-col h-screen bg-ap-ink">
+    // The dashboard shell keeps its sidebar fixed at 280px and pads <main>, but a
+    // chat has to own the whole viewport so the composer never scrolls away.
+    // Anchoring to the viewport (clearing the sidebar on desktop and the mobile
+    // menu button on small screens) makes the message list the only scroller.
+    <div className="fixed inset-x-0 bottom-0 top-14 md:top-0 md:left-[280px] flex flex-col bg-ap-ink">
       {/* Breadcrumb / back bar */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-zinc-800 bg-ap-ink flex-shrink-0">
         <Link

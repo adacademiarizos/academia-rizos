@@ -73,7 +73,9 @@ export default function RegisterForm() {
           email: email.toLowerCase(),
           password,
           redirect: true,
-          callbackUrl: '/student',
+          // Uploading a picture needs an authenticated request, so the optional
+          // photo is asked for right after the account exists, not before.
+          callbackUrl: '/onboarding',
         })
       }, 1500)
     } catch (err) {
