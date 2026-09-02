@@ -14,7 +14,12 @@ function cn(...c: Array<string | false | null | undefined>) {
 
 const COURSE_CHAT_NAV_CAP = 8;
 
-type CourseChatItem = { id: string; title: string };
+type CourseChatItem = {
+  id: string;
+  title: string;
+  lastMessageAt: string | null;
+  unreadCount: number;
+};
 
 function MobileCourseChatNavItems({ onNavigate }: { onNavigate: () => void }) {
   const [courses, setCourses] = useState<CourseChatItem[]>([]);
@@ -47,20 +52,31 @@ function MobileCourseChatNavItems({ onNavigate }: { onNavigate: () => void }) {
         {visible.map((course) => {
           const href = `/learn/${course.id}/chat`;
           const active = pathname === href;
+          const unread = active ? 0 : course.unreadCount;
           return (
             <Link
               key={course.id}
               href={href}
               onClick={onNavigate}
+              title={course.title}
               className={cn(
-                "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition duration-200",
+                // min-w-0 is what lets the title ellipsise instead of widening
+                // the drawer; see the desktop sidebar for the same reason.
+                "flex min-w-0 items-center gap-3 rounded-2xl px-3 py-2 text-sm transition duration-200",
                 active
                   ? "bg-white/15 text-white shadow-lg border border-white/20"
                   : "text-white/60 hover:text-white/90 hover:bg-white/8 border border-transparent"
               )}
             >
               <MessagesSquare className={cn("h-4 w-4 transition shrink-0", active ? "text-white" : "text-white/50")} />
-              <span className="truncate">{course.title}</span>
+              <span className={cn("min-w-0 flex-1 truncate", unread > 0 && "font-semibold text-white/90")}>
+                {course.title}
+              </span>
+              {unread > 0 && (
+                <span className="shrink-0 rounded-full bg-ap-copper px-1.5 py-0.5 text-xs font-bold leading-none text-white">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
             </Link>
           );
         })}
