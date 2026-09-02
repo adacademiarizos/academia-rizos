@@ -4,6 +4,15 @@ import { z } from 'zod'
 import { getAdminUser } from '@/lib/admin-access'
 import { AcademyAssessmentError, reviewFinalExamAttempt } from '@/server/services/academy-assessment-service'
 
+// Issuing a certificate renders a PDF, and on a cold start that means
+// downloading the Chromium pack before the first render. Under the default
+// limit the request timed out, the attempt stayed pending, and the reviewer had
+// to approve a second time — which worked only because the binary was cached by
+// then. The work is the same; it just needs room to finish once.
+export const runtime = 'nodejs'
+export const maxDuration = 60
+
+
 const ReviewSchema = z.object({
   status: z.enum([FinalExamAttemptStatus.APPROVED, FinalExamAttemptStatus.NOT_PASSED]),
   reviewNote: z.string().trim().max(2000).optional().nullable(),

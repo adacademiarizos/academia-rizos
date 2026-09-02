@@ -12,6 +12,7 @@ interface CourseCardProps {
 export default function CourseCard({ course, owned = false }: CourseCardProps) {
   const totalPriceCents = course.totalPriceCents ?? course.priceCents
   const priceFormatted = (totalPriceCents / 100).toFixed(2)
+  const isFree = course.priceCents === 0
   const isLifetime = !course.rentalDays
 
   const accessLabel = isLifetime ? "Acceso de por vida" : `${course.rentalDays} días`;
@@ -80,6 +81,8 @@ export default function CourseCard({ course, owned = false }: CourseCardProps) {
               <span className="text-sm font-semibold text-ap-olive">
                 Comprado
               </span>
+            ) : isFree ? (
+              <span className="text-2xl font-bold text-ap-olive">Gratis</span>
             ) : (
               <span className="text-2xl font-bold text-ap-copper">
                 €{priceFormatted}
@@ -93,7 +96,7 @@ export default function CourseCard({ course, owned = false }: CourseCardProps) {
               owned ? "bg-ap-olive hover:bg-ap-olive/90" : "bg-ap-copper hover:bg-ap-copper/90"
             }`}
           >
-            {owned ? "Continuar curso" : "Ver Curso"}
+            {owned ? "Continuar curso" : isFree ? "Empezar gratis" : "Ver Curso"}
           </button>
         </div>
       </div>

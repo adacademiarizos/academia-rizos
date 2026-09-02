@@ -34,6 +34,16 @@ export default function CourseLandingPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  // A validated code only changes what the student is shown; checkout
+  // re-validates and is the only place a code is actually consumed.
+  const [discountCode, setDiscountCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState<{
+    code: string;
+    discountCents: number;
+    totalCents: number;
+    coversFullPrice: boolean;
+  } | null>(null);
+  const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<"success" | "cancelled" | null>(null);
 
   const checkCourseAccess = async () => {
@@ -110,13 +120,25 @@ export default function CourseLandingPage() {
       const res = await fetch(`/api/courses/${courseId}/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(analyticsData),
+        body: JSON.stringify({
+          ...analyticsData,
+          discountCode: appliedDiscount?.code ?? undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
         toast.error(`Error: ${data.error || "Checkout failed"}`);
         return;
       }
+
+      // A free course, or a code that covers the whole price, enrols the
+      // student here: there is no Stripe session to redirect to.
+      if (data.data.enrolled) {
+        toast.success("Listo, ya tienes acceso al curso.");
+        router.push(`/learn/${courseId}`);
+        return;
+      }
+
       window.location.href = data.data.checkoutUrl;
     } catch (error) {
       toast.error(
@@ -125,6 +147,43 @@ export default function CourseLandingPage() {
       );
     } finally {
       setIsCheckingOut(false);
+    }
+  };
+
+  const handleApplyDiscount = async () => {
+    const code = discountCode.trim();
+    if (!code) return;
+
+    setIsCheckingCode(true);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/discount`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setAppliedDiscount(null);
+        toast.error(data.error || "No se pudo aplicar el código");
+        return;
+      }
+
+      setAppliedDiscount({
+        code: data.data.code,
+        discountCents: data.data.discountCents,
+        totalCents: data.data.totalCents,
+        coversFullPrice: data.data.coversFullPrice,
+      });
+      toast.success(
+        data.data.coversFullPrice
+          ? "El código cubre el curso completo."
+          : "Código aplicado."
+      );
+    } catch {
+      toast.error("No se pudo validar el código");
+    } finally {
+      setIsCheckingCode(false);
     }
   };
 
@@ -164,6 +223,13 @@ export default function CourseLandingPage() {
   const totalPriceCents = course.totalPriceCents ?? course.priceCents;
   const feeCents = course.feeCents ?? 0;
   const priceFormatted = (totalPriceCents / 100).toFixed(2);
+  const isFreeCourse = course.priceCents === 0;
+  const payableCents = appliedDiscount ? appliedDiscount.totalCents : totalPriceCents;
+  const payableFormatted = (payableCents / 100).toFixed(2);
+  const enrollsWithoutPaying = isFreeCourse || payableCents === 0;
+  const buyLabel = enrollsWithoutPaying
+    ? "Inscribirme gratis"
+    : `Comprar ahora — €${payableFormatted}`;
   const basePriceFormatted = (course.priceCents / 100).toFixed(2);
   const feeFormatted = (feeCents / 100).toFixed(2);
   const learningOutcomes = course.learningOutcomes ?? [];
@@ -234,7 +300,7 @@ export default function CourseLandingPage() {
                       disabled={isCheckingOut}
                       className="px-8 py-3 rounded-full bg-ap-copper text-ap-ivory font-medium hover:bg-ap-copper/90 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isCheckingOut ? "Cargando..." : `Comprar Curso — €${priceFormatted}`}
+                      {isCheckingOut ? "Cargando..." : enrollsWithoutPaying ? "Inscribirme gratis" : `Comprar Curso — €${payableFormatted}`}
                     </button>
                     <a
                       href="#buy"
@@ -405,13 +471,57 @@ export default function CourseLandingPage() {
             <p className="text-lg text-white/70">
               Acceso completo, de por vida, con certificado de finalización
             </p>
+            {/* A free course has no price to discount, so the field would only
+                be a dead end there. */}
+            {!isFreeCourse && (
+              <div className="mx-auto max-w-md space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={discountCode}
+                    onChange={(e) => setDiscountCode(e.target.value.toUpperCase())}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleApplyDiscount();
+                      }
+                    }}
+                    placeholder="¿Tienes un código de descuento?"
+                    disabled={isCheckingCode || isCheckingOut}
+                    className="h-11 flex-1 rounded-full bg-white/8 px-5 text-sm text-ap-ivory placeholder:text-white/35 outline-none ring-1 ring-white/12 focus:ring-2 focus:ring-ap-copper/40 transition disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { void handleApplyDiscount(); }}
+                    disabled={isCheckingCode || isCheckingOut || !discountCode.trim()}
+                    className="h-11 rounded-full border border-white/15 px-5 text-sm font-semibold text-ap-ivory transition hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {isCheckingCode ? "..." : "Aplicar"}
+                  </button>
+                </div>
+
+                {appliedDiscount && (
+                  <p className="text-sm text-ap-olive">
+                    Código <span className="font-semibold">{appliedDiscount.code}</span> aplicado
+                    {appliedDiscount.coversFullPrice
+                      ? " — el curso te queda gratis."
+                      : ` — ahorras €${(appliedDiscount.discountCents / 100).toFixed(2)}.`}
+                  </p>
+                )}
+              </div>
+            )}
+
             <button
               onClick={handleBuyCourse}
               disabled={isCheckingOut}
               className="px-12 py-4 rounded-full bg-ap-copper text-ap-ivory font-bold text-lg hover:bg-ap-copper/90 transition shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isCheckingOut ? "Cargando..." : `Comprar ahora — €${priceFormatted}`}
+              {isCheckingOut ? "Cargando..." : buyLabel}
             </button>
+
+            {appliedDiscount && !appliedDiscount.coversFullPrice && (
+              <p className="text-sm text-white/45 line-through">€{priceFormatted}</p>
+            )}
           </div>
         </section>
       )}

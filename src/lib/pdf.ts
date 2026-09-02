@@ -14,8 +14,10 @@ type CertificateAssets = {
   background: string
   logo: string
   seal: string
-  cormorant: string
-  greatVibes: string
+  cormorantLatin: string
+  cormorantLatinExt: string
+  greatVibesLatin: string
+  greatVibesLatinExt: string
   manrope: string
 }
 
@@ -29,15 +31,24 @@ const certificateAssetsPromise: Promise<CertificateAssets> = Promise.all([
   readFile(join(certificateAssetDirectory, 'certificate-background.png')),
   readFile(join(certificateAssetDirectory, 'er-logo.png')),
   readFile(join(certificateAssetDirectory, 'seal-badge.png')),
+  // Cormorant ships as two slices. The certificate is written in Spanish, so
+  // almost every glyph it needs lives in the latin one; the extended slice only
+  // covers names carrying characters outside it. Shipping only latin-ext, as
+  // this did, meant every A-Z fell back to Georgia and the diploma lost the
+  // typeface it was designed around.
+  readFile(join(certificateAssetDirectory, 'cormorant-garamond-latin.woff2')),
   readFile(join(certificateAssetDirectory, 'cormorant-garamond-latin-ext.woff2')),
+  readFile(join(certificateAssetDirectory, 'great-vibes-latin.woff2')),
   readFile(join(certificateAssetDirectory, 'great-vibes-latin-ext.woff2')),
   readFile(join(certificateAssetDirectory, 'manrope-latin-ext.woff2')),
-]).then(([background, logo, seal, cormorant, greatVibes, manrope]) => ({
+]).then(([background, logo, seal, cormorantLatin, cormorantLatinExt, greatVibesLatin, greatVibesLatinExt, manrope]) => ({
   background: toDataUri(background, 'image/png'),
   logo: toDataUri(logo, 'image/png'),
   seal: toDataUri(seal, 'image/png'),
-  cormorant: toDataUri(cormorant, 'font/woff2'),
-  greatVibes: toDataUri(greatVibes, 'font/woff2'),
+  cormorantLatin: toDataUri(cormorantLatin, 'font/woff2'),
+  cormorantLatinExt: toDataUri(cormorantLatinExt, 'font/woff2'),
+  greatVibesLatin: toDataUri(greatVibesLatin, 'font/woff2'),
+  greatVibesLatinExt: toDataUri(greatVibesLatinExt, 'font/woff2'),
   manrope: toDataUri(manrope, 'font/woff2'),
 }))
 
@@ -69,8 +80,10 @@ export async function buildCertificateHtml(params: CertificatePdfParams): Promis
 <head>
   <meta charset="UTF-8" />
   <style>
-    @font-face { font-family: 'Cormorant Garamond'; src: url('${assets.cormorant}') format('woff2'); font-weight: 400 600; font-style: normal; font-display: block; }
-    @font-face { font-family: 'Great Vibes'; src: url('${assets.greatVibes}') format('woff2'); font-weight: 400; font-style: normal; font-display: block; }
+    @font-face { font-family: 'Cormorant Garamond'; src: url('${assets.cormorantLatin}') format('woff2'); font-weight: 400 600; font-style: normal; font-display: block; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+    @font-face { font-family: 'Cormorant Garamond'; src: url('${assets.cormorantLatinExt}') format('woff2'); font-weight: 400 600; font-style: normal; font-display: block; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+    @font-face { font-family: 'Great Vibes'; src: url('${assets.greatVibesLatin}') format('woff2'); font-weight: 400; font-style: normal; font-display: block; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+    @font-face { font-family: 'Great Vibes'; src: url('${assets.greatVibesLatinExt}') format('woff2'); font-weight: 400; font-style: normal; font-display: block; unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
     @font-face { font-family: 'Manrope'; src: url('${assets.manrope}') format('woff2'); font-weight: 400 600; font-style: normal; font-display: block; }
 
     :root { --copper: #b16e34; --olive: #6f7546; --ink: #42433f; --paper: #fff9f2; }
