@@ -300,7 +300,10 @@ export class CommunityNotificationService {
       title: 'Te mencionaron en el chat',
       message: `${getActorLabel(input.actor)} te mencionó en el chat.`,
       recipients: input.recipientIds.map((userId) => ({ userId })),
-      channels: [NotificationDeliveryChannel.IN_APP],
+      // A mention is directed at one person and easy to miss in a room that
+      // keeps moving, so it also leaves the app. The email is queued as a
+      // NotificationDelivery row and sent by the notifications maintenance job.
+      channels: [NotificationDeliveryChannel.IN_APP, NotificationDeliveryChannel.EMAIL],
       resource: { type: 'CHAT_MESSAGE', id: input.message.id },
       relatedId: input.message.id,
       actionUrl,
