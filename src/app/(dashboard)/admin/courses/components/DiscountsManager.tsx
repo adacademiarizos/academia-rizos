@@ -20,7 +20,13 @@ type CourseOption = { id: string; title: string }
 const cardClass =
   'rounded-[28px] border border-white/10 bg-white/[0.05] p-6 shadow-[0_16px_50px_rgba(0,0,0,0.12)] sm:p-8'
 const fieldClass =
-  'h-11 rounded-2xl bg-white/5 px-4 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition disabled:opacity-50'
+  'h-11 w-full rounded-2xl bg-white/5 px-4 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition disabled:opacity-50'
+// A native dropdown paints its own list, and the options inherit the field's
+// white text onto that light background — every entry but the highlighted one
+// disappears. They need their own colours.
+const optionClass = 'bg-[#1c1b1a] text-white'
+const labelClass = 'block text-xs font-medium uppercase tracking-wide text-white/45'
+const hintClass = 'mt-1 text-xs text-white/30'
 
 function describe(code: DiscountCode) {
   const amount = code.type === 'PERCENT' ? `${code.value}%` : `€${(code.value / 100).toFixed(2)}`
@@ -153,77 +159,134 @@ export function DiscountsManager() {
           </p>
         )}
 
-        <form onSubmit={create} className="mt-5 grid gap-3 sm:grid-cols-2">
-          <input
-            value={code}
-            onChange={(event) => setCode(event.target.value.toUpperCase())}
-            placeholder="CÓDIGO (ej. RIZOS20)"
-            disabled={saving}
-            className={fieldClass}
-          />
-          <input
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="Descripción interna (opcional)"
-            disabled={saving}
-            className={fieldClass}
-          />
+        <form onSubmit={create} className="mt-6 space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="discount-code" className={labelClass}>Código</label>
+              <input
+                id="discount-code"
+                value={code}
+                onChange={(event) => setCode(event.target.value.toUpperCase())}
+                placeholder="RIZOS20"
+                disabled={saving}
+                className={`mt-1.5 font-mono tracking-wider ${fieldClass}`}
+              />
+              <p className={hintClass}>Es lo que escribe la alumna. No distingue mayúsculas.</p>
+            </div>
 
-          <select
-            value={type}
-            onChange={(event) => setType(event.target.value as 'PERCENT' | 'FIXED')}
-            disabled={saving}
-            className={fieldClass}
-          >
-            <option value="PERCENT">Porcentaje (%)</option>
-            <option value="FIXED">Monto fijo (€)</option>
-          </select>
-          <input
-            type="number"
-            min={0}
-            step={type === 'PERCENT' ? 1 : 0.01}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            placeholder={type === 'PERCENT' ? 'Porcentaje (1-100)' : 'Euros a descontar'}
-            disabled={saving}
-            className={fieldClass}
-          />
+            <div>
+              <label htmlFor="discount-description" className={labelClass}>Descripción</label>
+              <input
+                id="discount-description"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Campaña de septiembre"
+                disabled={saving}
+                className={`mt-1.5 ${fieldClass}`}
+              />
+              <p className={hintClass}>Solo para vos. La alumna no la ve.</p>
+            </div>
+          </div>
 
-          <select
-            value={courseId}
-            onChange={(event) => setCourseId(event.target.value)}
-            disabled={saving}
-            className={fieldClass}
-          >
-            <option value="">Todos los cursos</option>
-            {courses.map((item) => (
-              <option key={item.id} value={item.id}>{item.title}</option>
-            ))}
-          </select>
-          <input
-            type="number"
-            min={1}
-            value={maxRedemptions}
-            onChange={(event) => setMaxRedemptions(event.target.value)}
-            placeholder="Usos totales (vacío = sin límite)"
-            disabled={saving}
-            className={fieldClass}
-          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="discount-type" className={labelClass}>Tipo de descuento</label>
+              <select
+                id="discount-type"
+                value={type}
+                onChange={(event) => setType(event.target.value as 'PERCENT' | 'FIXED')}
+                disabled={saving}
+                className={`mt-1.5 ${fieldClass}`}
+              >
+                <option className={optionClass} value="PERCENT">Porcentaje (%)</option>
+                <option className={optionClass} value="FIXED">Monto fijo (€)</option>
+              </select>
+            </div>
 
-          <input
-            type="date"
-            value={expiresAt}
-            onChange={(event) => setExpiresAt(event.target.value)}
-            disabled={saving}
-            className={fieldClass}
-          />
-          <button
-            type="submit"
-            disabled={saving}
-            className="h-11 rounded-2xl bg-ap-copper px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40"
-          >
-            {saving ? 'Creando…' : 'Crear código'}
-          </button>
+            <div>
+              <label htmlFor="discount-value" className={labelClass}>
+                {type === 'PERCENT' ? 'Porcentaje a descontar' : 'Euros a descontar'}
+              </label>
+              <div className="relative mt-1.5">
+                <input
+                  id="discount-value"
+                  type="number"
+                  min={0}
+                  max={type === 'PERCENT' ? 100 : undefined}
+                  step={type === 'PERCENT' ? 1 : 0.01}
+                  value={value}
+                  onChange={(event) => setValue(event.target.value)}
+                  placeholder={type === 'PERCENT' ? '20' : '5.00'}
+                  disabled={saving}
+                  className={`${fieldClass} pr-10`}
+                />
+                <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-white/35">
+                  {type === 'PERCENT' ? '%' : '€'}
+                </span>
+              </div>
+              <p className={hintClass}>
+                {type === 'PERCENT'
+                  ? 'Un 100% deja el curso gratis y salta el pago.'
+                  : 'Nunca descuenta más de lo que cuesta el curso.'}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label htmlFor="discount-course" className={labelClass}>Aplica a</label>
+              <select
+                id="discount-course"
+                value={courseId}
+                onChange={(event) => setCourseId(event.target.value)}
+                disabled={saving}
+                className={`mt-1.5 ${fieldClass}`}
+              >
+                <option className={optionClass} value="">Todos los cursos</option>
+                {courses.map((item) => (
+                  <option className={optionClass} key={item.id} value={item.id}>{item.title}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="discount-max" className={labelClass}>Usos totales</label>
+              <input
+                id="discount-max"
+                type="number"
+                min={1}
+                value={maxRedemptions}
+                onChange={(event) => setMaxRedemptions(event.target.value)}
+                placeholder="Sin límite"
+                disabled={saving}
+                className={`mt-1.5 ${fieldClass}`}
+              />
+              <p className={hintClass}>Además, cada alumna lo usa una vez.</p>
+            </div>
+
+            <div>
+              <label htmlFor="discount-expires" className={labelClass}>Vence el</label>
+              <input
+                id="discount-expires"
+                type="date"
+                value={expiresAt}
+                onChange={(event) => setExpiresAt(event.target.value)}
+                disabled={saving}
+                className={`mt-1.5 ${fieldClass} [color-scheme:dark]`}
+              />
+              <p className={hintClass}>Vacío = no vence.</p>
+            </div>
+          </div>
+
+          <div className="flex justify-end border-t border-white/10 pt-5">
+            <button
+              type="submit"
+              disabled={saving || !code.trim() || !value.trim()}
+              className="h-11 rounded-2xl bg-ap-copper px-8 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Creando…' : 'Crear código'}
+            </button>
+          </div>
         </form>
       </section>
 
