@@ -96,6 +96,118 @@ export function CourseAdminTabs() {
   )
 }
 
+/**
+ * Awards course access by hand. Until this existed the only way a student could
+ * get a course was a completed Stripe payment, so a scholarship or a bank
+ * transfer meant editing the database.
+ */
+function GrantAccessPanel({ courseId, onGranted }: { courseId: string; onGranted: () => void }) {
+  const [email, setEmail] = useState('')
+  const [days, setDays] = useState('')
+  const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setError(null)
+    setMessage(null)
+
+    if (!email.trim()) {
+      setError('Escribe el email de la alumna.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const response = await fetch(`/api/admin/courses/${courseId}/access`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          // An empty duration means lifetime, which is what a scholarship
+          // usually is; the field is there for time-boxed access.
+          days: days.trim() ? Number(days) : null,
+          note: note.trim() || undefined,
+        }),
+      })
+      const body = await response.json()
+      if (!response.ok || !body.success) {
+        throw new Error(body.error ?? 'No se pudo otorgar el acceso.')
+      }
+
+      setMessage(`Acceso otorgado a ${body.data.user.email}.`)
+      setEmail('')
+      setDays('')
+      setNote('')
+      onGranted()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'No se pudo otorgar el acceso.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const fieldClass =
+    'h-11 rounded-2xl bg-white/5 px-4 text-sm text-white placeholder:text-white/30 outline-none ring-1 ring-white/10 focus:ring-2 focus:ring-white/20 transition disabled:opacity-50'
+
+  return (
+    <section className={cardClass}>
+      <h2 className="text-xl font-semibold text-white">Otorgar acceso (beca)</h2>
+      <p className="mt-1 text-sm text-white/50">
+        Da acceso sin pasar por el pago. Útil para becas, transferencias y pagos que fallaron.
+      </p>
+
+      {error && (
+        <p role="alert" className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {error}
+        </p>
+      )}
+      {message && (
+        <p className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+          {message}
+        </p>
+      )}
+
+      <form onSubmit={submit} className="mt-5 grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <input
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="Email de la alumna"
+          disabled={saving}
+          className={fieldClass}
+        />
+        <input
+          type="number"
+          min={1}
+          value={days}
+          onChange={(event) => setDays(event.target.value)}
+          placeholder="Días (vacío = de por vida)"
+          disabled={saving}
+          className={fieldClass}
+        />
+        <input
+          type="text"
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder="Motivo (opcional): beca, transferencia, cortesía…"
+          disabled={saving}
+          className={`${fieldClass} sm:col-span-2`}
+        />
+        <button
+          type="submit"
+          disabled={saving || !email.trim()}
+          className="h-11 rounded-2xl bg-ap-copper px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-40 sm:col-span-2"
+        >
+          {saving ? 'Otorgando…' : 'Otorgar acceso'}
+        </button>
+      </form>
+    </section>
+  )
+}
+
 function StudentsPanel({ courseId }: { courseId: string }) {
   const [students, setStudents] = useState<Student[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -111,12 +223,28 @@ function StudentsPanel({ courseId }: { courseId: string }) {
     }
   }, [courseId])
 
+  const revoke = useCallback(async (userId: string) => {
+    await fetch(`/api/admin/courses/${courseId}/access`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    })
+    await load()
+  }, [courseId, load])
+
   useEffect(() => { void load() }, [load])
 
   if (error) return <p role="alert" className="rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</p>
-  if (!students) return <p className="text-sm text-white/50">Cargando alumnas…</p>
+  if (!students) return (
+    <div className="space-y-6">
+      <GrantAccessPanel courseId={courseId} onGranted={() => { void load() }} />
+      <p className="text-sm text-white/50">Cargando alumnas…</p>
+    </div>
+  )
 
   return (
+    <div className="space-y-6">
+    <GrantAccessPanel courseId={courseId} onGranted={() => { void load() }} />
     <section className={cardClass}>
       <h2 className="text-xl font-semibold text-white">Alumnas con acceso</h2>
       <p className="mt-1 text-sm text-white/50">{students.length} con acceso vigente.</p>
@@ -157,10 +285,18 @@ function StudentsPanel({ courseId }: { courseId: string }) {
               <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
                 <div className="h-full rounded-full bg-ap-copper transition-all" style={{ width: `${entry.percentage}%` }} />
               </div>
+              <button
+                type="button"
+                onClick={() => { void revoke(entry.user.id) }}
+                className="mt-3 text-xs font-medium text-red-300/80 transition hover:text-red-300"
+              >
+                Revocar acceso
+              </button>
             </li>
           ))}
         </ul>
       )}
     </section>
+    </div>
   )
 }

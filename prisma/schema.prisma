@@ -177,6 +177,9 @@ model User {
 
   // Relations - Academia
   courseAccess            CourseAccess[]
+  courseAccessGranted     CourseAccess[]         @relation("CourseAccessGrantedBy")
+  discountCodesCreated    DiscountCode[]         @relation("DiscountCodeCreator")
+  discountRedemptions     DiscountRedemption[]
   comments                Comment[]
   likes                   Like[]
   chatMessages            ChatMessage[]
@@ -498,6 +501,7 @@ model Course {
   assessments       Assessment[]
   styles            ModuleStyle[]
   access            CourseAccess[]
+  discountCodes     DiscountCode[]
   test              Test?
   exam              CourseExam?
   finalExam         FinalExam?
@@ -656,8 +660,17 @@ model CourseAccess {
   createdAt   DateTime  @default(now())
   revokedAt   DateTime?
 
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  /// How the access was obtained. PURCHASE is the Stripe flow; GRANT is an
+  /// admin awarding it by hand (a scholarship, a bank transfer, a fix for a
+  /// failed payment); FREE is self-enrolment in a course that costs nothing.
+  source      CourseAccessSource @default(PURCHASE)
+  /// Admin who granted it, and why. Only meaningful for GRANT.
+  grantedById String?
+  grantNote   String?
+
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course    Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  grantedBy User?  @relation("CourseAccessGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
 
   @@unique([userId, courseId])
   @@index([courseId])
@@ -1635,4 +1648,64 @@ model ConversionEvent {
   @@index([sessionId])
   @@index([utmSource])
   @@index([utmCampaign])
+}
+
+enum CourseAccessSource {
+  PURCHASE
+  GRANT
+  FREE
+}
+
+enum DiscountType {
+  /// value is a whole percentage, 1-100.
+  PERCENT
+  /// value is an amount in cents taken off the base price.
+  FIXED
+}
+
+/// A redeemable code that lowers a course's base price at checkout. A code with
+/// no courseId works on every course. Discounts always apply to the base price;
+/// the Stripe passthrough fee is recalculated on the discounted amount.
+model DiscountCode {
+  id             String       @id @default(cuid())
+  /// Always stored upper-cased and trimmed so lookups are case-insensitive.
+  code           String       @unique
+  description    String?
+  type           DiscountType
+  value          Int
+  /// null = valid for every course.
+  courseId       String?
+  /// null = unlimited. Compared against redemptions.
+  maxRedemptions Int?
+  redemptions    Int          @default(0)
+  expiresAt      DateTime?
+  isActive       Boolean      @default(true)
+  createdById    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course    Course?              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdBy User?                @relation("DiscountCodeCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  uses      DiscountRedemption[]
+
+  @@index([courseId])
+  @@index([isActive])
+}
+
+/// One row per person per code: the unique constraint is what stops a single
+/// student redeeming the same code twice.
+model DiscountRedemption {
+  id             String   @id @default(cuid())
+  discountCodeId String
+  userId         String
+  courseId       String
+  amountOffCents Int
+  createdAt      DateTime @default(now())
+
+  discountCode DiscountCode @relation(fields: [discountCodeId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([discountCodeId, userId])
+  @@index([userId])
 }

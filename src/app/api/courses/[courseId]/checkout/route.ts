@@ -1,6 +1,14 @@
 /**
  * POST /api/courses/[courseId]/checkout
- * Create Stripe checkout session for course purchase
+ *
+ * Starts a course purchase. Three outcomes are possible:
+ *  - the course is free, or a discount code covers it in full, so access is
+ *    granted here and no Stripe session exists at all;
+ *  - there is something to charge, so a Stripe checkout session is returned;
+ *  - the request is rejected (no access, bad code, unchargeable amount).
+ *
+ * A zero total can never go to Stripe: its minimum charge is 50 cents, so a
+ * free enrolment has to be handled entirely on our side.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -9,8 +17,15 @@ import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 import { isCourseAccessActive } from '@/lib/course-access'
 import { stripe } from '@/lib/stripe'
-import { CourseService } from '@/server/services/course-service'
 import { addStripeFees } from '@/lib/fees'
+import {
+  DISCOUNT_REJECTION_MESSAGES,
+  isChargeable,
+  normalizeDiscountCode,
+  STRIPE_MINIMUM_CHARGE_CENTS,
+} from '@/lib/discount'
+import { DiscountService, DiscountUnavailableError } from '@/server/services/discount-service'
+import { CourseService } from '@/server/services/course-service'
 
 export async function POST(
   request: NextRequest,
@@ -19,7 +34,6 @@ export async function POST(
   try {
     const { courseId } = await params
 
-    // Validate courseId
     if (!courseId) {
       return NextResponse.json(
         { success: false, error: 'Course ID is required' },
@@ -27,7 +41,6 @@ export async function POST(
       )
     }
 
-    // Check authentication
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json(
@@ -36,20 +49,15 @@ export async function POST(
       )
     }
 
-    // Get user from database
     const user = await db.user.findUnique({
       where: { email: session.user.email },
       select: { id: true, email: true, name: true },
     })
 
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
     }
 
-    // Fetch course and Stripe fee settings in parallel
     const [course, settings] = await Promise.all([
       db.course.findUnique({
         where: { id: courseId },
@@ -67,10 +75,7 @@ export async function POST(
     ])
 
     if (!course) {
-      return NextResponse.json(
-        { success: false, error: 'Course not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 })
     }
 
     if (!course.isActive) {
@@ -80,11 +85,8 @@ export async function POST(
       )
     }
 
-    // Check if user already has lifetime access
     const existingAccess = await db.courseAccess.findUnique({
-      where: {
-        userId_courseId: { userId: user.id, courseId },
-      },
+      where: { userId_courseId: { userId: user.id, courseId } },
       select: { accessUntil: true, revokedAt: true },
     })
 
@@ -95,37 +97,109 @@ export async function POST(
       )
     }
 
-    // Calculate total charge (base + Stripe passthrough fee)
+    const body = await request.json().catch(() => ({}))
+    const rawCode = typeof body.discountCode === 'string' ? body.discountCode.trim() : ''
+
+    // Price the code before anything is charged or granted. Validation is
+    // read-only; the redemption below is what actually consumes a use.
+    let discountCents = 0
+    let discountCodeId: string | null = null
+
+    if (rawCode) {
+      const validation = await DiscountService.validate({
+        code: rawCode,
+        courseId: course.id,
+        userId: user.id,
+        baseCents: course.priceCents,
+      })
+
+      if (!validation.ok) {
+        return NextResponse.json(
+          { success: false, error: DISCOUNT_REJECTION_MESSAGES[validation.reason], code: validation.reason },
+          { status: 400 }
+        )
+      }
+
+      discountCents = validation.discountCents
+      discountCodeId = validation.code.id
+    }
+
+    const netCents = course.priceCents - discountCents
+
     const feePercent = settings?.feePercent ?? 2.5
     const feeFixedCents = settings?.feeFixedCents ?? 25
-    const { totalCents, feeCents } = addStripeFees({
-      baseCents: course.priceCents,
-      feePercent,
-      feeFixedCents,
-    })
+    // Fees are recalculated on the discounted amount: charging the fee for a
+    // price the student is not paying would quietly erase part of the discount.
+    const { totalCents, feeCents } = netCents > 0
+      ? addStripeFees({ baseCents: netCents, feePercent, feeFixedCents })
+      : { totalCents: 0, feeCents: 0 }
 
-    // Read analytics data from request body (optional fields)
-    const body = await request.json().catch(() => ({}))
-    const analyticsSessionId = body.analyticsSessionId || ''
-    const utmSource = body.utmSource || ''
-    const utmMedium = body.utmMedium || ''
-    const utmCampaign = body.utmCampaign || ''
-    const analyticsReferrer = body.referrer || ''
+    const analytics = {
+      analyticsSessionId: body.analyticsSessionId || '',
+      utmSource: body.utmSource || '',
+      utmMedium: body.utmMedium || '',
+      utmCampaign: body.utmCampaign || '',
+      analyticsReferrer: body.referrer || '',
+    }
 
-    // Create Stripe checkout session
+    // --- Free enrolment -----------------------------------------------------
+    // Either the course costs nothing or the code covered all of it. Stripe is
+    // not involved, so access is granted right here, inside one transaction
+    // with the redemption so a code can never be consumed without the access it
+    // paid for.
+    if (netCents <= 0) {
+      await db.$transaction(async (transaction) => {
+        if (discountCodeId) {
+          await DiscountService.redeem({
+            codeId: discountCodeId,
+            userId: user.id,
+            courseId: course.id,
+            amountOffCents: discountCents,
+            client: transaction,
+          })
+        }
+
+        await CourseService.createCourseAccess(user.id, course.id, transaction)
+        await transaction.courseAccess.update({
+          where: { userId_courseId: { userId: user.id, courseId: course.id } },
+          data: {
+            source: discountCodeId ? 'PURCHASE' : 'FREE',
+            grantNote: discountCodeId ? `Código ${normalizeDiscountCode(rawCode)} (100%)` : null,
+          },
+        })
+      })
+
+      return NextResponse.json({
+        success: true,
+        data: { enrolled: true, checkoutUrl: null, totalCents: 0 },
+      })
+    }
+
+    // --- Paid checkout ------------------------------------------------------
+    // Below Stripe's minimum there is no way to take the money at all. Failing
+    // loudly here beats a Stripe error the student cannot act on.
+    if (!isChargeable(totalCents)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `El importe a cobrar (${(totalCents / 100).toFixed(2)} ${course.currency}) es menor al mínimo de ${(STRIPE_MINIMUM_CHARGE_CENTS / 100).toFixed(2)} que acepta la pasarela de pago.`,
+        },
+        { status: 400 }
+      )
+    }
+
     const metadata = {
       type: 'COURSE',
       courseId: course.id,
       userId: user.id,
       priceCents: String(course.priceCents),
+      discountCents: String(discountCents),
+      discountCodeId: discountCodeId ?? '',
+      netCents: String(netCents),
       feeCents: String(feeCents),
       totalCents: String(totalCents),
       rentalDays: course.rentalDays ? String(course.rentalDays) : 'lifetime',
-      analyticsSessionId,
-      utmSource,
-      utmMedium,
-      utmCampaign,
-      analyticsReferrer,
+      ...analytics,
     }
 
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -146,15 +220,25 @@ export async function POST(
           quantity: 1,
         },
       ],
-      payment_intent_data: {
-        metadata,
-      },
+      payment_intent_data: { metadata },
       metadata,
     })
 
-    // Create Payment record
     if (!checkoutSession.url) {
       throw new Error('Failed to generate Stripe checkout URL')
+    }
+
+    // The code is consumed when checkout starts, not when payment lands: two
+    // people must not be able to hold the last use of a code at once. An
+    // abandoned checkout therefore burns the student's own single use, which is
+    // the same trade Stripe's own promotion codes make.
+    if (discountCodeId) {
+      await DiscountService.redeem({
+        codeId: discountCodeId,
+        userId: user.id,
+        courseId: course.id,
+        amountOffCents: discountCents,
+      })
     }
 
     await db.payment.create({
@@ -171,15 +255,18 @@ export async function POST(
       },
     })
 
-    console.log(`✅ Checkout session created for course: ${course.title}`)
-
     return NextResponse.json({
       success: true,
-      data: {
-        checkoutUrl: checkoutSession.url,
-      },
+      data: { enrolled: false, checkoutUrl: checkoutSession.url, totalCents },
     })
   } catch (error) {
+    if (error instanceof DiscountUnavailableError) {
+      return NextResponse.json(
+        { success: false, error: DISCOUNT_REJECTION_MESSAGES[error.reason], code: error.reason },
+        { status: 409 }
+      )
+    }
+
     console.error('Error creating course checkout:', error)
     return NextResponse.json(
       {

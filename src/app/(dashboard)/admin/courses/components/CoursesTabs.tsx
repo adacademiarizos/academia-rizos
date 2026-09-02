@@ -7,12 +7,17 @@ const TABS = [
   { label: 'Cursos', href: '/admin/courses' },
   { label: 'Certificados', href: '/admin/courses/certificates' },
   { label: 'Revision de examenes', href: '/admin/courses/review' },
+  { label: 'Descuentos', href: '/admin/courses/discounts' },
 ]
 
 function isCoursesRootActive(pathname: string) {
   if (pathname === '/admin/courses') return true
   if (!pathname.startsWith('/admin/courses/')) return false
-  return !pathname.startsWith('/admin/courses/certificates') && !pathname.startsWith('/admin/courses/review')
+  return (
+    !pathname.startsWith('/admin/courses/certificates') &&
+    !pathname.startsWith('/admin/courses/review') &&
+    !pathname.startsWith('/admin/courses/discounts')
+  )
 }
 
 export function CoursesTabs() {
