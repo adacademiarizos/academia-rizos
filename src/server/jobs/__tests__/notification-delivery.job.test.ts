@@ -1,25 +1,26 @@
+import { describe, expect, it, vi } from "vitest";
 import {
   NotificationDeliveryChannel,
   NotificationDeliveryStatus,
   NotificationPriority,
 } from "@prisma/client";
 
-jest.mock("@/lib/db", () => ({
+vi.mock("@/lib/db", () => ({
   db: {
     notificationDelivery: {
-      findMany: jest.fn(),
-      update: jest.fn(),
-      updateMany: jest.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
 }));
-jest.mock("@/lib/mail", () => ({
-  sendNotificationEmail: jest.fn(),
+vi.mock("@/lib/mail", () => ({
+  sendNotificationEmail: vi.fn(),
 }));
-jest.mock("@/server/services/notification-service", () => ({
+vi.mock("@/server/services/notification-service", () => ({
   NotificationService: {
-    materializeInAppDelivery: jest.fn(),
-    notifyDeliveryExhausted: jest.fn(),
+    materializeInAppDelivery: vi.fn(),
+    notifyDeliveryExhausted: vi.fn(),
   },
 }));
 
@@ -66,14 +67,14 @@ function createDeps(
 ): NotificationDeliveryJobDeps {
   return {
     now: () => NOW,
-    findDue: jest.fn().mockResolvedValue(deliveries),
-    claim: jest.fn().mockResolvedValue(true),
-    sendEmail: jest.fn().mockResolvedValue(undefined),
-    materializeInApp: jest.fn().mockResolvedValue(undefined),
-    markSent: jest.fn().mockResolvedValue(undefined),
-    requeue: jest.fn().mockResolvedValue(undefined),
-    markFailed: jest.fn().mockResolvedValue(undefined),
-    notifyDeliveryExhausted: jest.fn().mockResolvedValue(undefined),
+    findDue: vi.fn().mockResolvedValue(deliveries),
+    claim: vi.fn().mockResolvedValue(true),
+    sendEmail: vi.fn().mockResolvedValue(undefined),
+    materializeInApp: vi.fn().mockResolvedValue(undefined),
+    markSent: vi.fn().mockResolvedValue(undefined),
+    requeue: vi.fn().mockResolvedValue(undefined),
+    markFailed: vi.fn().mockResolvedValue(undefined),
+    notifyDeliveryExhausted: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -98,7 +99,7 @@ describe("processNotificationDeliveries", () => {
   it("does not deliver when another cron invocation already claimed the row", async () => {
     const delivery = makeDelivery();
     const deps = createDeps([delivery], {
-      claim: jest.fn().mockResolvedValue(false),
+      claim: vi.fn().mockResolvedValue(false),
     });
 
     const result = await processNotificationDeliveries(deps);
@@ -126,7 +127,7 @@ describe("processNotificationDeliveries", () => {
   it("schedules the first failed attempt with a 15-minute backoff without failing the job", async () => {
     const delivery = makeDelivery();
     const deps = createDeps([delivery], {
-      sendEmail: jest.fn().mockRejectedValue(new Error("smtp timeout")),
+      sendEmail: vi.fn().mockRejectedValue(new Error("smtp timeout")),
     });
 
     const result = await processNotificationDeliveries(deps);
@@ -145,7 +146,7 @@ describe("processNotificationDeliveries", () => {
       attemptCount: MAX_NOTIFICATION_DELIVERY_ATTEMPTS - 1,
     });
     const deps = createDeps([delivery], {
-      sendEmail: jest.fn().mockRejectedValue(new Error("mailbox unavailable")),
+      sendEmail: vi.fn().mockRejectedValue(new Error("mailbox unavailable")),
     });
 
     const result = await processNotificationDeliveries(deps);

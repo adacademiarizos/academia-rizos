@@ -1,12 +1,13 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { db } from '@/lib/db'
 import { MarketingAnalyticsService } from '@/server/services/marketing-analytics-service'
 
-jest.mock('@/lib/db', () => ({
+vi.mock('@/lib/db', () => ({
   db: {
-    $queryRaw: jest.fn(),
-    course: { findMany: jest.fn() },
-    payment: { count: jest.fn() },
-    conversionEvent: { count: jest.fn() },
+    $queryRaw: vi.fn(),
+    course: { findMany: vi.fn() },
+    payment: { count: vi.fn() },
+    conversionEvent: { count: vi.fn() },
   },
 }))
 
@@ -22,15 +23,15 @@ describe('MarketingAnalyticsService', () => {
   }
 
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it('returns course revenue from confirmed course payments and keeps currencies separate', async () => {
-    ;(db.course.findMany as jest.Mock).mockResolvedValue([
+    ;(db.course.findMany as Mock).mockResolvedValue([
       { id: 'course-a', title: 'Definición' },
       { id: 'course-b', title: 'Hidratación' },
     ])
-    ;(db.$queryRaw as jest.Mock).mockImplementation((query: TemplateStringsArray | { strings?: TemplateStringsArray }) => {
+    ;(db.$queryRaw as Mock).mockImplementation((query: TemplateStringsArray | { strings?: TemplateStringsArray }) => {
       const sql = queryText(query)
       if (sql.includes('FROM "PageView"')) {
         return Promise.resolve([{ course_id: 'course-a', views: 10n, sessions: 8n }])
@@ -57,7 +58,7 @@ describe('MarketingAnalyticsService', () => {
     })
     expect(result[1]).toMatchObject({ courseId: 'course-b', purchases: 0, revenue: [] })
 
-    const paymentQuery = (db.$queryRaw as jest.Mock).mock.calls
+    const paymentQuery = (db.$queryRaw as Mock).mock.calls
       .map(([query]) => queryText(query))
       .find((sql) => sql.includes('FROM "Payment"'))
     expect(paymentQuery).toContain('"type" = \'COURSE\'')
@@ -66,8 +67,8 @@ describe('MarketingAnalyticsService', () => {
   })
 
   it('excludes salon conversion events from the academy funnel', async () => {
-    ;(db.$queryRaw as jest.Mock).mockResolvedValueOnce([{ count: 20n }]).mockResolvedValueOnce([{ count: 7n }])
-    ;(db.payment.count as jest.Mock).mockResolvedValue(3)
+    ;(db.$queryRaw as Mock).mockResolvedValueOnce([{ count: 20n }]).mockResolvedValueOnce([{ count: 7n }])
+    ;(db.payment.count as Mock).mockResolvedValue(3)
 
     const funnel = await MarketingAnalyticsService.getConversionFunnel(range, 'academy')
 

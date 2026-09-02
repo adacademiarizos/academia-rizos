@@ -1,25 +1,27 @@
-import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const headersMock = jest.fn();
-const verifyStripeWebhook = jest.fn();
-const processStripeEvent = jest.fn();
+const { headersMock, verifyStripeWebhook, processStripeEvent, db } = vi.hoisted(() => {
+  const headersMock = vi.fn();
+  const verifyStripeWebhook = vi.fn();
+  const processStripeEvent = vi.fn();
+  const db = {
+    webhookEvent: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+  };
+  return { headersMock, verifyStripeWebhook, processStripeEvent, db };
+});
 
-const db = {
-  webhookEvent: {
-    findUnique: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-  },
-};
-
-jest.mock("next/headers", () => ({
+vi.mock("next/headers", () => ({
   headers: headersMock,
 }));
-jest.mock("@/lib/stripe", () => ({
+vi.mock("@/lib/stripe", () => ({
   verifyStripeWebhook,
 }));
-jest.mock("@/lib/db", () => ({ db }));
-jest.mock("@/server/services/stripe-webhook-service", () => ({
+vi.mock("@/lib/db", () => ({ db }));
+vi.mock("@/server/services/stripe-webhook-service", () => ({
   processStripeEvent,
 }));
 
@@ -27,7 +29,7 @@ import { POST } from "@/app/api/stripe/webhook/route";
 
 describe("POST /api/stripe/webhook", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     headersMock.mockResolvedValue({
       get: (name: string) => (name === "stripe-signature" ? "sig_123" : null),
     });

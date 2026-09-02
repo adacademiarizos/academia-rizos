@@ -1,50 +1,49 @@
-import { beforeEach, describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const db = {
-  payment: {
-    findUnique: jest.fn(),
-    findFirst: jest.fn(),
-    findUniqueOrThrow: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
-  },
-  paymentLink: { update: jest.fn() },
-  appointment: { update: jest.fn() },
-  conversionEvent: { create: jest.fn() },
-};
+const { db, stripeChargesRetrieve, CourseService, NotificationEventService, AchievementService } = vi.hoisted(() => {
+  const db = {
+    payment: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+    paymentLink: { update: vi.fn() },
+    appointment: { update: vi.fn() },
+    conversionEvent: { create: vi.fn() },
+  };
+  const stripeChargesRetrieve = vi.fn();
+  const CourseService = {
+    createCourseAccess: vi.fn(),
+    revokeCourseAccess: vi.fn(),
+  };
+  const NotificationEventService = {
+    appointmentPaid: vi.fn(),
+    appointmentStatusChanged: vi.fn(),
+    paymentForPayer: vi.fn(),
+    paymentException: vi.fn(),
+    paymentLinkLifecycle: vi.fn(),
+    paymentReceipt: vi.fn(),
+  };
+  const AchievementService = {
+    recordActivity: vi.fn(),
+  };
+  return { db, stripeChargesRetrieve, CourseService, NotificationEventService, AchievementService };
+});
 
-const stripeChargesRetrieve = jest.fn();
-
-const CourseService = {
-  createCourseAccess: jest.fn(),
-  revokeCourseAccess: jest.fn(),
-};
-
-const NotificationEventService = {
-  appointmentPaid: jest.fn(),
-  appointmentStatusChanged: jest.fn(),
-  paymentForPayer: jest.fn(),
-  paymentException: jest.fn(),
-  paymentLinkLifecycle: jest.fn(),
-  paymentReceipt: jest.fn(),
-};
-
-const AchievementService = {
-  recordActivity: jest.fn(),
-};
-
-jest.mock("@/lib/db", () => ({ db }));
-jest.mock("@/lib/env", () => ({
+vi.mock("@/lib/db", () => ({ db }));
+vi.mock("@/lib/env", () => ({
   env: { NEXT_PUBLIC_APP_URL: "https://app.example.com" },
 }));
-jest.mock("@/lib/stripe", () => ({
+vi.mock("@/lib/stripe", () => ({
   stripe: {
     charges: { retrieve: stripeChargesRetrieve },
   },
 }));
-jest.mock("@/server/services/course-service", () => ({ CourseService }));
-jest.mock("@/server/services/notification-event-service", () => ({ NotificationEventService }));
-jest.mock("@/server/services/achievement-service", () => ({ AchievementService }));
+vi.mock("@/server/services/course-service", () => ({ CourseService }));
+vi.mock("@/server/services/notification-event-service", () => ({ NotificationEventService }));
+vi.mock("@/server/services/achievement-service", () => ({ AchievementService }));
 
 import { processStripeEvent } from "@/server/services/stripe-webhook-service";
 
@@ -80,7 +79,7 @@ async function runDeferredTasks(tasks: Array<() => Promise<unknown>>) {
 
 describe("processStripeEvent", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     db.payment.findUnique.mockResolvedValue(null);
     db.payment.findFirst.mockResolvedValue(null);

@@ -1,33 +1,34 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import {
   NotificationDeliveryChannel,
   NotificationPreferenceCategory,
 } from "@prisma/client";
 
-jest.mock("@/lib/db", () => ({
+vi.mock("@/lib/db", () => ({
   db: {
     user: {
-      findUnique: jest.fn(),
+      findUnique: vi.fn(),
     },
     notificationPreference: {
-      findMany: jest.fn(),
+      findMany: vi.fn(),
     },
     notification: {
-      upsert: jest.fn(),
+      upsert: vi.fn(),
     },
     notificationDelivery: {
-      upsert: jest.fn(),
+      upsert: vi.fn(),
     },
-    $transaction: jest.fn(),
+    $transaction: vi.fn(),
   },
 }));
 
 import { db } from "@/lib/db";
 import { dispatchNotification } from "@/server/services/notification-dispatcher";
 
-const findPreferencesMock = db.notificationPreference.findMany as jest.Mock;
-const notificationUpsertMock = db.notification.upsert as jest.Mock;
-const deliveryUpsertMock = db.notificationDelivery.upsert as jest.Mock;
-const transactionMock = db.$transaction as jest.Mock;
+const findPreferencesMock = db.notificationPreference.findMany as Mock;
+const notificationUpsertMock = db.notification.upsert as Mock;
+const deliveryUpsertMock = db.notificationDelivery.upsert as Mock;
+const transactionMock = db.$transaction as Mock;
 
 function communityDispatchInput(
   preferenceCategory: NotificationPreferenceCategory | undefined = NotificationPreferenceCategory.COMMUNITY,
@@ -47,7 +48,7 @@ function communityDispatchInput(
 
 describe("dispatchNotification preferences", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     findPreferencesMock.mockResolvedValue([]);
     notificationUpsertMock.mockResolvedValue({ id: "notification-1" });
     deliveryUpsertMock.mockResolvedValue({ id: "delivery-1" });
