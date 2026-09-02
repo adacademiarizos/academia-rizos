@@ -7,44 +7,10 @@ import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { AnalyticsService } from '@/server/services/analytics-service'
 import { db } from '@/lib/db'
 
-vi.mock('@/lib/db', () => ({
-  db: {
-    courseAccess: {
-      count: vi.fn(),
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-    },
-    moduleProgress: {
-      count: vi.fn(),
-      findMany: vi.fn(),
-    },
-    submission: {
-      count: vi.fn(),
-      findFirst: vi.fn(),
-    },
-    userActivity: {
-      findFirst: vi.fn(),
-      findMany: vi.fn(),
-      count: vi.fn(),
-    },
-    module: {
-      findMany: vi.fn(),
-    },
-    course: {
-      findUnique: vi.fn(),
-    },
-    achievement: {
-      findMany: vi.fn(),
-    },
-    comment: {
-      count: vi.fn(),
-      findMany: vi.fn(),
-    },
-    like: {
-      count: vi.fn(),
-    },
-  },
-}))
+vi.mock('@/lib/db', async () => {
+  const { createDbMock } = await import('@/test/db-mock')
+  return { db: createDbMock() }
+})
 
 describe('AnalyticsService', () => {
   const mockUserId = 'user-123'
@@ -57,8 +23,8 @@ describe('AnalyticsService', () => {
   describe('getUserStats', () => {
     it('should calculate correct user statistics', async () => {
       ;(db.courseAccess.count as Mock).mockResolvedValue(3)
-      ;(db.moduleProgress.count as Mock).mockResolvedValue(10)
-      ;(db.submission.count as Mock).mockResolvedValue(2)
+      ;(db.lessonProgress.count as Mock).mockResolvedValue(10)
+      ;(db.lessonTestSubmission.count as Mock).mockResolvedValue(2)
       ;(db.userActivity.findFirst as Mock).mockResolvedValue({
         createdAt: new Date('2026-01-01'),
       })
@@ -67,6 +33,8 @@ describe('AnalyticsService', () => {
 
       expect(stats).toEqual({
         coursesEnrolled: 3,
+        lessonsCompleted: 10,
+        // `modulesCompleted` is kept as a backwards-compatible alias.
         modulesCompleted: 10,
         testsPassed: 2,
         lastActivityAt: expect.any(Date),
@@ -75,8 +43,8 @@ describe('AnalyticsService', () => {
 
     it('should handle zero activity', async () => {
       ;(db.courseAccess.count as Mock).mockResolvedValue(0)
-      ;(db.moduleProgress.count as Mock).mockResolvedValue(0)
-      ;(db.submission.count as Mock).mockResolvedValue(0)
+      ;(db.lessonProgress.count as Mock).mockResolvedValue(0)
+      ;(db.lessonTestSubmission.count as Mock).mockResolvedValue(0)
       ;(db.userActivity.findFirst as Mock).mockResolvedValue(null)
 
       const stats = await AnalyticsService.getUserStats(mockUserId)
@@ -99,42 +67,34 @@ describe('AnalyticsService', () => {
       ;(db.courseAccess.findUnique as Mock).mockResolvedValue({
         userId: mockUserId,
         courseId: mockCourseId,
+        revokedAt: null,
       })
-      ;(db.module.findMany as Mock).mockResolvedValue([
-        { id: 'mod-1' },
-        { id: 'mod-2' },
-        { id: 'mod-3' },
-        { id: 'mod-4' },
-        { id: 'mod-5' },
-      ])
-      ;(db.moduleProgress.count as Mock).mockResolvedValue(3)
-      ;(db.submission.findFirst as Mock).mockResolvedValue(null)
+      ;(db.lesson.count as Mock).mockResolvedValue(5)
+      ;(db.lessonProgress.count as Mock).mockResolvedValue(3)
+      ;(db.finalExamAttempt.findFirst as Mock).mockResolvedValue(null)
 
       const progress = await AnalyticsService.getCourseProgress(mockUserId, mockCourseId)
 
       expect(progress?.percentComplete).toBe(60) // 3 of 5 = 60%
-      expect(progress?.modulesCompleted).toBe(3)
-      expect(progress?.totalModules).toBe(5)
-      expect(progress?.testPassed).toBe(false)
+      expect(progress?.lessonsCompleted).toBe(3)
+      expect(progress?.totalLessons).toBe(5)
+      expect(progress?.finalExamPassed).toBe(false)
       expect(progress?.status).toBe('IN_PROGRESS')
     })
 
-    it('should mark course as completed with test passed', async () => {
-      ;(db.courseAccess.findUnique as Mock).mockResolvedValue({})
-      ;(db.module.findMany as Mock).mockResolvedValue([
-        { id: 'mod-1' },
-        { id: 'mod-2' },
-      ])
-      ;(db.moduleProgress.count as Mock).mockResolvedValue(2)
-      ;(db.submission.findFirst as Mock).mockResolvedValue({
-        id: 'sub-1',
+    it('should mark course as completed with the final exam approved', async () => {
+      ;(db.courseAccess.findUnique as Mock).mockResolvedValue({ revokedAt: null })
+      ;(db.lesson.count as Mock).mockResolvedValue(2)
+      ;(db.lessonProgress.count as Mock).mockResolvedValue(2)
+      ;(db.finalExamAttempt.findFirst as Mock).mockResolvedValue({
+        id: 'attempt-1',
         status: 'APPROVED',
       })
 
       const progress = await AnalyticsService.getCourseProgress(mockUserId, mockCourseId)
 
       expect(progress?.percentComplete).toBe(100)
-      expect(progress?.testPassed).toBe(true)
+      expect(progress?.finalExamPassed).toBe(true)
       expect(progress?.status).toBe('COMPLETED')
     })
   })
@@ -197,8 +157,8 @@ describe('AnalyticsService', () => {
   describe('getDashboardSnapshot', () => {
     it('should combine all dashboard data', async () => {
       ;(db.courseAccess.count as Mock).mockResolvedValue(2)
-      ;(db.moduleProgress.count as Mock).mockResolvedValue(5)
-      ;(db.submission.count as Mock).mockResolvedValue(1)
+      ;(db.lessonProgress.count as Mock).mockResolvedValue(5)
+      ;(db.lessonTestSubmission.count as Mock).mockResolvedValue(1)
       ;(db.userActivity.findFirst as Mock).mockResolvedValue(null)
       ;(db.courseAccess.findMany as Mock).mockResolvedValue([])
       ;(db.comment.count as Mock).mockResolvedValue(3)

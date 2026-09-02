@@ -14,7 +14,7 @@ export async function GET(
   try {
     const { courseId } = await params
     const course = await db.course.findUnique({ where: { id: courseId }, select: {
-      title: true, description: true, learningOutcomes: true, certificateSlogan: true,
+      title: true, description: true, learningOutcomes: true,
       trailerUrl: true, thumbnailUrl: true, priceCents: true, rentalDays: true,
       isActive: true, contentStructure: true, updatedAt: true,
       modules: { orderBy: { order: 'asc' }, select: {

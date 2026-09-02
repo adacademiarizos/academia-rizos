@@ -43,6 +43,7 @@ export const notificationEventKeys = [
   "certificate.pending",
   "certificate.issued",
   "certificate.revoked",
+  "academy.attempts.granted",
   "user.registered",
   "user.role_changed",
   "bug_report.created",

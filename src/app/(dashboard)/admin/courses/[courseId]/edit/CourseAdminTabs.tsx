@@ -5,9 +5,11 @@ import { useParams } from 'next/navigation'
 import CourseEditor from '../../components/CourseEditor'
 import { FinalExamManager } from '../../components/FinalExamManager'
 import { LearningContentManager } from '../../components/LearningContentManager'
+import { CourseAttemptsPanel } from '../../components/CourseAttemptsPanel'
+import { CourseAnalyticsPanel } from '../../components/CourseAnalyticsPanel'
 import { ChatWidget } from '@/app/components/ChatWidget'
 
-type TabId = 'contenido' | 'material' | 'alumnas' | 'analiticas' | 'chat'
+type TabId = 'contenido' | 'material' | 'alumnas' | 'intentos' | 'analiticas' | 'chat'
 
 type Student = {
   user: { id: string; name: string | null; email: string | null }
@@ -24,6 +26,7 @@ const TABS: Array<{ id: TabId; label: string }> = [
   { id: 'contenido', label: 'Contenido' },
   { id: 'material', label: 'Material y examen' },
   { id: 'alumnas', label: 'Alumnas' },
+  { id: 'intentos', label: 'Intentos' },
   { id: 'analiticas', label: 'Analíticas' },
   { id: 'chat', label: 'Chat del curso' },
 ]
@@ -76,18 +79,9 @@ export function CourseAdminTabs() {
 
       {tab === 'alumnas' && <StudentsPanel courseId={courseId} />}
 
-      {tab === 'analiticas' && (
-        <section className={cardClass}>
-          <h2 className="text-xl font-semibold text-white">Analíticas</h2>
-          <p className="mt-1 text-sm text-white/50">Rendimiento de este curso.</p>
-          <a
-            href="/admin/analytics"
-            className="mt-6 inline-flex rounded-xl border border-ap-copper/60 px-4 py-2 text-sm font-medium text-ap-copper transition hover:bg-ap-copper/10"
-          >
-            Abrir el panel de analíticas
-          </a>
-        </section>
-      )}
+      {tab === 'intentos' && <CourseAttemptsPanel courseId={courseId} />}
+
+      {tab === 'analiticas' && <CourseAnalyticsPanel courseId={courseId} />}
 
       {tab === 'chat' && (
         <section className={cardClass}>
@@ -95,7 +89,7 @@ export function CourseAdminTabs() {
           <p className="mt-1 text-sm text-white/50">
             Cada curso tiene su propia sala. Abrila con el botón flotante de esta pantalla.
           </p>
-          <ChatWidget courseId={courseId} />
+          <ChatWidget courseId={courseId} defaultOpen />
         </section>
       )}
     </div>

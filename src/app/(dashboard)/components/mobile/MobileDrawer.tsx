@@ -2,14 +2,76 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, Bell, LogOut } from "lucide-react";
+import { X, Bell, LogOut, MessagesSquare } from "lucide-react";
 import { signOut } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type NavItem = { label: string; href: string; icon: any };
 
 function cn(...c: Array<string | false | null | undefined>) {
   return c.filter(Boolean).join(" ");
+}
+
+const COURSE_CHAT_NAV_CAP = 8;
+
+type CourseChatItem = { id: string; title: string };
+
+function MobileCourseChatNavItems({ onNavigate }: { onNavigate: () => void }) {
+  const [courses, setCourses] = useState<CourseChatItem[]>([]);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/student/my-courses")
+      .then((r) => r.json())
+      .then((d) => {
+        if (active && d.success) setCourses(d.data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (courses.length === 0) return null;
+
+  const visible = courses.slice(0, COURSE_CHAT_NAV_CAP);
+  const hasMore = courses.length > COURSE_CHAT_NAV_CAP;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-white/5">
+      <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-white/40">
+        Chats de curso
+      </div>
+      <div className="grid gap-1">
+        {visible.map((course) => {
+          const href = `/learn/${course.id}/chat`;
+          const active = pathname === href;
+          return (
+            <Link
+              key={course.id}
+              href={href}
+              onClick={onNavigate}
+              className={cn(
+                "flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition duration-200",
+                active
+                  ? "bg-white/15 text-white shadow-lg border border-white/20"
+                  : "text-white/60 hover:text-white/90 hover:bg-white/8 border border-transparent"
+              )}
+            >
+              <MessagesSquare className={cn("h-4 w-4 transition shrink-0", active ? "text-white" : "text-white/50")} />
+              <span className="truncate">{course.title}</span>
+            </Link>
+          );
+        })}
+        {hasMore && (
+          <Link href="/student" onClick={onNavigate} className="px-3 py-2 text-xs text-white/50 hover:text-white/80 transition">
+            Ver todos
+          </Link>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function MobileDrawer({
@@ -114,6 +176,7 @@ export function MobileDrawer({
               <span className="font-semibold">Notificaciones</span>
             </Link>
           </div>
+          <MobileCourseChatNavItems onNavigate={() => setOpen(false)} />
         </nav>
 
         {/* User account section */}

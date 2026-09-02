@@ -1,7 +1,12 @@
-const findPendingReceipts = jest.fn();
-const queuePaymentReceipt = jest.fn();
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-jest.mock("@/lib/db", () => ({
+const { findPendingReceipts, queuePaymentReceipt } = vi.hoisted(() => {
+  const findPendingReceipts = vi.fn();
+  const queuePaymentReceipt = vi.fn();
+  return { findPendingReceipts, queuePaymentReceipt };
+});
+
+vi.mock("@/lib/db", () => ({
   db: {
     payment: {
       findMany: findPendingReceipts,
@@ -9,7 +14,7 @@ jest.mock("@/lib/db", () => ({
   },
 }));
 
-jest.mock("@/server/services/notification-event-service", () => ({
+vi.mock("@/server/services/notification-event-service", () => ({
   NotificationEventService: {
     paymentReceipt: queuePaymentReceipt,
   },
@@ -19,7 +24,7 @@ import { sendReceiptJob } from "@/server/jobs/sendReceipt.job";
 
 describe("sendReceiptJob", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     queuePaymentReceipt.mockResolvedValue({ queued: true, markerRecorded: true });
   });
 

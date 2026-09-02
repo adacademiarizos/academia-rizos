@@ -26,6 +26,12 @@ const AUTH_GUARDS = [
   'withAnalyticsAuth',
   'getServerSession',
   'verifyStripeWebhook', // valida la firma del webhook (no hay sesión de usuario)
+  'getAdminUser', // guard de admin del módulo de academia
+  'requireAdminForScope', // guards por scope de learning-api
+  'requireStaffForScope',
+  'requireStudentForScope',
+  'authorizeCourseAccess', // prefijo de authorizeCourseAccessByCourseId/ModuleId/StyleId
+  'isAuthorized', // rutas de cron: validan el bearer CRON_SECRET
 ]
 
 /**
@@ -52,6 +58,9 @@ const PUBLIC_ALLOWLIST = new Set<string>([
   'analytics/pageview', // tracking anónimo desde el cliente
   'users/[userId]/activity', // perfil público
   'users/[userId]/profile',
+  'auth/forgot-password', // flujo de recuperación: sin sesión por definición
+  'auth/reset-password', // canjea un token de un solo uso, sin sesión
+  'student/modules/[moduleId]/styles', // stub de compatibilidad: devuelve lista vacía
 ])
 
 function findRouteFiles(dir: string): string[] {

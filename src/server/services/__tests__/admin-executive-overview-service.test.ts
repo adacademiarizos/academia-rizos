@@ -1,13 +1,14 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { db } from '@/lib/db'
 import { parseAnalyticsDateRange } from '@/lib/analytics/date-range'
 import { AdminExecutiveOverviewService } from '@/server/services/admin-executive-overview-service'
 
-jest.mock('@/lib/db', () => ({
+vi.mock('@/lib/db', () => ({
   db: {
-    $queryRaw: jest.fn(),
-    payment: { groupBy: jest.fn(), count: jest.fn() },
-    examSubmission: { count: jest.fn() },
-    courseTestSubmission: { count: jest.fn() },
+    $queryRaw: vi.fn(),
+    payment: { groupBy: vi.fn(), count: vi.fn() },
+    examSubmission: { count: vi.fn() },
+    courseTestSubmission: { count: vi.fn() },
   },
 }))
 
@@ -17,15 +18,15 @@ const range = rangeResult.value
 
 describe('AdminExecutiveOverviewService', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    ;(db.$queryRaw as jest.Mock).mockResolvedValue([])
-    ;(db.payment.count as jest.Mock).mockResolvedValue(0)
-    ;(db.examSubmission.count as jest.Mock).mockResolvedValue(0)
-    ;(db.courseTestSubmission.count as jest.Mock).mockResolvedValue(0)
+    vi.clearAllMocks()
+    ;(db.$queryRaw as Mock).mockResolvedValue([])
+    ;(db.payment.count as Mock).mockResolvedValue(0)
+    ;(db.examSubmission.count as Mock).mockResolvedValue(0)
+    ;(db.courseTestSubmission.count as Mock).mockResolvedValue(0)
   })
 
   it('keeps academy revenue separated by currency and fills empty traffic days', async () => {
-    ;(db.payment.groupBy as jest.Mock).mockImplementation(({ where }) => {
+    ;(db.payment.groupBy as Mock).mockImplementation(({ where }) => {
       if (where.courseId) return Promise.resolve([])
       if (where.paidAt.gte === range.from) {
         return Promise.resolve([
@@ -50,8 +51,8 @@ describe('AdminExecutiveOverviewService', () => {
   })
 
   it('keeps the available overview sections visible when payment metrics fail', async () => {
-    jest.spyOn(console, 'error').mockImplementation(() => undefined)
-    ;(db.payment.groupBy as jest.Mock).mockRejectedValue(new Error('temporary payment aggregate failure'))
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    ;(db.payment.groupBy as Mock).mockRejectedValue(new Error('temporary payment aggregate failure'))
 
     const snapshot = await AdminExecutiveOverviewService.getSnapshot(range)
 

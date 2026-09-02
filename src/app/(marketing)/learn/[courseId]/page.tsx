@@ -112,7 +112,7 @@ export default function LearningDashboard() {
         </section>
         <aside className="space-y-6"><section className="rounded-2xl border border-zinc-700 bg-white/5 p-6"><h2 className="font-bold text-ap-ivory">Tu progreso</h2><dl className="mt-5 space-y-3 text-sm"><div className="flex justify-between"><dt className="text-zinc-400">Secciones</dt><dd className="text-ap-copper">{sectionCount}</dd></div><div className="flex justify-between"><dt className="text-zinc-400">Completadas</dt><dd className="text-ap-copper">{completed}</dd></div><div className="flex justify-between"><dt className="text-zinc-400">Progreso</dt><dd className="text-ap-copper">{data.progress}%</dd></div></dl></section><section className="rounded-2xl border border-zinc-700 bg-white/5 p-6"><h2 className="font-bold text-ap-ivory">Sobre el curso</h2><p className="mt-3 text-sm leading-relaxed text-zinc-300">{data.course.description || 'Sin descripción.'}</p></section></aside>
       </div>
-      {AI_ASSISTANT_ENABLED && <CourseAIAssistant courseId={courseId} courseName={data.course.title} />}<ChatWidget courseId={courseId} />
+      {AI_ASSISTANT_ENABLED && <CourseAIAssistant courseId={courseId} courseName={data.course.title} />}<ChatWidget courseId={courseId} defaultOpen />
     </main>
   )
 }

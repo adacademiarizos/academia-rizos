@@ -1,21 +1,22 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import {
   NotificationDeliveryChannel,
   NotificationPreferenceCategory,
   NotificationPriority,
 } from "@prisma/client";
 
-jest.mock("@/lib/db", () => ({
+vi.mock("@/lib/db", () => ({
   db: {
     user: {
-      findMany: jest.fn(),
-      findUnique: jest.fn(),
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
     },
   },
 }));
 
-jest.mock("@/server/services/notification-dispatcher", () => ({
-  dispatchNotification: jest.fn(),
-  cancelScheduledNotificationDeliveries: jest.fn(),
+vi.mock("@/server/services/notification-dispatcher", () => ({
+  dispatchNotification: vi.fn(),
+  cancelScheduledNotificationDeliveries: vi.fn(),
 }));
 
 import { db } from "@/lib/db";
@@ -25,14 +26,14 @@ import {
 } from "@/server/services/notification-dispatcher";
 import { NotificationEventService } from "@/server/services/notification-event-service";
 
-const dispatchMock = dispatchNotification as jest.Mock;
-const cancelScheduledMock = cancelScheduledNotificationDeliveries as jest.Mock;
-const findAdminsMock = db.user.findMany as jest.Mock;
-const findUserMock = db.user.findUnique as jest.Mock;
+const dispatchMock = dispatchNotification as Mock;
+const cancelScheduledMock = cancelScheduledNotificationDeliveries as Mock;
+const findAdminsMock = db.user.findMany as Mock;
+const findUserMock = db.user.findUnique as Mock;
 
 describe("NotificationEventService recipient matrix", () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     dispatchMock.mockResolvedValue({ ok: true, notifications: 1, deliveries: 1 });
     cancelScheduledMock.mockResolvedValue({ ok: true, count: 2 });
   });
@@ -149,6 +150,9 @@ describe("NotificationEventService recipient matrix", () => {
         email: `${ownerId}@example.com`,
         role,
       });
+      // No other admin exists, so the documented admin in-app broadcast for
+      // `payment_link.paid` adds no extra recipient here.
+      findAdminsMock.mockResolvedValue([]);
 
       await NotificationEventService.paymentLinkLifecycle({
         eventKey: "payment_link.paid",
@@ -158,7 +162,12 @@ describe("NotificationEventService recipient matrix", () => {
         createdById: ownerId,
       });
 
-      expect(findAdminsMock).not.toHaveBeenCalled();
+      // Admins are looked up for the paid broadcast, but never the creator:
+      // the owner must not receive a duplicate notification.
+      expect(findAdminsMock).toHaveBeenCalledWith({
+        where: { role: "ADMIN", id: { notIn: [ownerId] } },
+        select: { id: true, email: true },
+      });
       expect(dispatchMock).toHaveBeenCalledTimes(1);
       expect(dispatchMock).toHaveBeenCalledWith(
         expect.objectContaining({

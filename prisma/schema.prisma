@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -148,14 +149,14 @@ enum NotificationPreferenceCategory {
 }
 
 model User {
-  id             String  @id @default(cuid())
+  id             String    @id @default(cuid())
   name           String?
-  email          String  @unique
+  email          String    @unique
   image          String?
-  role           Role    @default(STUDENT)
+  role           Role      @default(STUDENT)
   // Para arrancar con credenciales simples (MVP):
   password       String?
-  sessionVersion Int     @default(0)
+  sessionVersion Int       @default(0)
   deletedAt      DateTime?
 
   createdAt DateTime @default(now())
@@ -187,24 +188,25 @@ model User {
   assessmentReviews       AssessmentAttempt[]      @relation("AssessmentAttemptReviewer")
   assessmentRevalidations AssessmentRevalidation[] @relation("AssessmentRevalidationStudent")
   assessmentGrants        AssessmentRevalidation[] @relation("AssessmentRevalidationGrantedBy")
-  finalExamAttempts       FinalExamAttempt[]      @relation("FinalExamAttemptStudent")
-  finalExamReviews        FinalExamAttempt[]      @relation("FinalExamAttemptReviewer")
-  finalExamRevalidations  FinalExamRevalidation[] @relation("FinalExamRevalidationStudent")
-  finalExamGrants         FinalExamRevalidation[] @relation("FinalExamRevalidationGrantedBy")
-
+  finalExamAttempts       FinalExamAttempt[]       @relation("FinalExamAttemptStudent")
+  finalExamReviews        FinalExamAttempt[]       @relation("FinalExamAttemptReviewer")
+  finalExamRevalidations  FinalExamRevalidation[]  @relation("FinalExamRevalidationStudent")
+  finalExamGrants         FinalExamRevalidation[]  @relation("FinalExamRevalidationGrantedBy")
+  lessonTestRevalidations LessonTestRevalidation[] @relation("LessonTestRevalidationStudent")
+  lessonTestGrants        LessonTestRevalidation[] @relation("LessonTestRevalidationGrantedBy")
 
   // Relations - ETAPA 5
-  notifications          Notification[]
-  notificationDeliveries NotificationDelivery[] @relation("NotificationDeliveryRecipient")
+  notifications           Notification[]
+  notificationDeliveries  NotificationDelivery[]   @relation("NotificationDeliveryRecipient")
   notificationPreferences NotificationPreference[]
-  activities             UserActivity[]
-  achievements           Achievement[]
+  activities              UserActivity[]
+  achievements            Achievement[]
 
   // Relations - New features
   bugReports          BugReport[]
-  paymentLinksCreated PaymentLink[]        @relation("PaymentLinkCreator")
+  paymentLinksCreated PaymentLink[]            @relation("PaymentLinkCreator")
   passwordResetTokens PasswordResetToken[]
-  deletionRequests  AccountDeletionRequest[]
+  deletionRequests    AccountDeletionRequest[]
 }
 
 model PasswordResetToken {
@@ -297,12 +299,12 @@ model Service {
 }
 
 model ServiceVariant {
-  id          String  @id @default(cuid())
-  serviceId   String
-  name        String
-  durationMin Int
-  order       Int     @default(0)
-  isActive    Boolean @default(true)
+  id           String  @id @default(cuid())
+  serviceId    String
+  name         String
+  durationMin  Int
+  order        Int     @default(0)
+  isActive     Boolean @default(true)
   videoFileUrl String?
 
   service      Service             @relation(fields: [serviceId], references: [id], onDelete: Cascade)
@@ -464,20 +466,19 @@ enum CourseContentStructure {
 }
 
 model Course {
-  id           String  @id @default(cuid())
-  title        String
-  description  String?
-  trailerUrl   String?
-  thumbnailUrl String?
-  priceCents   Int
-  currency     String  @default("EUR")
-  rentalDays   Int? // if null => lifetime access
-  certificateSlogan String?
+  id                String                  @id @default(cuid())
+  title             String
+  description       String?
+  trailerUrl        String?
+  thumbnailUrl      String?
+  priceCents        Int
+  currency          String                  @default("EUR")
+  rentalDays        Int? // if null => lifetime access
   /// Bullets shown as "Lo que aprenderás" on the public course page. Empty hides
   /// the section rather than falling back to generic copy.
-  learningOutcomes String[] @default([])
-  contentStructure CourseContentStructure?
-  isActive     Boolean @default(true)
+  learningOutcomes  String[]                @default([])
+  contentStructure  CourseContentStructure?
+  isActive          Boolean                 @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -496,7 +497,6 @@ model Course {
   finalExam         FinalExam?
   payments          Payment[]          @relation("CoursePayments")
 
-
   likes        Like[]        @relation("CourseLikes")
   comments     Comment[]     @relation("CourseComments")
   chatRoom     ChatRoom?
@@ -507,9 +507,9 @@ model Course {
 }
 
 model CourseDraft {
-  id            String   @id @default(cuid())
-  courseId      String   @unique
-  schemaVersion Int      @default(1)
+  id            String @id @default(cuid())
+  courseId      String @unique
+  schemaVersion Int    @default(1)
   payload       Json
 
   createdAt DateTime @default(now())
@@ -521,16 +521,16 @@ model CourseDraft {
 }
 
 model Module {
-  id           String  @id @default(cuid())
-  courseId     String
-  styleId      String?
-  order        Int
-  title        String
-  description  String?
-  videoUrl     String?
-  videoFileUrl String? // New S3 video URL
+  id             String  @id @default(cuid())
+  courseId       String
+  styleId        String?
+  order          Int
+  title          String
+  description    String?
+  videoUrl       String?
+  videoFileUrl   String? // New S3 video URL
   bannerImageUrl String?
-  transcript   String? // for RAG/AI (will be searched by vector DB later)
+  transcript     String? // for RAG/AI (will be searched by vector DB later)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -554,14 +554,14 @@ model Module {
 }
 
 model ModuleStyle {
-  id          String  @id @default(cuid())
-  courseId    String
-  order       Int
-  name        String
-  slug        String
-  description String?
-  isActive    Boolean @default(true)
-  videoFileUrl String?
+  id             String  @id @default(cuid())
+  courseId       String
+  order          Int
+  name           String
+  slug           String
+  description    String?
+  isActive       Boolean @default(true)
+  videoFileUrl   String?
   bannerImageUrl String?
 
   createdAt DateTime @default(now())
@@ -602,7 +602,6 @@ model Lesson {
   assessments       Assessment[]
   tests             LessonTest[]
 
-
   @@index([courseId])
   @@index([styleId])
   @@index([moduleId])
@@ -627,9 +626,9 @@ model ModuleProgress {
 /// required unified assessments have been approved. Legacy lesson completion
 /// endpoints remain compatible with this row. 
 model LessonProgress {
-  id       String  @id @default(cuid())
-  userId   String
-  lessonId String
+  id          String    @id @default(cuid())
+  userId      String
+  lessonId    String
   /// The row existing is not enough: the style player toggles this flag, so
   /// progress must be counted on `completed`, not on row presence.
   completed   Boolean   @default(false)
@@ -827,18 +826,18 @@ model Notification {
   user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   deliveries NotificationDelivery[]
 
+  @@unique([userId, dedupeKey])
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@index([createdAt])
   @@index([resourceType, resourceId])
-  @@unique([userId, dedupeKey])
 }
 
 // Persistent delivery work for channels that cannot be completed in the
 // request path. notificationId is optional so guest recipients can receive an
 // email without gaining an in-app Notification record.
 model NotificationDelivery {
-  id              String                     @id @default(cuid())
+  id              String                      @id @default(cuid())
   notificationId  String?
   recipientUserId String?
   eventKey        String
@@ -852,16 +851,16 @@ model NotificationDelivery {
   resourceType    String?
   resourceId      String?
   actionUrl       String?
-  priority        NotificationPriority       @default(NORMAL)
-  scheduledFor    DateTime                   @default(now())
-  status          NotificationDeliveryStatus @default(PENDING)
-  attemptCount    Int                        @default(0)
+  priority        NotificationPriority        @default(NORMAL)
+  scheduledFor    DateTime                    @default(now())
+  status          NotificationDeliveryStatus  @default(PENDING)
+  attemptCount    Int                         @default(0)
   lockedAt        DateTime?
   sentAt          DateTime?
   failedAt        DateTime?
   lastError       String?
-  createdAt       DateTime                   @default(now())
-  updatedAt       DateTime                   @updatedAt
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
 
   notification  Notification? @relation(fields: [notificationId], references: [id], onDelete: SetNull)
   recipientUser User?         @relation("NotificationDeliveryRecipient", fields: [recipientUserId], references: [id], onDelete: SetNull)
@@ -1264,9 +1263,10 @@ model LessonTest {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  lesson      Lesson                 @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  questions   LessonTestQuestion[]
-  submissions LessonTestSubmission[]
+  lesson        Lesson                   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  questions     LessonTestQuestion[]
+  submissions   LessonTestSubmission[]
+  revalidations LessonTestRevalidation[]
 
   @@index([lessonId, order])
 }
@@ -1321,6 +1321,23 @@ model LessonTestAnswer {
   @@index([questionId])
 }
 
+model LessonTestRevalidation {
+  id              String   @id @default(cuid())
+  lessonTestId    String
+  userId          String
+  grantedById     String
+  attemptsGranted Int
+  reason          String?
+  createdAt       DateTime @default(now())
+
+  lessonTest LessonTest @relation(fields: [lessonTestId], references: [id], onDelete: Cascade)
+  student    User       @relation("LessonTestRevalidationStudent", fields: [userId], references: [id], onDelete: Cascade)
+  grantedBy  User       @relation("LessonTestRevalidationGrantedBy", fields: [grantedById], references: [id])
+
+  @@index([lessonTestId, userId])
+  @@index([grantedById])
+}
+
 // ============= CANONICAL FINAL EXAM =============
 
 model FinalExam {
@@ -1339,19 +1356,19 @@ model FinalExam {
 }
 
 model FinalExamQuestion {
-  id          String                @id @default(cuid())
-  finalExamId String
-  type        FinalExamQuestionType
-  title       String
-  description String?
-  required    Boolean               @default(true)
-  order       Int                   @default(0)
+  id            String                @id @default(cuid())
+  finalExamId   String
+  type          FinalExamQuestionType
+  title         String
+  description   String?
+  required      Boolean               @default(true)
+  order         Int                   @default(0)
   /// Only set for MULTIPLE_CHOICE questions; null for the manually graded types.
   options       Json?
   correctAnswer String?
-  config      Json?
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
+  config        Json?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
 
   finalExam FinalExam         @relation(fields: [finalExamId], references: [id], onDelete: Cascade)
   answers   FinalExamAnswer[]
@@ -1574,7 +1591,7 @@ model PageView {
 model ConversionEvent {
   id        String  @id @default(cuid())
   type      String // "BOOKING" | "COURSE_PURCHASE" | "REGISTRATION"
-  paymentId String?  @unique
+  paymentId String? @unique
   sessionId String
   userId    String?
   referrer  String?

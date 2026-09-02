@@ -1,19 +1,20 @@
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { db } from '@/lib/db'
 import { CourseService } from '@/server/services/course-service'
 import { StripePaymentConfirmationService } from '@/server/services/stripe-payment-confirmation-service'
 
-jest.mock('@/lib/db', () => ({ db: { $transaction: jest.fn() } }))
-jest.mock('@/server/services/course-service', () => ({
-  CourseService: { createCourseAccess: jest.fn() },
+vi.mock('@/lib/db', () => ({ db: { $transaction: vi.fn() } }))
+vi.mock('@/server/services/course-service', () => ({
+  CourseService: { createCourseAccess: vi.fn() },
 }))
 
 const transaction = {
   payment: {
-    findUnique: jest.fn(),
-    upsert: jest.fn(),
+    findUnique: vi.fn(),
+    upsert: vi.fn(),
   },
   conversionEvent: {
-    upsert: jest.fn(),
+    upsert: vi.fn(),
   },
 }
 
@@ -33,9 +34,9 @@ const checkout = {
 
 describe('StripePaymentConfirmationService', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
-    ;(db.$transaction as jest.Mock).mockImplementation((callback) => callback(transaction))
-    ;(transaction.payment.upsert as jest.Mock).mockResolvedValue({
+    vi.clearAllMocks()
+    ;(db.$transaction as Mock).mockImplementation((callback) => callback(transaction))
+    ;(transaction.payment.upsert as Mock).mockResolvedValue({
       id: 'payment-1',
       type: 'COURSE',
       courseId: 'course-1',
@@ -46,12 +47,12 @@ describe('StripePaymentConfirmationService', () => {
       currency: 'EUR',
       receiptEmailSentAt: null,
     })
-    ;(transaction.conversionEvent.upsert as jest.Mock).mockResolvedValue({ id: 'conversion-1' })
-    ;(CourseService.createCourseAccess as jest.Mock).mockResolvedValue({ id: 'access-1' })
+    ;(transaction.conversionEvent.upsert as Mock).mockResolvedValue({ id: 'conversion-1' })
+    ;(CourseService.createCourseAccess as Mock).mockResolvedValue({ id: 'access-1' })
   })
 
   it('grants access only for the first confirmed checkout while each delivery upserts its attributed conversion', async () => {
-    ;(transaction.payment.findUnique as jest.Mock)
+    ;(transaction.payment.findUnique as Mock)
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ status: 'PAID', paidAt: new Date('2026-03-01T12:00:00.000Z') })
 
