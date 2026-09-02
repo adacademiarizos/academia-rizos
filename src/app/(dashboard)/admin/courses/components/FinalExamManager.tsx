@@ -98,7 +98,16 @@ export function FinalExamManager({ courseId }: { courseId: string }) {
     const reviewNote = window.prompt(status === 'APPROVED' ? 'Comentario para la persona (opcional)' : 'Explica qué debe mejorar (opcional)')
     const response = await fetch(`/api/admin/courses/${courseId}/final-exam/attempts/${attemptId}/review`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status, reviewNote }) })
     const payload = await response.json()
-    if (!response.ok) { setMessage(payload.error || 'No fue posible corregir el intento.'); return }
+    if (!response.ok) {
+      // A failed approval leaves the attempt pending on purpose, so the reviewer
+      // can retry. Shown as a toast because the inline banner sat far enough
+      // from the button that a failure read as nothing happening, and the
+      // natural response was to click Aprobar again.
+      const reason = payload.error || 'No fue posible corregir el intento.'
+      setMessage(reason)
+      toast.error(reason)
+      return
+    }
     await load()
     toast.success(status === 'APPROVED' ? 'Intento aprobado. Se emitió el certificado.' : 'Intento marcado como no aprobado.')
   }
