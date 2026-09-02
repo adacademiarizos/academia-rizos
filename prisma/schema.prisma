@@ -180,6 +180,7 @@ model User {
   comments                Comment[]
   likes                   Like[]
   chatMessages            ChatMessage[]
+  chatRoomReads           ChatRoomRead[]
   submissions             Submission[]
   certificates            Certificate[]
   moduleProgress          ModuleProgress[]
@@ -790,8 +791,25 @@ model ChatRoom {
   name      String? // display name (e.g. "Comunidad")
   createdAt DateTime     @default(now())
 
-  course   Course?       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course   Course?        @relation(fields: [courseId], references: [id], onDelete: Cascade)
   messages ChatMessage[]
+  reads    ChatRoomRead[]
+}
+
+/// How far a user has read in a room. Chat rooms have no membership table, so
+/// this is created on demand the first time someone opens a room. Everything
+/// posted after lastReadAt by somebody else counts as unread.
+model ChatRoomRead {
+  id         String   @id @default(cuid())
+  userId     String
+  roomId     String
+  lastReadAt DateTime @default(now())
+
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roomId])
+  @@index([userId])
 }
 
 model ChatMessage {
