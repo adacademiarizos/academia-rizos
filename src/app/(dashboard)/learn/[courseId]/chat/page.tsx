@@ -44,6 +44,23 @@ export default function CourseChatPage() {
     init()
   }, [courseId])
 
+  // Standing in the room is what clears its unread badge. It is refreshed on a
+  // timer because the message list keeps polling while the page stays open.
+  useEffect(() => {
+    if (!roomId) return
+
+    const markRead = () => {
+      void fetch(`/api/chat/rooms/${courseId}/read`, { method: 'POST' }).catch(() => {})
+    }
+
+    markRead()
+    const timer = setInterval(markRead, 10000)
+    return () => {
+      clearInterval(timer)
+      markRead()
+    }
+  }, [courseId, roomId])
+
   return (
     // The dashboard shell keeps its sidebar fixed at 280px and pads <main>, but a
     // chat has to own the whole viewport so the composer never scrolls away.

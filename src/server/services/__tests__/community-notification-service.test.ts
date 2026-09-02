@@ -147,4 +147,34 @@ describe('CommunityNotificationService', () => {
       })
     )
   })
+
+  it('sends a chat mention to both the in-app inbox and the recipient email', async () => {
+    await CommunityNotificationService.dispatchChatMentions({
+      actor: { id: 'user-1', name: 'Ana', email: 'ana@example.com' },
+      message: { id: 'message-1' },
+      room: { id: 'room-1', type: 'COURSE', courseId: 'course-1' },
+      recipientIds: ['user-2'],
+    })
+
+    expect(mockedNotifications.dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventKey: 'chat.mention',
+        recipients: [{ userId: 'user-2' }],
+        channels: [NotificationDeliveryChannel.IN_APP, NotificationDeliveryChannel.EMAIL],
+        preferenceCategory: NotificationPreferenceCategory.COMMUNITY,
+        actionUrl: '/learn/course-1/chat#message-message-1',
+      })
+    )
+  })
+
+  it('does not dispatch anything when a chat message mentions nobody', async () => {
+    await CommunityNotificationService.dispatchChatMentions({
+      actor: { id: 'user-1', name: 'Ana', email: 'ana@example.com' },
+      message: { id: 'message-1' },
+      room: { id: 'room-1', type: 'COMMUNITY', courseId: null },
+      recipientIds: [],
+    })
+
+    expect(mockedNotifications.dispatch).not.toHaveBeenCalled()
+  })
 })

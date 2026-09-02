@@ -106,23 +106,36 @@ function NotificationsNavItem() {
 
 const COURSE_CHAT_NAV_CAP = 8;
 
-type CourseChatItem = { id: string; title: string };
+type CourseChatItem = {
+  id: string;
+  title: string;
+  lastMessageAt: string | null;
+  unreadCount: number;
+};
 
 function useCourseChatItems() {
   const [courses, setCourses] = useState<CourseChatItem[]>([]);
+  // The list is already ordered by newest conversation server-side, so a plain
+  // refresh keeps both the order and the unread badges current.
+  const pathname = usePathname();
 
   useEffect(() => {
     let active = true;
-    fetch("/api/student/my-courses")
-      .then((r) => r.json())
-      .then((d) => {
-        if (active && d.success) setCourses(d.data);
-      })
-      .catch(() => {});
+    const load = () =>
+      fetch("/api/student/my-courses")
+        .then((r) => r.json())
+        .then((d) => {
+          if (active && d.success) setCourses(d.data);
+        })
+        .catch(() => {});
+
+    load();
+    const timer = setInterval(load, 30000);
     return () => {
       active = false;
+      clearInterval(timer);
     };
-  }, []);
+  }, [pathname]);
 
   return courses;
 }
@@ -145,12 +158,19 @@ export function CourseChatNavItems() {
         {visible.map((course) => {
           const href = `/learn/${course.id}/chat`;
           const active = pathname === href;
+          // The room the user is standing in is being read right now, so its
+          // badge would only ever flash a stale count.
+          const unread = active ? 0 : course.unreadCount;
           return (
             <Link
               key={course.id}
               href={href}
+              title={course.title}
               className={cn(
-                "group flex items-center gap-3 rounded-2xl px-3 py-2 text-sm transition duration-200",
+                // min-w-0 lets the title actually shrink: without it a grid item
+                // keeps its content width and long course names push the
+                // sidebar into a horizontal scroll instead of ellipsising.
+                "group flex min-w-0 items-center gap-3 rounded-2xl px-3 py-2 text-sm transition duration-200",
                 active
                   ? "bg-white/15 text-white shadow-lg border border-white/20"
                   : "text-white/60 hover:text-white/90 hover:bg-white/8 border border-transparent"
@@ -162,7 +182,14 @@ export function CourseChatNavItems() {
                   active ? "text-white" : "text-white/50 group-hover:text-white/70"
                 )}
               />
-              <span className="truncate">{course.title}</span>
+              <span className={cn("min-w-0 flex-1 truncate", unread > 0 && "font-semibold text-white/90")}>
+                {course.title}
+              </span>
+              {unread > 0 && (
+                <span className="shrink-0 rounded-full bg-ap-copper px-1.5 py-0.5 text-xs font-bold leading-none text-white">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -226,7 +253,7 @@ export function Sidebar() {
         </div>
 
         {/* Nav links */}
-        <nav className="px-3 py-4 flex-1 overflow-y-auto min-h-0 nav-scroll">
+        <nav className="px-3 py-4 flex-1 overflow-y-auto overflow-x-hidden min-h-0 nav-scroll">
           <div className="grid gap-1">
             <NavLinks navItems={navItems} />
             <NotificationsNavItem />
