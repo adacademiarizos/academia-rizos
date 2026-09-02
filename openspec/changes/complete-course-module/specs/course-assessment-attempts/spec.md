@@ -9,27 +9,41 @@ non-destructive semantics of raising a student's attempt cap.
 
 ## Requirements
 
-### Requirement: Unified Blocked-Student Attempts View
+### Requirement: Per-Test Selection Drives the Blocked-Student View
 
-The system MUST provide a single attempts surface per course that lists every student who
-currently has zero remaining attempts and has not passed, aggregated across course-scoped,
-module-scoped, style-scoped, and lesson-scoped assessments, lesson tests, and the final exam.
-Each listed row MUST identify the student, the specific assessment, its type and scope,
-attempts used, and the current attempt cap.
+(Previously: "Unified Blocked-Student Attempts View" — the view showed one combined,
+whole-course list of every blocked student across every test at once. Amended per owner
+decision 2026-09-01: the admin selects ONE test/exam at a time, and the view then lists only
+the students blocked on that selected test/exam.)
 
-#### Scenario: Blocked students from all three systems appear together
+The system MUST provide an attempts surface per course where an admin first selects a single
+test/exam — a specific course-scoped, module-scoped, style-scoped, or lesson-scoped
+assessment, a specific lesson test, or the final exam — from a list of the course's
+tests/exams. After selection, the system MUST list every student who currently has zero
+remaining attempts and has not passed **that selected test/exam only**. It MUST NOT render a
+single combined list mixing students from multiple tests/exams before a selection is made.
+Each listed row MUST identify the student, attempts used, and the current attempt cap for the
+selected test/exam.
+
+#### Scenario: Selecting one test shows only students blocked on it
 
 - GIVEN a course has one student who exhausted a lesson-scoped assessment, one who exhausted a
   lesson test, and one who exhausted the final exam
-- WHEN an admin opens the course's attempts view
-- THEN all three students appear in the same list
-- AND each row shows the student, the assessment type/scope, attempts used, and the cap
+- WHEN an admin selects the lesson-scoped assessment from the test list
+- THEN only the student blocked on that lesson-scoped assessment appears
+- AND the students blocked on the lesson test and the final exam do not appear
+
+#### Scenario: Switching the selected test switches the list
+
+- GIVEN an admin has selected a test and sees its blocked students
+- WHEN the admin selects a different test/exam for the same course
+- THEN the view now lists only the students blocked on the newly selected test/exam
 
 #### Scenario: Student with remaining attempts or a pass is excluded
 
-- GIVEN a student has attempts remaining, or has already passed an assessment
-- WHEN an admin opens the course's attempts view
-- THEN that student's row for that assessment does not appear
+- GIVEN a student has attempts remaining, or has already passed the selected test/exam
+- WHEN an admin views that test's blocked-student list
+- THEN that student's row does not appear
 
 ### Requirement: Attempt Cap Grant Across All Three Systems
 
@@ -85,6 +99,27 @@ A student whose granted attempts are exhausted again MUST reappear on the blocke
 - GIVEN a student received a grant of 2 additional attempts and has now used both
 - WHEN an admin opens the course's attempts view
 - THEN the student appears again in the blocked-student list for that assessment
+
+### Requirement: Grant Notification via In-App and Email
+
+When an admin grants additional attempts to a student, the system MUST notify that student
+BOTH through an in-app notification AND by email. Neither channel alone satisfies this
+requirement.
+
+#### Scenario: Both channels fire on a successful grant
+
+- GIVEN an admin grants additional attempts to a student for a blocked test/exam
+- WHEN the grant is successfully recorded
+- THEN an in-app notification is created for that student
+- AND an email is sent to that student
+- AND both notifications reference the specific test/exam the grant applies to
+
+#### Scenario: Notification failure does not roll back the grant
+
+- GIVEN an admin grants additional attempts to a student
+- WHEN sending the email notification fails
+- THEN the attempt cap increase remains in effect
+- AND the failure does not roll back the granted attempts
 
 ### Requirement: Grant Authorization
 

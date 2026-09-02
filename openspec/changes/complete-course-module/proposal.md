@@ -70,18 +70,47 @@ the proven `FinalExamRevalidation` pattern rather than migrating onto `Assessmen
       working unchanged.
 - [ ] Granting raises the cap only; it never resets or deletes prior attempts or scores.
 
-### WS2 — Per-course analytics (marketing + learning)
+### WS2 — Per-course student-progress analytics **[AMENDED 2026-09-01]**
+
+> Narrowed by owner decision 2026-09-01. Marketing/traffic/revenue metrics, test-performance
+> metrics, and certificate metrics are OUT of scope for this change; see
+> `specs/course-analytics/spec.md` REMOVED Requirements and design `D-05`. This supersedes
+> owner decision **D1** below, which read "marketing metrics AND learning metrics".
 
 **Acceptance criteria**
-- [ ] Course-scoped endpoint `GET /api/admin/courses/[courseId]/analytics` returning marketing
-      metrics from the existing `MarketingAnalyticsService.getCourseAnalytics` (page views,
-      unique visitors, purchases, revenue by currency, conversion) for a single course.
-- [ ] New learning aggregation (written from scratch) returning completion rate, average score,
-      attempt counts, pass rate, and count of students blocked with zero remaining attempts.
-- [ ] `analiticas` tab renders both inline with recharts; the outbound `/admin/analytics` link
-      is removed.
-- [ ] Empty state handled explicitly: a course with no views, no purchases, and no attempts
-      renders zeroes, not a crash or a blank panel.
+- [ ] Course-scoped endpoint `GET /api/admin/courses/[courseId]/analytics` — **no date-range
+      parameters** — returning student-progress metrics only.
+- [ ] New progress aggregation (written from scratch) returning enrolled students, per-module
+      progress, per-lesson progress, completion rate (D6 definition), and drop-off as the last
+      lesson each student reached.
+- [ ] `MarketingAnalyticsService.getCourseAnalytics` is **NOT** widened with a `courseId`
+      filter and `marketing-analytics-service.ts` is not modified at all.
+- [ ] `analiticas` tab renders the progress panel inline with recharts; the outbound
+      `/admin/analytics` link is removed. No 7/30/90-day presets.
+- [ ] Empty state handled explicitly: a course with zero enrolled students and no progress
+      renders zeroes or an explicit no-data indicator, not a crash or a blank panel.
+
+### WS-D — Remove `Course.certificateSlogan` **[NEW 2026-09-01]**
+
+**Acceptance criteria**
+- [ ] Destructive migration drops the column; the migration contains `DROP COLUMN` and nothing
+      else (no course reactivation `UPDATE` — see design `D-13`).
+- [ ] Every reader removed across ~20 files, including `src/validators/course.schema.ts`
+      (deleted), the publication guard, the three admin course forms, `course-draft.ts`, and
+      the certificate PDF specialization line.
+- [ ] `scripts/regenerate-certificates.{ts,mjs}` deleted. Already-issued certificate PDFs are
+      NOT regenerated and keep their printed specialization line.
+- [ ] The `COURSE_CERTIFICATE_SLOGAN_MISSING` 409 path no longer exists anywhere.
+- [ ] A course with no slogan can be published; `npm run typecheck` and `npm run lint` pass.
+
+### WS-E — Grant notification **[NEW 2026-09-01]**
+
+**Acceptance criteria**
+- [ ] Granting attempts notifies the student in-app **and** by email, reusing
+      `dispatchNotification` — no parallel mail or notification mechanism.
+- [ ] In-app notification is written synchronously; the email is durably queued as a
+      `NotificationDelivery` row drained by `notification-delivery.job.ts`.
+- [ ] A notification failure never rolls back the attempt-cap increase.
 
 ### WS3 — Course chat for students and admins
 
@@ -189,6 +218,11 @@ come **first**, before any behaviour change, and must pass against unmodified pr
 | WS4 — certificate hardening (tests only) | ~150 | No |
 | **Total** | **~1800** | |
 
+> **SUPERSEDED 2026-09-01.** The amended scope revises this to **~2420 lines** across seven
+> workstreams (WS0–WS4 plus WS-D and WS-E) and adds an irreversible `DROP COLUMN`. The
+> authoritative breakdown is `design.md` §13. `size:exception` (D5) was accepted at ~1800, not
+> at ~2420 — surface the revised number to the owner before apply.
+
 **Decision needed before apply: Yes**
 **Chained PRs recommended: Yes**
 **800-line budget risk: High**
@@ -280,10 +314,10 @@ contradicting assumption earlier in this document.
 
 | # | Decision | Resolution |
 | --- | --- | --- |
-| D1 | Analytics scope | Marketing metrics AND learning metrics. |
+| D1 | Analytics scope | ~~Marketing metrics AND learning metrics.~~ **SUPERSEDED 2026-09-01: student-progress metrics ONLY** (enrollments, per-module/per-lesson progress, completion rate, drop-off as last lesson reached). See amended WS2. |
 | D2 | Certificate issuance paths | Keep BOTH the automatic final-exam path and the legacy manual approval path. Harden with tests proving idempotency; retire nothing. |
 | D3 | Chat audience | Both students and admins. Course chat opens by default in the admin course view and the student learn view. Sidebar shows the general chat plus one entry per accessible course, for both roles. |
-| D4 | Attempts surface | One unified attempts tab on the course, aggregating every blocked student across `Assessment` (all scopes), `LessonTest`, and `FinalExam`. Existing per-panel grant actions may remain. |
+| D4 | Attempts surface | ~~One unified attempts tab aggregating every blocked student across all three systems at once.~~ **AMENDED 2026-09-01: the tab remains the single surface, but the admin selects ONE test/exam first and then sees only that test's blocked students.** The selector still spans `Assessment` (all scopes), `LessonTest`, and `FinalExam`. Existing per-panel grant actions may remain. See design `D-02`/`D-02b`. |
 | D5 | Delivery size | **`size:exception` ACCEPTED.** The owner was shown the ~1800-line forecast against the 800-line budget and the recommended 4-PR split, and explicitly chose a single PR. `delivery_strategy` becomes `exception-ok`. Do NOT split into chained PRs. |
 | D6 | Completion rate definition | Students who completed the course divided by students enrolled. NOT lessons-completed-over-total. |
 | D7 | Grant-attempt semantics | Granting additional attempts ONLY raises the attempt cap. It never resets progress, never discards a previous failed score, and never deletes prior submissions. This matches the existing `Assessment` and `FinalExam` behaviour and must stay consistent across all three systems. |
