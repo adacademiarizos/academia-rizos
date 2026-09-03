@@ -16,7 +16,7 @@ export function getMultipartPartSize(fileSize: number) {
 }
 
 export function validateVideoUpload({ fileName, fileSize, contentType }: { fileName: string; fileSize: number; contentType: string }) {
-  if (!fileName || !Number.isFinite(fileSize) || fileSize <= 0) return { valid: false as const, error: 'Seleccioná un video válido.' }
+  if (!fileName || !Number.isFinite(fileSize) || fileSize <= 0) return { valid: false as const, error: 'Selecciona un vídeo válido.' }
   if (fileSize > MAX_VIDEO_BYTES) return { valid: false as const, error: `El video supera el máximo de ${MAX_VIDEO_LABEL}.` }
   if (!(ALLOWED_VIDEO_TYPES as readonly string[]).includes(contentType)) return { valid: false as const, error: 'Formato no permitido. Usá MP4, WebM, MOV o MPEG.' }
   return { valid: true as const }

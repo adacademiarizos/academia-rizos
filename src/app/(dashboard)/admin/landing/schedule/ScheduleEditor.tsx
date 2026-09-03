@@ -67,7 +67,7 @@ export default function ScheduleEditor({
 
   async function addOffDay() {
     if (!newDate) {
-      setOffDayError("Seleccioná una fecha.");
+      setOffDayError("Selecciona una fecha.");
       return;
     }
     setOffDayError(null);

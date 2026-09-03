@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
           _count: {
             select: {
               modules: true,
+              styles: true,
               access: true,
           },
           },
@@ -93,7 +94,10 @@ export async function GET(request: NextRequest) {
         rentalDays: c.rentalDays,
         isActive: c.isActive,
         createdAt: c.createdAt,
-        moduleCount: c._count.modules,
+        // A course organises its content either as modules or as styles, so a
+        // count that only looks at modules reports 0 sections for every
+        // style-based course. The public catalogue already sums both.
+        moduleCount: c._count.modules + c._count.styles,
         enrolledCount: c._count.access,
       })),
       total,

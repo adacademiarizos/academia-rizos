@@ -203,7 +203,7 @@ export default function BugReportPage() {
             >
               <Upload className="h-8 w-8 text-white/30 mx-auto mb-2" />
               <p className="text-sm text-white/50">
-                Arrastrá imágenes aquí o <span className="text-ap-copper">hacé clic para seleccionar</span>
+                Arrastra imágenes aquí o <span className="text-ap-copper">haz clic para seleccionar</span>
               </p>
               <p className="text-xs text-white/30 mt-1">JPG, PNG, WEBP, GIF · Máx. {MAX_SIZE_MB}MB por imagen</p>
               <input

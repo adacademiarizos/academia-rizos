@@ -135,7 +135,7 @@ export default function PriceForm({
     if (hasVariants && !selectedVariant) return;
 
     if (isNaN(baseFloat) || baseCents <= 0) {
-      setError("Ingresá un precio válido.");
+      setError("Introduce un precio válido.");
       return;
     }
 

@@ -37,7 +37,7 @@ function HowItWorks({ color }: { color?: string }) {
         <div>
           <div className="text-sm text-zinc-800 font-semibold">¿Lista para tu cita?</div>
           <p className="mt-1 text-sm text-zinc-600">
-            Reservá ahora y recibís confirmación + comprobante por email.
+            Reserva ahora y recibes confirmación + comprobante por email.
           </p>
         </div>
         <Link

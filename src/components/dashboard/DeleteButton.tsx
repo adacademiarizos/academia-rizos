@@ -10,8 +10,8 @@ function DeleteButton ({id}:DeleteButtonProps) {
             action="/api/admin/payment-links/delete"
             method="post"
             onSubmit={(e) => {
-                // confirm client-side (si no querés confirm, borralo)
-                if (!confirm("¿Seguro que querés eliminar este link de pago?")) e.preventDefault();
+                // confirm client-side (si no quieres confirm, bórralo)
+                if (!confirm("¿Seguro que quieres eliminar este link de pago?")) e.preventDefault();
             }}
             >
             <input type="hidden" name="id" value={id} />

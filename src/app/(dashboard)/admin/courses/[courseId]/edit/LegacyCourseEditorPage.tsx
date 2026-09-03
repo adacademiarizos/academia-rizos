@@ -1049,7 +1049,7 @@ export default function CourseEditPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-white/70 mb-2">
-                Precio (USD)
+                Precio (EUR)
               </label>
               <input
                 type="number"

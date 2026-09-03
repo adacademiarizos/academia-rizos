@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // Si tenés pagos asociados, los borramos primero para evitar FK constraints
+  // Si tienes pagos asociados, los borramos primero para evitar FK constraints
   await db.payment.deleteMany({ where: { paymentLinkId: id } });
 
   // Borrar el link

@@ -33,7 +33,7 @@ export default async function AdminSettingsPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Configuracion</h1>
+        <h1 className="text-2xl font-semibold text-white">Configuración</h1>
         <p className="mt-1 text-sm text-white/60">
           Ajustes globales de comisiones y accesos administrativos.
         </p>
@@ -48,9 +48,9 @@ export default async function AdminSettingsPage() {
           <h2 className="mb-4 text-base font-semibold text-white">Margen de Stripe</h2>
 
           <label className="block text-sm font-semibold text-white">
-            Porcentaje de comision Stripe (%)
+            Porcentaje de comisión Stripe (%)
           </label>
-          <p className="mb-2 text-xs text-white/40">Ej: 2.9 para el plan estandar de Stripe</p>
+          <p className="mb-2 text-xs text-white/40">Ej: 2.9 para el plan estándar de Stripe</p>
           <input
             name="feePercent"
             type="number"
@@ -60,10 +60,10 @@ export default async function AdminSettingsPage() {
           />
 
           <label className="mt-5 block text-sm font-semibold text-white">
-            Comision fija de Stripe (centavos)
+            Comisión fija de Stripe (céntimos)
           </label>
           <p className="mb-2 text-xs text-white/40">
-            Ej: 30 = $0.30 fijo por transaccion (plan estandar de Stripe)
+            Ej: 30 = 0,30 € fijos por transacción (plan estándar de Stripe)
           </p>
           <input
             name="feeFixedCents"
@@ -85,15 +85,15 @@ export default async function AdminSettingsPage() {
 
           <p className="mt-3 text-xs text-white/55">
             Estos valores se suman al precio base del curso. El cliente paga precio base + (
-            {settings.feePercent}% + ${(settings.feeFixedCents / 100).toFixed(2)} fijo). Tu
+            {settings.feePercent}% + {(settings.feeFixedCents / 100).toFixed(2)} {settings.defaultCurrency === "EUR" ? "€" : settings.defaultCurrency} fijos). Tú
             recibes el precio base.
           </p>
         </form>
 
         <aside className="rounded-[28px] border border-white/10 bg-white/5 p-6 backdrop-blur-3xl">
-          <h2 className="text-base font-semibold text-white">Accesos rapidos</h2>
+          <h2 className="text-base font-semibold text-white">Accesos rápidos</h2>
           <p className="mt-1 text-sm text-white/55">
-            Manuales y reportes movidos al area de configuracion para mantener el menu principal mas
+            Manuales y reportes movidos al área de configuración para mantener el menú principal más
             limpio.
           </p>
 
@@ -105,7 +105,7 @@ export default async function AdminSettingsPage() {
               <BookOpen className="h-4 w-4 text-ap-copper" />
               <div>
                 <p className="font-semibold text-white">Manuales</p>
-                <p className="text-xs text-white/50">Documentacion de admin y staff</p>
+                <p className="text-xs text-white/50">Documentación de admin y staff</p>
               </div>
             </Link>
 
@@ -142,7 +142,7 @@ export default async function AdminSettingsPage() {
         <div className="mt-5 overflow-hidden rounded-3xl border border-white/10">
           {deletionRequests.length === 0 ? (
             <div className="px-6 py-10 text-center text-sm text-white/50">
-              Aun no hay solicitudes registradas.
+              Aún no hay solicitudes registradas.
             </div>
           ) : (
             <table className="w-full">

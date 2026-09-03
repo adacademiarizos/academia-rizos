@@ -286,7 +286,9 @@ export class NotificationService {
         recipients: [{ userId }],
         channels: [NotificationDeliveryChannel.IN_APP],
         resource: { type: 'CERTIFICATE', id: `${userId}:${courseId}` },
-        actionUrl: `/learn/${courseId}`,
+        // The course page has no certificate on it; sending the student there
+        // made "disponible" a dead end.
+        actionUrl: '/student/certificates',
         priority: NotificationPriority.HIGH,
         dedupeKey: `certificate:${userId}:${courseId}:issued`,
       })

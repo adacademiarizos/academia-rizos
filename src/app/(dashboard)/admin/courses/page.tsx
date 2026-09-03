@@ -106,7 +106,7 @@ export default function AdminCoursesPage() {
 
       const baseVal = parseFloat(priceInput)
       if (!priceInput || isNaN(baseVal) || baseVal <= 0) {
-        toast.error('Ingresá un precio válido mayor a 0')
+        toast.error('Introduce un precio válido mayor que 0')
         return
       }
 
@@ -248,7 +248,7 @@ export default function AdminCoursesPage() {
                   Título
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-white/60">
-                  Módulos
+                  Secciones
                 </th>
                 <th className="px-6 py-3 text-left text-sm font-medium text-white/60">
                   Estudiantes
@@ -276,7 +276,7 @@ export default function AdminCoursesPage() {
                     </Link>
                   </td>
                   <td className="px-6 py-4 text-sm text-white/60">
-                    {course.moduleCount} módulos
+                    {course.moduleCount === 1 ? '1 sección' : `${course.moduleCount} secciones`}
                   </td>
                   <td className="px-6 py-4 text-sm text-white/60">
                     {course.enrolledCount}
@@ -300,7 +300,7 @@ export default function AdminCoursesPage() {
                       href={`/admin/courses/${course.id}/edit`}
                       className="text-ap-copper hover:text-orange-400 font-medium transition"
                     >
-                      Ver módulos
+                      Ver secciones
                     </Link>
                     {course.isActive && (
                       <button

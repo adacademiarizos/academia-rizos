@@ -26,7 +26,7 @@ export default function HorariosPage() {
           Nuestros Horarios
         </h1>
         <p className="text-zinc-600 max-w-md mx-auto text-sm leading-relaxed">
-          Encontranos de lunes a viernes. Reservá tu turno con anticipación para asegurarte el horario.
+          Encuéntranos de lunes a viernes. Reserva tu cita con antelación para asegurarte el horario.
         </p>
       </section>
 

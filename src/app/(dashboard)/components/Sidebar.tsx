@@ -21,6 +21,7 @@ import {
   BookOpen,
   BarChart3,
   MessagesSquare,
+  Award,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { MobileDrawer } from "./mobile/MobileDrawer";
@@ -48,6 +49,7 @@ const STAFF_NAV = [
 
 const STUDENT_NAV = [
   { label: "Mi Dashboard", href: "/student", icon: TrendingUp },
+  { label: "Mis certificados", href: "/student/certificates", icon: Award },
   { label: "Comunidad", href: "/community", icon: MessageSquare },
   { label: "Reportar Bug", href: "/bug-report", icon: Bug },
 ];
