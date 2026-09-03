@@ -144,7 +144,7 @@ export function AccountDeletionPanel({
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">
               Esta acción anonimiza tu perfil y elimina el acceso futuro con estas
               credenciales. Antes de continuar, revisa bien el alcance y confirma la
-              solicitud de forma explicita.
+              solicitud de forma explícita.
             </p>
           </div>
         </div>
@@ -153,7 +153,7 @@ export function AccountDeletionPanel({
           <InfoCard
             icon={<ShieldAlert className="h-4 w-4" />}
             title="Perfil"
-            body={`${userName ?? "Tu cuenta"} (${role}) dejara de estar accesible.`}
+            body={`${userName ?? "Tu cuenta"} (${role}) dejará de estar accesible.`}
           />
           <InfoCard
             icon={<Mail className="h-4 w-4" />}

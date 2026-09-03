@@ -4,6 +4,7 @@
  */
 
 import { db } from '@/lib/db'
+import { getCourseLessonProgress } from '@/server/services/academy-assessment-service'
 
 export class AnalyticsService {
   /**
@@ -76,17 +77,11 @@ export class AnalyticsService {
         return null // No access
       }
 
-      // A lesson can hang off a module or directly off a style, and `Lesson`
-      // carries `courseId` in both cases. Filtering through `module` therefore
-      // counted zero lessons for every style-based course, which is what showed
-      // a certified student a course sitting at 0%.
-      const totalLessons = await db.lesson.count({ where: { courseId } })
-      const completedLessons = await db.lessonProgress.count({
-        where: { userId, completed: true, lesson: { courseId } },
-      })
-
-      const percentComplete =
-        totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
+      // The course page and this dashboard used to compute the same number in
+      // two different ways and disagree in front of the student. There is one
+      // implementation now, and it is the one the course page already trusted.
+      const { totalLessons, completedLessons, percentage: percentComplete } =
+        await getCourseLessonProgress(userId, courseId)
 
       // A course closes with either the manually reviewed final exam or a
       // course test flagged as the final one, depending on how it was built.
@@ -107,14 +102,16 @@ export class AnalyticsService {
         }),
       ])
 
-      // An issued certificate is the strongest statement the platform can make
-      // about a course being finished, so it settles the question rather than
-      // letting a stale progress row contradict it.
+      // A certificate says the course was passed; it does not rewrite how many
+      // lessons are ticked off today. Reporting 100% because one exists is how
+      // the dashboard ended up claiming 100% while the course page honestly
+      // said 3%. The percentage stays factual and the certificate travels
+      // beside it as its own fact, for the UI to show and link.
       const finalExamPassed = Boolean(finalExamAttempt || finalCourseTest || certificate)
       const completed = Boolean(certificate) || (percentComplete === 100 && finalExamPassed)
 
       return {
-        percentComplete: certificate ? 100 : percentComplete,
+        percentComplete,
         lessonsCompleted: completedLessons,
         totalLessons,
         finalExamPassed,
