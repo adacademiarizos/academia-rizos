@@ -39,7 +39,7 @@ function FAQ({ items, color }: { items: FaqItem[]; color?: string }) {
           <div>
             <div className="text-lg font-semibold text-zinc-800">¿Lista para tu transformación?</div>
             <p className="mt-2 text-sm text-zinc-600">
-              Reservá ahora. Te llega confirmación y comprobante por correo.
+              Reserva ahora. Te llega confirmación y comprobante por correo.
             </p>
           </div>
           <Link

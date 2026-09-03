@@ -31,7 +31,7 @@ const cardClass = 'rounded-[28px] border border-white/10 bg-white/[0.05] p-6 sha
 /**
  * Design §D-02/D-02b (AMENDED 2026-09-01): the admin selects ONE test/exam at
  * a time. This panel MUST NOT render any student list before a selection is
- * made — it opens on an explicit "elegí un test" empty state.
+ * made — it opens on an explicit "elige un test" empty state.
  */
 export function CourseAttemptsPanel({ courseId }: { courseId: string }) {
   const [targets, setTargets] = useState<AttemptTarget[] | null>(null)
@@ -119,7 +119,7 @@ export function CourseAttemptsPanel({ courseId }: { courseId: string }) {
     <section className={cardClass}>
       <h2 className="text-xl font-semibold text-white">Intentos</h2>
       <p className="mt-1 text-sm text-white/50">
-        Elegí un test o examen para ver qué alumnas agotaron sus intentos y habilitarles uno más.
+        Elige un test o examen para ver qué alumnas agotaron sus intentos y habilitarles uno más.
       </p>
 
       <div className="mt-6">
@@ -132,7 +132,7 @@ export function CourseAttemptsPanel({ courseId }: { courseId: string }) {
           onChange={(event) => setSelectedKey(event.target.value || null)}
           className="mt-2 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white"
         >
-          <option value="">Elegí un test…</option>
+          <option value="">Elige un test…</option>
           {[...grantedByScope.entries()].map(([scopeLabel, group]) => (
             <optgroup key={scopeLabel} label={scopeLabel}>
               {group.map((target) => (
@@ -146,7 +146,7 @@ export function CourseAttemptsPanel({ courseId }: { courseId: string }) {
       </div>
 
       {!selectedTarget ? (
-        <p className="mt-6 text-sm text-white/45">Elegí un test para ver sus alumnas bloqueadas.</p>
+        <p className="mt-6 text-sm text-white/45">Elige un test para ver sus alumnas bloqueadas.</p>
       ) : rowsError ? (
         <p role="alert" className="mt-6 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{rowsError}</p>
       ) : loadingRows || !rows ? (

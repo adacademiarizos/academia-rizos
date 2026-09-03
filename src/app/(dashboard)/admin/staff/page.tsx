@@ -56,7 +56,7 @@ export default async function AdminStaffPage() {
               Asignar precio
             </h2>
             <p className="mt-1 text-xs text-white/55">
-              Elegí staff + servicio (y variante si aplica) y guardá el precio.
+              Elige staff + servicio (y variante si aplica) y guarda el precio.
             </p>
 
             <PriceForm

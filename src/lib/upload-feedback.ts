@@ -43,7 +43,7 @@ export function estimateUploadProgress({ loaded, total, startedAt, now = Date.no
 
 export function getUploadStatusLabel(status: UploadFeedbackStatus) {
   const labels: Record<UploadFeedbackStatus, string> = {
-    idle: 'Seleccioná un archivo',
+    idle: 'Selecciona un archivo',
     analyzing: 'Leyendo archivo…',
     ready: 'Listo para cargar',
     preparing: 'Preparando carga…',

@@ -30,7 +30,7 @@ function TrustBar() {
     },
     {
       title: "Proceso claro",
-      desc: "Elegís servicio → profesional → horario → confirmás (con pago/seña).",
+      desc: "Eliges servicio → profesional → horario → confirmas (con pago/señal).",
     },
   ];
 

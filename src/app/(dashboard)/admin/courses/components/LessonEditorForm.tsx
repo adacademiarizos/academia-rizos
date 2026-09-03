@@ -186,7 +186,7 @@ export function LessonEditorForm({ parentKind }: { parentKind: ParentKind }) {
     <section className={cardClass}>
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ap-copper">Editor de contenido</p>
       <h1 className="mt-2 text-3xl font-semibold text-white">{editing ? 'Editar lección' : 'Nueva lección'}</h1>
-      <p className="mt-2 text-sm text-white/55">{editing ? 'Actualizá el contenido y guardá cuando esté listo.' : 'La lección se creará únicamente cuando presiones Guardar.'}</p>
+      <p className="mt-2 text-sm text-white/55">{editing ? 'Actualiza el contenido y guarda cuando esté listo.' : 'La lección se creará únicamente cuando presiones Guardar.'}</p>
 
       <div className="mt-8 grid gap-5">
         <label className="space-y-2"><span className="text-sm font-medium text-white/75">Título</span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} className={inputClass} /></label>
