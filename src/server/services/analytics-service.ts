@@ -16,18 +16,30 @@ export class AnalyticsService {
         where: { userId, revokedAt: null },
       })
 
-      // Lesson progress is canonical.
+      // Lesson progress is canonical, and the row existing is not the same as
+      // the lesson being done: the style player creates the row on first play
+      // and flips `completed` later, so counting rows inflates the number.
       const lessonsCompleted = await db.lessonProgress.count({
-        where: { userId },
+        where: { userId, completed: true },
       })
 
-      // Lesson tests are automatically scored; a passing submission is retained.
-      const testsPassed = await db.lessonTestSubmission.count({
-        where: {
-          userId,
-          isPassed: true,
-        },
-      })
+      // "Tests aprobados" means every assessment the student passed, not only
+      // the per-lesson ones. Course tests and the manually reviewed final exam
+      // are what a student actually thinks of as an approved exam, so leaving
+      // them out reported 0 to people holding a certificate.
+      const [lessonTestsPassed, courseTestsPassed, finalExamsPassed] = await Promise.all([
+        db.lessonTestSubmission.count({
+          where: { userId, isPassed: true },
+        }),
+        db.courseTestSubmission.count({
+          where: { userId, isPassed: true },
+        }),
+        db.finalExamAttempt.count({
+          where: { userId, status: 'APPROVED' },
+        }),
+      ])
+
+      const testsPassed = lessonTestsPassed + courseTestsPassed + finalExamsPassed
 
       // Last activity timestamp
       const lastActivity = await db.userActivity.findFirst({
@@ -64,31 +76,50 @@ export class AnalyticsService {
         return null // No access
       }
 
-      const totalLessons = await db.lesson.count({ where: { module: { courseId } } })
+      // A lesson can hang off a module or directly off a style, and `Lesson`
+      // carries `courseId` in both cases. Filtering through `module` therefore
+      // counted zero lessons for every style-based course, which is what showed
+      // a certified student a course sitting at 0%.
+      const totalLessons = await db.lesson.count({ where: { courseId } })
       const completedLessons = await db.lessonProgress.count({
-        where: { userId, lesson: { module: { courseId } } },
+        where: { userId, completed: true, lesson: { courseId } },
       })
 
       const percentComplete =
         totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
 
-      // Completion requires a manually approved course final exam.
-      const finalExamPassed = await db.finalExamAttempt.findFirst({
-        where: {
-          userId,
-          status: 'APPROVED',
-          finalExam: {
-            courseId,
-          },
-        },
-      })
+      // A course closes with either the manually reviewed final exam or a
+      // course test flagged as the final one, depending on how it was built.
+      // Checking only the first left courses that use the second permanently
+      // "in progress" for students who had already passed them.
+      const [finalExamAttempt, finalCourseTest, certificate] = await Promise.all([
+        db.finalExamAttempt.findFirst({
+          where: { userId, status: 'APPROVED', finalExam: { courseId } },
+          select: { id: true },
+        }),
+        db.courseTestSubmission.findFirst({
+          where: { userId, isPassed: true, courseTest: { courseId, isFinalExam: true } },
+          select: { id: true },
+        }),
+        db.certificate.findFirst({
+          where: { userId, courseId, valid: true },
+          select: { id: true },
+        }),
+      ])
+
+      // An issued certificate is the strongest statement the platform can make
+      // about a course being finished, so it settles the question rather than
+      // letting a stale progress row contradict it.
+      const finalExamPassed = Boolean(finalExamAttempt || finalCourseTest || certificate)
+      const completed = Boolean(certificate) || (percentComplete === 100 && finalExamPassed)
 
       return {
-        percentComplete,
+        percentComplete: certificate ? 100 : percentComplete,
         lessonsCompleted: completedLessons,
         totalLessons,
-        finalExamPassed: !!finalExamPassed,
-        status: percentComplete === 100 && finalExamPassed ? 'COMPLETED' : 'IN_PROGRESS',
+        finalExamPassed,
+        hasCertificate: Boolean(certificate),
+        status: completed ? 'COMPLETED' : 'IN_PROGRESS',
       }
     } catch (error) {
       console.error('Error calculating course progress:', error)
@@ -180,8 +211,17 @@ export class AnalyticsService {
             where: { id: c.courseId },
             select: { id: true, title: true },
           })
+          // `getCourseProgress` returns null when access was revoked between
+          // the two queries; spreading that null used to produce a card with
+          // an undefined percentage instead of a plain zero.
           return {
-            ...progress,
+            percentComplete: 0,
+            lessonsCompleted: 0,
+            totalLessons: 0,
+            finalExamPassed: false,
+            hasCertificate: false,
+            status: 'IN_PROGRESS' as const,
+            ...(progress ?? {}),
             courseId: c.courseId,
             courseTitle: course?.title,
           }

@@ -25,6 +25,8 @@ describe('AnalyticsService', () => {
       ;(db.courseAccess.count as Mock).mockResolvedValue(3)
       ;(db.lessonProgress.count as Mock).mockResolvedValue(10)
       ;(db.lessonTestSubmission.count as Mock).mockResolvedValue(2)
+      ;(db.courseTestSubmission.count as Mock).mockResolvedValue(1)
+      ;(db.finalExamAttempt.count as Mock).mockResolvedValue(1)
       ;(db.userActivity.findFirst as Mock).mockResolvedValue({
         createdAt: new Date('2026-01-01'),
       })
@@ -36,7 +38,9 @@ describe('AnalyticsService', () => {
         lessonsCompleted: 10,
         // `modulesCompleted` is kept as a backwards-compatible alias.
         modulesCompleted: 10,
-        testsPassed: 2,
+        // Lesson tests, course tests and approved final exams all count as an
+        // approved assessment from the student's point of view.
+        testsPassed: 4,
         lastActivityAt: expect.any(Date),
       })
     })
@@ -45,6 +49,8 @@ describe('AnalyticsService', () => {
       ;(db.courseAccess.count as Mock).mockResolvedValue(0)
       ;(db.lessonProgress.count as Mock).mockResolvedValue(0)
       ;(db.lessonTestSubmission.count as Mock).mockResolvedValue(0)
+      ;(db.courseTestSubmission.count as Mock).mockResolvedValue(0)
+      ;(db.finalExamAttempt.count as Mock).mockResolvedValue(0)
       ;(db.userActivity.findFirst as Mock).mockResolvedValue(null)
 
       const stats = await AnalyticsService.getUserStats(mockUserId)
@@ -72,6 +78,8 @@ describe('AnalyticsService', () => {
       ;(db.lesson.count as Mock).mockResolvedValue(5)
       ;(db.lessonProgress.count as Mock).mockResolvedValue(3)
       ;(db.finalExamAttempt.findFirst as Mock).mockResolvedValue(null)
+      ;(db.courseTestSubmission.findFirst as Mock).mockResolvedValue(null)
+      ;(db.certificate.findFirst as Mock).mockResolvedValue(null)
 
       const progress = await AnalyticsService.getCourseProgress(mockUserId, mockCourseId)
 
@@ -90,10 +98,59 @@ describe('AnalyticsService', () => {
         id: 'attempt-1',
         status: 'APPROVED',
       })
+      ;(db.courseTestSubmission.findFirst as Mock).mockResolvedValue(null)
+      ;(db.certificate.findFirst as Mock).mockResolvedValue(null)
 
       const progress = await AnalyticsService.getCourseProgress(mockUserId, mockCourseId)
 
       expect(progress?.percentComplete).toBe(100)
+      expect(progress?.finalExamPassed).toBe(true)
+      expect(progress?.status).toBe('COMPLETED')
+    })
+
+    it('counts lessons by course, so style-based courses are not stuck at 0%', async () => {
+      ;(db.courseAccess.findUnique as Mock).mockResolvedValue({ revokedAt: null })
+      ;(db.lesson.count as Mock).mockResolvedValue(13)
+      ;(db.lessonProgress.count as Mock).mockResolvedValue(13)
+      ;(db.finalExamAttempt.findFirst as Mock).mockResolvedValue(null)
+      ;(db.courseTestSubmission.findFirst as Mock).mockResolvedValue(null)
+      ;(db.certificate.findFirst as Mock).mockResolvedValue(null)
+
+      await AnalyticsService.getCourseProgress(mockUserId, mockCourseId)
+
+      // Lessons attached to a style have no module, so a filter that walks
+      // through `module` counts none of them.
+      expect(db.lesson.count).toHaveBeenCalledWith({ where: { courseId: mockCourseId } })
+      expect(db.lessonProgress.count).toHaveBeenCalledWith({
+        where: { userId: mockUserId, completed: true, lesson: { courseId: mockCourseId } },
+      })
+    })
+
+    it('treats an issued certificate as proof the course is finished', async () => {
+      ;(db.courseAccess.findUnique as Mock).mockResolvedValue({ revokedAt: null })
+      ;(db.lesson.count as Mock).mockResolvedValue(4)
+      ;(db.lessonProgress.count as Mock).mockResolvedValue(0)
+      ;(db.finalExamAttempt.findFirst as Mock).mockResolvedValue(null)
+      ;(db.courseTestSubmission.findFirst as Mock).mockResolvedValue(null)
+      ;(db.certificate.findFirst as Mock).mockResolvedValue({ id: 'cert-1' })
+
+      const progress = await AnalyticsService.getCourseProgress(mockUserId, mockCourseId)
+
+      expect(progress?.percentComplete).toBe(100)
+      expect(progress?.hasCertificate).toBe(true)
+      expect(progress?.status).toBe('COMPLETED')
+    })
+
+    it('closes the course when its final assessment is a course test', async () => {
+      ;(db.courseAccess.findUnique as Mock).mockResolvedValue({ revokedAt: null })
+      ;(db.lesson.count as Mock).mockResolvedValue(2)
+      ;(db.lessonProgress.count as Mock).mockResolvedValue(2)
+      ;(db.finalExamAttempt.findFirst as Mock).mockResolvedValue(null)
+      ;(db.courseTestSubmission.findFirst as Mock).mockResolvedValue({ id: 'submission-1' })
+      ;(db.certificate.findFirst as Mock).mockResolvedValue(null)
+
+      const progress = await AnalyticsService.getCourseProgress(mockUserId, mockCourseId)
+
       expect(progress?.finalExamPassed).toBe(true)
       expect(progress?.status).toBe('COMPLETED')
     })
