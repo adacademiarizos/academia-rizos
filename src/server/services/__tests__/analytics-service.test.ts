@@ -136,7 +136,9 @@ describe('AnalyticsService', () => {
 
       const progress = await AnalyticsService.getCourseProgress(mockUserId, mockCourseId)
 
-      expect(progress?.percentComplete).toBe(100)
+      // The percentage stays factual; the certificate is reported separately
+      // so the UI can show both without either contradicting the other.
+      expect(progress?.percentComplete).toBe(0)
       expect(progress?.hasCertificate).toBe(true)
       expect(progress?.status).toBe('COMPLETED')
     })

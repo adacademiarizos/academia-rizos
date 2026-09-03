@@ -21,6 +21,7 @@ interface DashboardData {
     courseTitle: string
     percentComplete: number
     status: string
+    hasCertificate?: boolean
   }>
   achievements: Array<{
     id: string
@@ -94,9 +95,19 @@ export function StudentDashboard() {
           <div className="space-y-5">
             {data.coursesProgress.map((course) => (
               <div key={course.courseId}>
-                <div className="flex justify-between items-center mb-2">
+                <div className="flex justify-between items-center mb-2 gap-3">
                   <h3 className="font-medium text-white text-sm">{course.courseTitle}</h3>
-                  <span className="text-xs text-white/50">{course.percentComplete}%</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {/* A certificate and a part-finished bar are both true at
+                        once, so the card says so instead of forcing the
+                        percentage to agree with the certificate. */}
+                    {course.hasCertificate && (
+                      <span className="rounded-full border border-green-400/30 bg-green-500/10 px-2 py-0.5 text-[11px] font-semibold text-green-300">
+                        Certificado emitido
+                      </span>
+                    )}
+                    <span className="text-xs text-white/50">{course.percentComplete}%</span>
+                  </div>
                 </div>
                 <div className="w-full bg-white/10 rounded-full h-1.5">
                   <div
@@ -104,13 +115,21 @@ export function StudentDashboard() {
                     style={{ width: `${course.percentComplete}%` }}
                   />
                 </div>
-                <div className="mt-2">
+                <div className="mt-2 flex flex-wrap items-center gap-4">
                   <Link
                     href={`/learn/${course.courseId}`}
                     className="text-xs text-ap-copper hover:text-orange-400 transition"
                   >
                     Continuar aprendiendo →
                   </Link>
+                  {course.hasCertificate && (
+                    <Link
+                      href="/student/certificates"
+                      className="text-xs text-green-300 transition hover:text-green-200"
+                    >
+                      Ver certificado →
+                    </Link>
+                  )}
                 </div>
               </div>
             ))}
