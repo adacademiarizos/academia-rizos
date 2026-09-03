@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 
 type FinalQuestion = {
   id: string
@@ -119,7 +120,22 @@ export function FinalExamPanel({ courseId }: { courseId: string }) {
 
         {error && <p role="alert" className="rounded-xl border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-100">{error}</p>}
 
-        {!data.canSubmit && <p className="rounded-xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-zinc-300">{reasonMessage[data.reason ?? ''] ?? 'El examen final no está disponible en este momento.'}</p>}
+        {!data.canSubmit && (
+          <div className="rounded-xl border border-white/10 bg-black/10 px-4 py-3 text-sm text-zinc-300">
+            <p>{reasonMessage[data.reason ?? ''] ?? 'El examen final no está disponible en este momento.'}</p>
+            {/* Telling a student the certificate is ready and then giving her
+                nowhere to get it was the whole complaint; the link goes with
+                the message. */}
+            {data.reason === 'ALREADY_APPROVED' && (
+              <Link
+                href="/student/certificates"
+                className="mt-3 inline-flex items-center gap-2 rounded-full bg-ap-copper px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                Ver mi certificado
+              </Link>
+            )}
+          </div>
+        )}
 
         {data.canSubmit && (
           <div className="space-y-5">
