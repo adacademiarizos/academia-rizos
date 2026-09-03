@@ -4,6 +4,7 @@ import {
   Prisma,
 } from '@prisma/client'
 import { db } from '@/lib/db'
+import { getCourseLessonProgress } from '@/server/services/course-lesson-progress'
 import { generateAndSaveCertificate } from '@/server/services/certificate.service'
 import { NotificationEventService } from '@/server/services/notification-event-service'
 
@@ -171,22 +172,8 @@ async function getFinalExamOrThrow(courseId: string) {
   return finalExam
 }
 
-export async function getCourseLessonProgress(userId: string, courseId: string) {
-  // Counted through the lesson's own courseId. Filtering by `module` skipped
-  // every lesson that hangs off a style, so a course with styles reported a
-  // total that ignored them and could look complete while they were pending.
-  const [totalLessons, completedLessons] = await Promise.all([
-    db.lesson.count({ where: { courseId } }),
-    db.lessonProgress.count({ where: { userId, completed: true, lesson: { courseId } } }),
-  ])
-
-  return {
-    totalLessons,
-    completedLessons,
-    percentage: totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100),
-    isComplete: totalLessons > 0 && completedLessons === totalLessons,
-  }
-}
+// Kept exported here so existing callers keep their import path.
+export { getCourseLessonProgress }
 
 /**
  * Lesson gating reads Assessment (scope LESSON), the same source

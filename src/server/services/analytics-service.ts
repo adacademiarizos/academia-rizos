@@ -4,7 +4,7 @@
  */
 
 import { db } from '@/lib/db'
-import { getCourseLessonProgress } from '@/server/services/academy-assessment-service'
+import { getCourseLessonProgress } from '@/server/services/course-lesson-progress'
 
 export class AnalyticsService {
   /**

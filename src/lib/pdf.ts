@@ -27,7 +27,13 @@ function toDataUri(buffer: Buffer, mimeType: string) {
   return `data:${mimeType};base64,${buffer.toString('base64')}`
 }
 
-const certificateAssetsPromise: Promise<CertificateAssets> = Promise.all([
+// Loaded on first use, not on import. Reading the disk at module scope meant
+// any route that merely reached this module through its import chain paid for
+// it — and failed to build when the files were not where the bundler looked.
+let certificateAssetsPromise: Promise<CertificateAssets> | null = null
+
+function loadCertificateAssets(): Promise<CertificateAssets> {
+  return Promise.all([
   readFile(join(certificateAssetDirectory, 'certificate-background.png')),
   readFile(join(certificateAssetDirectory, 'er-logo.png')),
   readFile(join(certificateAssetDirectory, 'seal-badge.png')),
@@ -51,13 +57,26 @@ const certificateAssetsPromise: Promise<CertificateAssets> = Promise.all([
   greatVibesLatinExt: toDataUri(greatVibesLatinExt, 'font/woff2'),
   manrope: toDataUri(manrope, 'font/woff2'),
 }))
+}
+
+function getCertificateAssets(): Promise<CertificateAssets> {
+  if (!certificateAssetsPromise) {
+    certificateAssetsPromise = loadCertificateAssets().catch((error) => {
+      // Clear the cache so a transient failure does not poison every later
+      // certificate for the lifetime of the process.
+      certificateAssetsPromise = null
+      throw error
+    })
+  }
+  return certificateAssetsPromise
+}
 
 export async function buildCertificateHtml(params: CertificatePdfParams): Promise<string> {
   const { userName, courseName, code, issuedAt } = params
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   const verifyUrl = `${appUrl}/verify/certificate/${code}`
   const [assets, qrDataUrl] = await Promise.all([
-    certificateAssetsPromise,
+    getCertificateAssets(),
     QRCode.toDataURL(verifyUrl, {
       width: 120,
       margin: 0,
