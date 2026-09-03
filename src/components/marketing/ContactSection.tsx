@@ -10,6 +10,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { getContactContent, type ContactScope } from "@/lib/contact-content";
+import { getBusinessHoursLines } from "@/lib/business-hours";
 
 function isExternalHref(href: string) {
   return /^https?:\/\//i.test(href);
@@ -22,7 +23,16 @@ export default async function ContactSection({
 }) {
   const content = await getContactContent(scope);
   const addressLines = content.address.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const scheduleLines = [content.scheduleLine1, content.scheduleLine2, content.scheduleLine3]
+  // The salon has real opening hours in the BusinessHours table, and that table
+  // is what the schedule page shows. Reading them here as well keeps the footer
+  // from advertising a different timetable than the page next to it. The
+  // academy has no physical opening hours, so it keeps its own written lines.
+  const salonHours = scope === "SALON" ? await getBusinessHoursLines() : [];
+  const scheduleLines = (
+    salonHours.length > 0
+      ? salonHours
+      : [content.scheduleLine1, content.scheduleLine2, content.scheduleLine3]
+  )
     .map((line) => line.trim())
     .filter(Boolean);
   const showAction = Boolean(content.actionLabel.trim() && content.actionHref.trim());

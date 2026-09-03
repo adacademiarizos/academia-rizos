@@ -31,9 +31,9 @@ export type ContactContent = {
 
 const BASE_DEFAULTS: ContactContent = {
   sectionKicker: "Contacto",
-  sectionTitle: "Estamos aqui para ti",
+  sectionTitle: "Estamos aquí para ti",
   sectionDescription:
-    "Puedes contactarnos a traves de nuestras redes sociales, por correo electronico o visitar nuestro estudio fisico.",
+    "Puedes contactarnos a través de nuestras redes sociales, por correo electrónico o visitar nuestro estudio físico.",
   instagramUrl: "https://www.instagram.com/elizabeth.rizos",
   instagramHandle: "@elizabeth.rizos",
   tiktokUrl: "https://www.tiktok.com/@elizabeth.rizos",
@@ -41,7 +41,7 @@ const BASE_DEFAULTS: ContactContent = {
   facebookUrl: "https://www.facebook.com/elizabethrizos",
   facebookHandle: "elizabeth rizos",
   whatsappUrl: "https://wa.me/34600000000",
-  whatsappLabel: "Escribenos directamente",
+  whatsappLabel: "Escríbenos directamente",
   emailPrimaryLabel: "Consultas generales",
   emailPrimary: "hola@apoteosicas.com",
   emailSecondaryLabel: "Academia y cursos",
@@ -49,9 +49,9 @@ const BASE_DEFAULTS: ContactContent = {
   actionLabel: "Reservar cita online",
   actionHref: "/booking",
   locationTitle: "Nuestro Estudio",
-  address: "Calle Ejemplo, 123\n28001 Madrid, Espana",
+  address: "Calle Ejemplo, 123\n28001 Madrid, España",
   scheduleLine1: "Lunes - Viernes: 10:00 - 20:00",
-  scheduleLine2: "Sabado: 10:00 - 15:00",
+  scheduleLine2: "Sábado: 10:00 - 15:00",
   scheduleLine3: "Domingo: Cerrado",
   mapsUrl: "https://maps.google.com",
 };
@@ -60,9 +60,9 @@ export const CONTACT_DEFAULTS: Record<ContactScope, ContactContent> = {
   ACADEMIA: {
     ...BASE_DEFAULTS,
     sectionKicker: "Contacto academia",
-    sectionTitle: "Estamos aqui para acompanarte",
+    sectionTitle: "Estamos aquí para acompañarte",
     sectionDescription:
-      "Escribenos por correo o WhatsApp para dudas sobre cursos, acceso, certificaciones y soporte de la plataforma.",
+      "Escríbenos por correo o WhatsApp para dudas sobre cursos, acceso, certificaciones y soporte de la plataforma.",
     emailSecondaryLabel: "Soporte academia",
     emailSecondary: "academia@apoteosicas.com",
     actionLabel: "Explorar cursos",
@@ -70,21 +70,21 @@ export const CONTACT_DEFAULTS: Record<ContactScope, ContactContent> = {
     locationTitle: "Academia online",
     address: "Academia digital.\nSoporte desde Palma de Mallorca.",
     scheduleLine1: "Lunes - Viernes: 09:00 - 18:00",
-    scheduleLine2: "Sabado: soporte reducido",
+    scheduleLine2: "Sábado: soporte reducido",
     scheduleLine3: "Domingo: cerrado",
   },
   SALON: {
     ...BASE_DEFAULTS,
-    sectionKicker: "Contacto salon",
-    sectionTitle: "Reserva y atencion personalizada",
+    sectionKicker: "Contacto salón",
+    sectionTitle: "Reserva y atención personalizada",
     sectionDescription:
-      "Si quieres cita para el salon, escribenos por WhatsApp o reserva directo en Booksy.",
-    emailSecondaryLabel: "Reservas salon",
+      "Si quieres cita para el salón, escríbenos por WhatsApp o reserva directamente en Booksy.",
+    emailSecondaryLabel: "Reservas salón",
     emailSecondary: "hola@apoteosicas.com",
     actionLabel: "Reservar en Booksy",
     actionHref:
       "https://booksy.com/es-es/115013_apoteosicas-by-elizabeth-rizos-salon_peluqueria_69069_palma-de-mallorca",
-    locationTitle: "Salon Apoteosicas",
+    locationTitle: "Salón Apoteósicas",
     address: "Carretera de Valldemossa, 33\n07010 Palma, Illes Balears",
   },
 };
