@@ -65,6 +65,32 @@ function getMenuTextClass(pathname: string, fallback = "text-white") {
   return fallback;
 }
 
+/** Where the navbar CTA sends each role. Admins and staff have their own
+ *  landing area, so pointing everyone at /student sent them to a page that
+ *  immediately redirects them somewhere else. */
+function getDashboardHref(role: string | undefined) {
+  if (role === "ADMIN") return "/admin";
+  if (role === "STAFF") return "/staff/appointments";
+  return "/student";
+}
+
+/** The session is resolved on the client, so the first paint has no user yet.
+ *  Rendering the signed-out navbar during that window made a signed-in visitor
+ *  see "Iniciar Sesion" flash before their own dashboard link appeared, which
+ *  reads as having been logged out. While the status is "loading" nothing
+ *  session-dependent is rendered. */
+function useNavSession() {
+  const { data: session, status } = useSession();
+  const resolved = status !== "loading";
+  const user = resolved ? session?.user : undefined;
+
+  return {
+    resolved,
+    user,
+    dashboardHref: getDashboardHref(user?.role as string | undefined),
+  };
+}
+
 function getAccent(pathname: string, fallback = "bg-ap-copper") {
   for (const { match, accent } of ROUTE_ACCENT) {
     if (typeof match === "string" ? pathname.startsWith(match) : match.test(pathname))
@@ -116,7 +142,7 @@ export default function MarketingLayout({ children }: { children: ReactNode }) {
 }
 
 function Header() {
-  const { data: session } = useSession();
+  const { resolved, user, dashboardHref } = useNavSession();
   const pathname = usePathname();
   const accentBg = getAccent(pathname);
   const logoSrc = getImage(pathname);
@@ -125,7 +151,7 @@ function Header() {
 
   // Determine button destination based on session and role
   const getButtonConfig = () => {
-    if (!session?.user) {
+    if (!user) {
       return {
         href: "/signin",
         label: "Iniciar Sesión",
@@ -133,16 +159,24 @@ function Header() {
       };
     }
 
-    if (session.user.role === "ADMIN") {
+    if (user.role === "ADMIN") {
       return {
-        href: "/admin/courses",
+        href: dashboardHref,
         label: "Panel Admin",
         icon: null,
       };
     }
 
+    if (user.role === "STAFF") {
+      return {
+        href: dashboardHref,
+        label: "Mi Panel",
+        icon: null,
+      };
+    }
+
     return {
-      href: "/student",
+      href: dashboardHref,
       label: "Mi Dashboard",
       icon: null,
     };
@@ -179,35 +213,43 @@ function Header() {
           ))}
 
           <div className="flex items-center gap-3">
-            {/* Crear cuenta — only when logged out */}
-            {!session?.user && (
-              <Link
-                href="/register"
-                className="inline-flex text-white items-center justify-center gap-2 rounded-full px-4 py-2 border border-white/20 hover:bg-white/10 transition text-sm"
-              >
-                Crear cuenta
-              </Link>
-            )}
+            {!resolved ? (
+              // Placeholder of the same size as the CTA so the bar does not
+              // reflow once the session resolves.
+              <span
+                aria-hidden="true"
+                className="inline-flex h-9 w-32 animate-pulse rounded-full bg-white/10"
+              />
+            ) : (
+              <>
+                {!user && (
+                  <Link
+                    href="/register"
+                    className="inline-flex text-white items-center justify-center gap-2 rounded-full px-4 py-2 border border-white/20 hover:bg-white/10 transition text-sm"
+                  >
+                    Crear cuenta
+                  </Link>
+                )}
 
-            {/* Primary CTA */}
-            <Link
-              href={buttonConfig.href}
-              className={`inline-flex ${accentBg} items-center justify-center gap-2 rounded-full px-4 py-2 text-ap-ivory shadow-soft2 hover:opacity-95 transition`}
-              style={{ "--accent-color-main": accentBg } as React.CSSProperties}
-            >
-              {buttonConfig.label}
-              {ButtonIcon && <ButtonIcon className="w-4 h-4" />}
-            </Link>
+                <Link
+                  href={buttonConfig.href}
+                  className={`inline-flex ${accentBg} items-center justify-center gap-2 rounded-full px-4 py-2 text-ap-ivory shadow-soft2 hover:opacity-95 transition`}
+                  style={{ "--accent-color-main": accentBg } as React.CSSProperties}
+                >
+                  {buttonConfig.label}
+                  {ButtonIcon && <ButtonIcon className="w-4 h-4" />}
+                </Link>
 
-            {/* Logout button - only show when authenticated */}
-            {session?.user && (
-              <button
-                onClick={() => signOut({ callbackUrl: "/" })}
-                className={`inline-flex ${menuTextClass} items-center justify-center gap-2 rounded-full px-4 py-2 hover:bg-white/10 transition`}
-                title="Cerrar sesión"
-              >
-                <LogOut className={`w-4 h-4 ${menuTextClass}`} />
-              </button>
+                {user && (
+                  <button
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                    className={`inline-flex ${menuTextClass} items-center justify-center gap-2 rounded-full px-4 py-2 hover:bg-white/10 transition`}
+                    title="Cerrar sesión"
+                  >
+                    <LogOut className={`w-4 h-4 ${menuTextClass}`} />
+                  </button>
+                )}
+              </>
             )}
           </div>
         </nav>
@@ -220,30 +262,28 @@ function Header() {
 }
 
 function MobileMenu({ accentBg, menuTextClass }: { accentBg: string; menuTextClass: string }) {
-  const { data: session } = useSession();
+  const { resolved, user, dashboardHref } = useNavSession();
   const pathname = usePathname();
   const navItems = getNavItems(pathname);
 
   // Determine button destination based on session and role
   const getButtonConfig = () => {
-    if (!session?.user) {
+    if (!user) {
       return {
         href: "/signin",
         label: "Iniciar Sesión",
       };
     }
 
-    if (session.user.role === "ADMIN") {
-      return {
-        href: "/admin/courses",
-        label: "Panel Admin",
-      };
+    if (user.role === "ADMIN") {
+      return { href: dashboardHref, label: "Panel Admin" };
     }
 
-    return {
-      href: "/student",
-      label: "Mi Dashboard",
-    };
+    if (user.role === "STAFF") {
+      return { href: dashboardHref, label: "Mi Panel" };
+    }
+
+    return { href: dashboardHref, label: "Mi Dashboard" };
   };
 
   const buttonConfig = getButtonConfig();
@@ -270,6 +310,13 @@ function MobileMenu({ accentBg, menuTextClass }: { accentBg: string; menuTextCla
             ))}
 
             <div className="pt-2 flex flex-col gap-2 w-full items-center">
+              {!resolved ? (
+                <span
+                  aria-hidden="true"
+                  className="inline-flex h-9 w-40 animate-pulse rounded-full bg-white/10"
+                />
+              ) : (
+                <>
               <Link
                 href={buttonConfig.href}
                 className={`inline-flex ${accentBg} items-center justify-center gap-2 rounded-full px-4 py-2 text-ap-ivory shadow-soft2 hover:opacity-95 transition`}
@@ -278,7 +325,7 @@ function MobileMenu({ accentBg, menuTextClass }: { accentBg: string; menuTextCla
               </Link>
 
               {/* Crear cuenta — only when logged out */}
-              {!session?.user && (
+              {!user && (
                 <Link
                   href="/register"
                   className="inline-flex text-white items-center justify-center gap-2 rounded-full px-4 py-2 border border-white/20 hover:bg-white/10 transition text-sm"
@@ -288,7 +335,7 @@ function MobileMenu({ accentBg, menuTextClass }: { accentBg: string; menuTextCla
               )}
 
               {/* Logout button - only show when authenticated */}
-              {session?.user && (
+              {user && (
                 <button
                   onClick={() => signOut({ callbackUrl: "/" })}
                   className={`inline-flex ${menuTextClass} items-center justify-center gap-2 rounded-full px-4 py-2 hover:bg-white/10 transition`}
@@ -297,6 +344,8 @@ function MobileMenu({ accentBg, menuTextClass }: { accentBg: string; menuTextCla
                   Cerrar sesión
                   <LogOut className={`w-4 h-4 ${menuTextClass}`} />
                 </button>
+              )}
+                </>
               )}
             </div>
 
