@@ -142,7 +142,7 @@ export function AccountDeletionPanel({
           <div>
             <h2 className="text-xl font-semibold text-white">Eliminar mi cuenta</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">
-              Esta accion anonimiza tu perfil y elimina el acceso futuro con estas
+              Esta acción anonimiza tu perfil y elimina el acceso futuro con estas
               credenciales. Antes de continuar, revisa bien el alcance y confirma la
               solicitud de forma explicita.
             </p>
@@ -158,12 +158,12 @@ export function AccountDeletionPanel({
           <InfoCard
             icon={<Mail className="h-4 w-4" />}
             title="Email"
-            body={`El email ${userEmail} se sustituira por un identificador anonimo unico.`}
+            body={`El email ${userEmail} se sustituirá por un identificador anónimo único.`}
           />
           <InfoCard
             icon={<AlertTriangle className="h-4 w-4" />}
             title="Contenido"
-            body="Mensajes, comentarios e imagenes asociadas se anonimizaran o eliminaran de R2."
+            body="Mensajes, comentarios e imágenes asociadas se anonimizarán o eliminarán de R2."
           />
         </div>
 
@@ -175,7 +175,7 @@ export function AccountDeletionPanel({
           onChange={(event) => setReason(event.target.value)}
           rows={4}
           maxLength={500}
-          placeholder="Puedes contarnos por que deseas eliminar tu cuenta."
+          placeholder="Puedes contarnos por qué deseas eliminar tu cuenta."
           className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none focus:border-[#b16e34]/60"
         />
 
@@ -208,7 +208,7 @@ export function AccountDeletionPanel({
               disabled={loading}
               className="rounded-full bg-[#b16e34] px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Preparando..." : "Solicitar eliminacion"}
+              {loading ? "Preparando..." : "Solicitar eliminación"}
             </button>
           )}
 
@@ -230,7 +230,7 @@ export function AccountDeletionPanel({
               disabled={loading}
               className="rounded-full border border-red-400/25 bg-red-500/15 px-6 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Eliminando..." : "Confirmar eliminacion definitiva"}
+              {loading ? "Eliminando..." : "Confirmar eliminación definitiva"}
             </button>
           )}
         </div>
@@ -252,10 +252,10 @@ export function AccountDeletionPanel({
               id="account-deletion-modal-title"
               className="text-xl font-semibold text-white"
             >
-              Confirma con tu contrasena
+              Confirma con tu contraseña
             </h3>
             <p className="mt-2 text-sm leading-6 text-white/60">
-              Este ultimo paso confirma que quieres anonimizar tu cuenta y tus datos
+              Este último paso confirma que quieres anonimizar tu cuenta y tus datos
               personales.
             </p>
 
@@ -266,7 +266,7 @@ export function AccountDeletionPanel({
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Escribe tu contrasena actual"
+              placeholder="Escribe tu contraseña actual"
               autoFocus
               className="mt-2 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white placeholder:text-white/30 outline-none focus:border-[#b16e34]/60"
             />
@@ -292,7 +292,7 @@ export function AccountDeletionPanel({
                 disabled={loading || password.trim().length === 0}
                 className="rounded-full border border-red-400/25 bg-red-500/15 px-5 py-3 text-sm font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {loading ? "Eliminando..." : "Confirmar eliminacion definitiva"}
+                {loading ? "Eliminando..." : "Confirmar eliminación definitiva"}
               </button>
             </div>
           </div>
